@@ -390,7 +390,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
               <p className={`text-xs leading-relaxed ${
                 selectedRole === 'agent' ? 'text-neutral-300' : 'text-neutral-600'
               }`}>
-                List self-contains & lodges, submit CAC or ID verification, and receive WhatsApp inspection requests directly.
+                List self-contains & lodges, submit proof of business (banner, logo, office, or CAC photo), and receive WhatsApp inspection requests directly.
               </p>
             </div>
             <div className="pt-4 border-t border-neutral-200/20 text-[11px] font-semibold flex items-center gap-1">

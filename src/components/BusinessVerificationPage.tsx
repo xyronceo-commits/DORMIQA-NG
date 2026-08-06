@@ -8,8 +8,8 @@ import {
   FileCheck,
   AlertTriangle,
   Loader2,
-  XCircle,
-  ShieldAlert
+  Image as ImageIcon,
+  BadgeCheck
 } from 'lucide-react';
 import { User } from '../types';
 import { verifyAgentBusiness } from '../services/api';
@@ -25,8 +25,8 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
   onCompleteVerification,
   onSkip
 }) => {
-  const [verificationType, setVerificationType] = useState<'cac' | 'id_card'>('cac');
-  const [docNum, setDocNum] = useState('');
+  const [businessName, setBusinessName] = useState(agentData?.agencyName || '');
+  const [proofType, setProofType] = useState<'banner' | 'logo' | 'office' | 'cac' | 'business_card'>('banner');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -44,23 +44,23 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
     setErrorMessage(null);
     setAiResult(null);
 
-    if (!docNum.trim() && !uploadedFile) {
-      setErrorMessage('Please provide either a valid registration code (CAC RC/BN or NIN) OR upload a verification document file.');
+    if (!businessName.trim() && !uploadedFile) {
+      setErrorMessage('Please enter the name of your business and upload a proof of business image (banner, logo, office photo, or CAC).');
       return;
     }
 
     setIsSubmitting(true);
     try {
       // Simulate Firebase Storage document upload path
-      const storageUrl = uploadedFile ? `gs://campora-firebase.appspot.com/verification_docs/${Date.now()}_${uploadedFile.name}` : null;
+      const storageUrl = uploadedFile ? `gs://campora-firebase.appspot.com/proof_of_business/${Date.now()}_${uploadedFile.name}` : null;
 
       const res = await verifyAgentBusiness({
-        verificationType,
-        docNum: docNum.trim(),
+        businessName: businessName.trim(),
+        proofType,
         documentFileName: uploadedFile ? uploadedFile.name : null,
         documentStorageUrl: storageUrl,
         agentName: agentData?.name || 'Agent',
-        agencyName: agentData?.agencyName || 'Housing Agency'
+        agencyName: businessName.trim() || agentData?.agencyName || 'Housing Agency'
       });
 
       setAiResult({
@@ -98,7 +98,7 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
             <span className="font-extrabold text-neutral-800 uppercase tracking-wider">Account Created</span>
           </div>
           <span className="text-[11px] font-extrabold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300">
-            STEP 2 OF 2: AI BUSINESS VERIFICATION
+            STEP 2 OF 2: AGENT BUSINESS VERIFICATION
           </span>
         </div>
 
@@ -110,10 +110,10 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
               <ShieldCheck className="w-7 h-7" />
             </div>
             <h2 className="text-2xl font-black text-neutral-900 tracking-tight">
-              AI Housing Business Verification
+              Agent Business Profile Verification
             </h2>
             <p className="text-xs text-neutral-600 max-w-md mx-auto font-medium leading-relaxed">
-              Welcome aboard, <strong className="text-neutral-900">{agentData?.name || 'Agent'}</strong>! Submit your CAC registration code or upload your identity document for instant AI registry auditing.
+              Welcome aboard, <strong className="text-neutral-900">{agentData?.name || 'Agent'}</strong>! Enter your business name and upload a picture of your banner, logo, office building, or CAC document to verify your agency.
             </p>
           </div>
 
@@ -121,9 +121,9 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
           <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-start gap-3 text-xs text-emerald-950">
             <Sparkles className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
             <div>
-              <h4 className="font-extrabold">Instant AI Business Auditing</h4>
+              <h4 className="font-extrabold">Instant Proof of Business Verification</h4>
               <p className="text-[11px] text-emerald-800 mt-0.5 leading-relaxed font-medium">
-                Our AI Trust Inspector verifies registration numbers and identity documents in seconds. Verified agents get a green shield badge and 3x higher student search rank.
+                Verified agents display the green verified badge on listing cards, gaining higher student trust and priority WhatsApp inspection requests.
               </p>
             </div>
           </div>
@@ -163,65 +163,63 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
 
           <form onSubmit={handleSubmit} className="space-y-5 text-xs">
             
-            {/* Means of Verification */}
+            {/* Business Name Field */}
             <div>
-              <label className="font-bold text-neutral-800 block mb-2 flex items-center gap-1.5">
-                <FileCheck className="w-4 h-4 text-emerald-600" />
-                Select Means of Verification
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setVerificationType('cac');
-                    setErrorMessage(null);
-                  }}
-                  className={`p-3.5 rounded-2xl border font-bold flex items-center justify-center gap-2 transition-all ${
-                    verificationType === 'cac'
-                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
-                      : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100'
-                  }`}
-                >
-                  <Building2 className="w-4 h-4" /> CAC Registration
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setVerificationType('id_card');
-                    setErrorMessage(null);
-                  }}
-                  className={`p-3.5 rounded-2xl border font-bold flex items-center justify-center gap-2 transition-all ${
-                    verificationType === 'id_card'
-                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
-                      : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100'
-                  }`}
-                >
-                  <ShieldCheck className="w-4 h-4" /> Government ID Card
-                </button>
-              </div>
-            </div>
-
-            {/* Document Number */}
-            <div>
-              <label className="font-bold text-neutral-800 block mb-1">
-                {verificationType === 'cac' ? 'CAC Registration Number (RC / BN Code)' : 'Government ID Code (NIN / National ID / Passport Number)'}
+              <label className="font-bold text-neutral-800 block mb-1.5 flex items-center gap-1.5">
+                <Building2 className="w-4 h-4 text-emerald-600" />
+                Name of Business / Agency
               </label>
               <input
                 type="text"
-                value={docNum}
+                required
+                value={businessName}
                 onChange={(e) => {
-                  setDocNum(e.target.value);
+                  setBusinessName(e.target.value);
                   setErrorMessage(null);
                 }}
-                placeholder={verificationType === 'cac' ? 'e.g. RC-1849204 or BN-99231' : 'e.g. NIN 88412093812'}
+                placeholder="e.g. Yaba Student Housing Ltd or Chief Tunde Lodges"
                 className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-neutral-900"
               />
             </div>
 
-            {/* Upload Document File (Firebase Storage Integration) */}
+            {/* Proof of Business Category */}
+            <div>
+              <label className="font-bold text-neutral-800 block mb-2 flex items-center gap-1.5">
+                <FileCheck className="w-4 h-4 text-emerald-600" />
+                Select Proof of Business Type
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { id: 'banner', label: 'Banner Picture', icon: '🖼️' },
+                  { id: 'logo', label: 'Business Logo', icon: '🎨' },
+                  { id: 'office', label: 'Office Storefront', icon: '🏢' },
+                  { id: 'business_card', label: 'Business Card', icon: '🎴' },
+                  { id: 'cac', label: 'CAC Photo (Optional)', icon: '📜' },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      setProofType(item.id as any);
+                      setErrorMessage(null);
+                    }}
+                    className={`p-2.5 rounded-xl border text-[11px] font-bold flex items-center gap-1.5 justify-center transition-all ${
+                      proofType === item.id
+                        ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
+                        : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100'
+                    }`}
+                  >
+                    <span>{item.icon}</span>
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Upload Proof of Business Image File */}
             <div>
               <label className="font-bold text-neutral-800 block mb-1">
-                Upload {verificationType === 'cac' ? 'CAC Certificate PDF / Image' : 'Identity Document Photo'}
+                Upload Proof of Business ({proofType === 'banner' ? 'Banner Photo' : proofType === 'logo' ? 'Logo Image' : proofType === 'office' ? 'Office Building Photo' : proofType === 'business_card' ? 'Business Card Image' : 'CAC Photo'})
               </label>
               <div className="border-2 border-dashed border-neutral-300 rounded-2xl p-5 text-center bg-neutral-50/50 hover:bg-neutral-50 transition-all cursor-pointer">
                 {uploadedFile ? (
@@ -241,11 +239,11 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
                 ) : (
                   <label className="cursor-pointer flex flex-col items-center gap-1.5 py-1">
                     <Upload className="w-6 h-6 text-neutral-400" />
-                    <span className="text-xs font-bold text-neutral-800">Click to upload document photo or PDF</span>
-                    <span className="text-[10px] text-neutral-400">Firebase Storage • PDF, JPG, PNG up to 10MB</span>
+                    <span className="text-xs font-bold text-neutral-800">Click to upload banner, logo, office photo, or card</span>
+                    <span className="text-[10px] text-neutral-400">JPG, PNG, WEBP, or PDF up to 10MB</span>
                     <input 
                       type="file" 
-                      accept=".pdf,.jpg,.jpeg,.png"
+                      accept=".jpg,.jpeg,.png,.webp,.pdf"
                       className="hidden" 
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
@@ -269,12 +267,12 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    Analyzing Document & Verifying with AI...
+                    Verifying Business Profile with AI...
                   </>
                 ) : (
                   <>
-                    <ShieldCheck className="w-4 h-4" />
-                    Submit & Run AI Verification
+                    <BadgeCheck className="w-4 h-4" />
+                    Submit & Verify Business Profile
                   </>
                 )}
               </button>

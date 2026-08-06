@@ -113,7 +113,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const faqs = [
     {
       q: "How does Campora verify caretakers and property agents?",
-      a: "Every caretaker or agent must complete physical ID verification (NIN/BVN), confirm agency or property management authority, and submit verifiable property location details before listings go live."
+      a: "Every caretaker or agent provides business details, proof of business (banner, logo, office photo, or CAC), confirms agency or property management authority, and submits verifiable property location details before listings go live."
     },
     {
       q: "Are the campus walking distances accurate?",

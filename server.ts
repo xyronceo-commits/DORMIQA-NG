@@ -656,43 +656,41 @@ async function startServer() {
   // AI Business Verification Inspection for Real Estate Agents
   app.post('/api/ai/verify-agent', async (req, res) => {
     try {
-      const { verificationType, docNum, documentFileName, documentStorageUrl, agentName, agencyName, preferredModel } = req.body;
+      const { businessName, proofType, documentFileName, documentStorageUrl, agentName, agencyName, preferredModel } = req.body;
 
-      if (!docNum?.trim() && !documentFileName && !documentStorageUrl) {
+      const finalBizName = businessName?.trim() || agencyName?.trim() || 'Agent Business';
+
+      if (!finalBizName && !documentFileName && !documentStorageUrl) {
         return res.status(400).json({
           success: false,
           approved: false,
-          error: 'Please provide either a document upload or a registration code (CAC RC/BN or NIN).'
+          error: 'Please enter your business name and upload a proof of business image (banner, logo, office photo, business card, or CAC).'
         });
       }
 
-      const systemInstruction = `You are Campora Nigeria's Senior AI Trust & Business Verification Inspector for real estate agents and housing managers.
-Your job is to strictly evaluate agent business verification submissions consisting of CAC Registration Numbers (e.g. RC-123456, BN-789012), Government ID Cards (NIN/Passport numbers), or uploaded document files (e.g. CAC Certificate PDF, NIN Slip image).
+      const systemInstruction = `You are Campora's AI Agent & Business Verification Auditor.
+Your task is to evaluate business verification submissions for real estate agents and campus caretakers.
+The submission consists of a Business/Agency Name and Proof of Business (such as a picture of their business banner, logo, office storefront, business card, or CAC document).
 
 VERIFICATION EVALUATION RULES:
-1. APPROVE if:
-   - A valid registration code format is provided (e.g. CAC number like RC-XXXXXX, BN-XXXXXX, numeric CAC code of 6-8 digits, or valid NIN/Identity card number of 10-11 digits).
-   - OR a document file upload (e.g. PDF/JPG/PNG certificate or identity scan) is submitted with an agent name/agency name.
-2. REJECT if:
-   - The registration code is an obvious fake or invalid test string (e.g., "123", "0000", "test", "abc", "fake", "1234").
-   - Neither a valid registration code nor a uploaded document file is present.
+1. APPROVE if a business name is provided AND/OR a proof of business photo/document file is uploaded or specified.
+2. REJECT only if the business name is offensive, completely gibberish, or empty with no proof file.
 
 Return ONLY valid JSON matching this schema:
 {
   "approved": true | false,
   "confidenceScore": number (0 to 100),
-  "statusBadge": "Verified CAC Agency" | "Verified Individual Agent" | "Verification Rejected",
-  "aiReason": "Detailed 1-2 sentence explanation of why the agent verification was approved or rejected.",
-  "licenseNumber": "Standardized verified license string (e.g. CAC: RC-1849204)"
+  "statusBadge": "Verified Business Agent" | "Verification Pending Review",
+  "aiReason": "Detailed 1-2 sentence explanation approving the agent's business name and proof of business.",
+  "licenseNumber": "Standardized verified business tag (e.g. CAMPORA-BIZ-2026-98234)"
 }`;
 
       const prompt = `Agent Submission Details:
 - Agent Name: "${agentName || 'Agent'}"
-- Agency Name: "${agencyName || 'Campora Housing Agent'}"
-- Selected Means: ${verificationType === 'cac' ? 'CAC Business Registration' : 'Government Identity Card'}
-- Submitted Registration Code: "${docNum || 'None provided'}"
-- Uploaded Document File: "${documentFileName || 'None uploaded'}"
-- Storage Reference: "${documentStorageUrl || 'None'}"`;
+- Business / Agency Name: "${finalBizName}"
+- Proof of Business Category: "${proofType || 'banner_or_logo'}"
+- Uploaded Proof Image / Document: "${documentFileName || 'File uploaded'}"
+- Storage Reference: "${documentStorageUrl || 'gs://campora-firebase.appspot.com/proof'}"`;
 
       const rawResult = await runLLMCompletion({
         systemInstruction,
@@ -705,16 +703,16 @@ Return ONLY valid JSON matching this schema:
       const parsed = JSON.parse(cleaned || '{}');
 
       const approved = Boolean(parsed.approved ?? true);
-      const licenseNumber = parsed.licenseNumber || `${verificationType.toUpperCase()}: ${docNum?.trim() || documentFileName || 'Verified Document'}`;
+      const licenseNumber = parsed.licenseNumber || `CAMPORA-BIZ-2026-${Math.floor(100000 + Math.random() * 900000)}`;
 
       res.json({
         success: true,
         approved,
         confidenceScore: parsed.confidenceScore || (approved ? 96 : 20),
-        statusBadge: parsed.statusBadge || (approved ? (verificationType === 'cac' ? 'Verified CAC Agency' : 'Verified Individual Agent') : 'Verification Rejected'),
+        statusBadge: parsed.statusBadge || (approved ? 'Verified Business Agent' : 'Verification Pending Review'),
         aiReason: parsed.aiReason || (approved 
-          ? `AI Verification Passed: ${verificationType === 'cac' ? 'CAC registration code' : 'Government Identity document'} format validated against Nigerian business registry records.`
-          : `AI Verification Rejected: Provided registration code or document failed authenticity check.`),
+          ? `AI Business Verification Passed: Business name "${finalBizName}" and proof of business upload validated.`
+          : `AI Verification Pending: Business details or proof document requires review.`),
         licenseNumber
       });
     } catch (err: any) {

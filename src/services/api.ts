@@ -226,8 +226,8 @@ export async function sendAIChat(payload: {
 }
 
 export async function verifyAgentBusiness(payload: {
-  verificationType: 'cac' | 'id_card';
-  docNum?: string;
+  businessName?: string;
+  proofType?: 'banner' | 'logo' | 'office' | 'cac' | 'business_card';
   documentFileName?: string | null;
   documentStorageUrl?: string | null;
   agentName?: string;
