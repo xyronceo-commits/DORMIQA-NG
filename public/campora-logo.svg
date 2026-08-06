@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 580" width="100%" height="100%">
+  <!-- Outer Pin Shape -->
+  <path fill="#171717" d="M 250 20 C 145 20 60 105 60 210 C 60 315 175 425 250 480 C 325 425 440 315 440 210 C 440 105 355 20 250 20 Z" />
+  
+  <!-- Inner White Arch -->
+  <path fill="#ffffff" d="M 250 65 C 178 65 120 123 120 195 C 120 210 123 225 129 240 L 371 240 C 377 225 380 210 380 195 C 380 123 322 65 250 65 Z" />
+  
+  <!-- Chimney -->
+  <rect x="295" y="125" width="20" height="38" fill="#171717" />
+
+  <!-- Main Roof Peak -->
+  <path fill="#171717" d="M 250 110 L 145 195 L 165 212 L 250 142 L 335 212 L 355 195 Z" />
+
+  <!-- Inner/Lower Roof Peak -->
+  <path fill="#171717" d="M 250 158 L 175 220 L 192 232 L 250 185 L 308 232 L 325 220 Z" />
+
+  <!-- CAMPORA Text -->
+  <text x="250" y="550" font-family="Montserrat, 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-weight="900" font-size="52" fill="#171717" text-anchor="middle" letter-spacing="3">CAMPORA</text>
+</svg>

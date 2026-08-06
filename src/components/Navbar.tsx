@@ -74,8 +74,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => setActiveView('landing')}
             className="flex items-center gap-2 group text-left focus:outline-none"
           >
-            <div className="w-8 h-8 rounded-md bg-black text-white flex items-center justify-center font-black text-sm tracking-widest shadow-xs">
-              C
+            <div className="w-8 h-8 rounded-lg bg-neutral-900 flex items-center justify-center p-1 shadow-xs group-hover:scale-105 transition-transform">
+              <img src="/favicon.svg" alt="Campora Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <span className="font-extrabold text-lg tracking-tight text-neutral-900 flex items-center gap-1.5">

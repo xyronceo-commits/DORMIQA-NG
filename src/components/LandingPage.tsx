@@ -141,12 +141,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             {/* Hero Left Column: Headline & Search Focal Point */}
             <div className="lg:col-span-7 space-y-6">
               
-              {/* Trust Tag */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Verified Student Accommodation Across Nigeria</span>
-              </div>
-
               {/* Main Headline */}
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-neutral-900 tracking-tight leading-[1.15]">
                 Verified student housing near your campus gate.
@@ -407,13 +401,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <div className="flex items-center gap-3">
                   <img src={rm.avatar} alt={rm.name} className="w-10 h-10 rounded-full object-cover border border-neutral-200" />
                   <div>
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="font-bold text-sm text-neutral-900">{rm.name}</h3>
-                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded" title="Verified Student ID">
-                        Student Verified
-                      </span>
-                    </div>
-                    <p className="text-xs text-neutral-500">{rm.dept} • {rm.uni}</p>
+                    <h3 className="font-bold text-sm text-neutral-900">{rm.name}</h3>
                   </div>
                 </div>
 

@@ -40,6 +40,7 @@ import { AgentDashboard } from './components/AgentDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AISearchModal } from './components/AISearchModal';
 import { AIChatbotWidget } from './components/AIChatbotWidget';
+import { InfoPagesModal } from './components/InfoPagesModal';
 
 export default function App() {
   const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash'>('landing');
@@ -114,6 +115,15 @@ export default function App() {
   const [isAISearchOpen, setIsAISearchOpen] = useState(false);
   const [isAIChatbotWidgetOpen, setIsAIChatbotWidgetOpen] = useState(false);
   const [aiWidgetListingContext, setAiWidgetListingContext] = useState<Listing | null>(null);
+
+  // Documentation & Legal Info Modal State
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [selectedInfoDocId, setSelectedInfoDocId] = useState<string>('terms-and-conditions');
+
+  const handleOpenInfoPage = (docId: string) => {
+    setSelectedInfoDocId(docId);
+    setIsInfoModalOpen(true);
+  };
 
   // Auto-open property listing modal if shared link contains ?listing=
   useEffect(() => {
@@ -678,10 +688,15 @@ export default function App() {
       <Footer
         onSelectUniversity={handleSelectUniversity}
         onOpenAgentPortal={() => {
-          setCurrentRole('agent');
-          setActiveView('agent-dash');
+          if (!isLoggedIn) {
+            setActiveView('onboarding');
+          } else {
+            setCurrentRole('agent');
+            setActiveView('agent-dash');
+          }
         }}
         onOpenOnboarding={() => setActiveView('onboarding')}
+        onOpenInfoPage={handleOpenInfoPage}
       />
 
       {/* MODALS & DRAWERS */}
@@ -796,6 +811,17 @@ export default function App() {
         onClearListingContext={() => setAiWidgetListingContext(null)}
         isOpenExternal={isAIChatbotWidgetOpen}
         onCloseExternal={() => setIsAIChatbotWidgetOpen(false)}
+      />
+
+      {/* Comprehensive Legal & Informational Center Modal */}
+      <InfoPagesModal
+        isOpen={isInfoModalOpen}
+        onClose={() => setIsInfoModalOpen(false)}
+        defaultDocId={selectedInfoDocId}
+        onNavigateToOnboarding={() => {
+          setIsInfoModalOpen(false);
+          setActiveView('onboarding');
+        }}
       />
 
     </div>

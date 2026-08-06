@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <style>
+      .pin { fill: #171717; }
+      .bg-arch { fill: #ffffff; }
+      .roof { fill: #171717; }
+    </style>
+  </defs>
+  <!-- Outer Pin Shape -->
+  <path class="pin" d="M 250 30 C 145 30 60 115 60 220 C 60 325 175 435 250 490 C 325 435 440 325 440 220 C 440 115 355 30 250 30 Z" />
+  
+  <!-- Inner White Arch -->
+  <path class="bg-arch" d="M 250 75 C 178 75 120 133 120 205 C 120 220 123 235 129 250 L 371 250 C 377 235 380 220 380 205 C 380 133 322 75 250 75 Z" />
+  
+  <!-- Chimney -->
+  <rect x="295" y="135" width="20" height="38" class="roof" />
+
+  <!-- Main Roof Peak -->
+  <path class="roof" d="M 250 120 L 145 205 L 165 222 L 250 152 L 335 222 L 355 205 Z" />
+
+  <!-- Inner/Lower Roof Peak -->
+  <path class="roof" d="M 250 168 L 175 230 L 192 242 L 250 195 L 308 242 L 325 230 Z" />
+</svg>

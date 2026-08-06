@@ -24,6 +24,90 @@ interface AIChatbotWidgetProps {
   onCloseExternal?: () => void;
 }
 
+const parseBoldInline = (text: string) => {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={idx} className="font-bold text-neutral-950">{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+};
+
+const renderFormattedResponse = (text: string, isUser: boolean) => {
+  if (!text) return null;
+  if (isUser) {
+    return <p className="leading-relaxed whitespace-pre-wrap">{text}</p>;
+  }
+
+  const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', content: text.substring(lastIndex, match.index) });
+    }
+    parts.push({ type: 'code', lang: match[1], content: match[2].trim() });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    parts.push({ type: 'text', content: text.substring(lastIndex) });
+  }
+
+  return (
+    <div className="space-y-2">
+      {parts.map((part, pIdx) => {
+        if (part.type === 'code') {
+          return (
+            <div key={pIdx} className="bg-neutral-900 text-emerald-300 font-mono text-[11px] p-2.5 rounded-xl overflow-x-auto border border-neutral-800 my-1.5 shadow-inner">
+              {part.lang && <div className="text-[9px] uppercase tracking-wider text-neutral-500 mb-1 font-sans font-bold">{part.lang}</div>}
+              <pre className="whitespace-pre-wrap">{part.content}</pre>
+            </div>
+          );
+        }
+
+        const lines = part.content.split('\n');
+        return (
+          <div key={pIdx} className="space-y-1">
+            {lines.map((line, lIdx) => {
+              const trimmed = line.trim();
+              if (!trimmed) return <div key={lIdx} className="h-1" />;
+
+              if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                const itemText = trimmed.substring(2);
+                return (
+                  <div key={lIdx} className="flex items-start gap-1.5 pl-1 my-0.5 text-neutral-800">
+                    <span className="text-emerald-600 font-bold text-xs mt-0.5 shrink-0">•</span>
+                    <span>{parseBoldInline(itemText)}</span>
+                  </div>
+                );
+              }
+
+              const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
+              if (numMatch) {
+                return (
+                  <div key={lIdx} className="flex items-start gap-1.5 pl-1 my-0.5 text-neutral-800">
+                    <span className="text-emerald-800 font-bold text-[10px] bg-emerald-100 px-1.5 py-0.2 rounded-full shrink-0 mt-0.5">{numMatch[1]}</span>
+                    <span>{parseBoldInline(numMatch[2])}</span>
+                  </div>
+                );
+              }
+
+              return (
+                <p key={lIdx} className="leading-relaxed text-neutral-800">
+                  {parseBoldInline(line)}
+                </p>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const SUGGESTED_QUESTIONS = [
   "What caution deposits and agreement fees are standard for student lodges?",
   "How do I verify prepaid electricity meters and solar power before paying?",
@@ -253,7 +337,7 @@ export const AIChatbotWidget: React.FC<AIChatbotWidgetProps> = ({
                     ? 'bg-slate-900 text-white rounded-tr-none'
                     : 'bg-white border border-neutral-200 text-neutral-800 rounded-tl-none'
                 }`}>
-                  <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                  {renderFormattedResponse(msg.text, msg.sender === 'user')}
                   <p className={`text-[8px] text-right font-medium ${
                     msg.sender === 'user' ? 'text-slate-400' : 'text-neutral-400'
                   }`}>
