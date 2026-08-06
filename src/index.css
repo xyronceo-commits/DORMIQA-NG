@@ -1,10 +1,33 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Custom map marker styles & smooth scrolling */
 html {
   scroll-behavior: smooth;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html.dark {
+  color-scheme: dark;
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+html.dark body {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+/* Dark mode Leaflet tile adjustments */
+html.dark .leaflet-tile-container img {
+  filter: brightness(0.65) invert(1) contrast(1.2) hue-rotate(200deg);
+}
+
+html.dark .leaflet-container {
+  background: #0f172a;
 }
 
 .leaflet-container {

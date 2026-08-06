@@ -345,7 +345,7 @@ export default function App() {
   const savedListings = listings.filter(l => savedIds.includes(l.id));
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50/50 text-slate-900 font-sans selection:bg-emerald-500 selection:text-white">
+    <div className="min-h-screen flex flex-col bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 font-sans selection:bg-emerald-500 selection:text-white transition-colors duration-200">
       
       {/* Navbar */}
       <Navbar

@@ -239,7 +239,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Verified Listing Preview
                   </span>
-                  <span className="text-xs font-bold text-neutral-400">UNILAG • Abule Oja</span>
                 </div>
 
                 <div className="relative aspect-[16/10] rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200">
@@ -258,7 +257,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                 <div className="space-y-1.5">
                   <h3 className="font-extrabold text-sm text-neutral-900">Executive Tiled Self-Contain Studio</h3>
-                  <p className="text-xs text-neutral-500">Abule Oja Axis, Akoka • Verified Caretaker Managed</p>
                   
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">⚡ 24/7 Solar Backup</span>
