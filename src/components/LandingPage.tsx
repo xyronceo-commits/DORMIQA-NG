@@ -142,12 +142,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="lg:col-span-7 space-y-6">
               
               {/* Main Headline */}
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-neutral-900 tracking-tight leading-[1.15]">
-                Verified student housing near your campus gate.
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-neutral-900 tracking-tight leading-[1.15] text-center">
+                Verified Student Housing Near Your Campus Gate.
               </h1>
 
               {/* Supporting Text */}
-              <p className="text-sm sm:text-base text-neutral-600 font-normal leading-relaxed max-w-xl">
+              <p className="text-sm sm:text-base text-neutral-600 font-normal leading-relaxed max-w-xl mx-auto text-center">
                 Find student self-contains, single rooms, 1-bedroom flats, and flatmate spaces around UNILAG, UI, OAU, FUTA, LASU, and 30+ institutions. Verified caretakers, real walking distances, zero scam fees.
               </p>
 
@@ -224,7 +224,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
 
               {/* Quick Trust Highlights */}
-              <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-neutral-500 pt-1">
+              <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-medium text-neutral-500 pt-1">
                 <span className="flex items-center gap-1.5"><Footprints className="w-4 h-4 text-neutral-700" /> 3–15 min walk to campus</span>
                 <span className="flex items-center gap-1.5"><Zap className="w-4 h-4 text-amber-500" /> Solar / Inverter details</span>
                 <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-emerald-600" /> Physical inspection verified</span>
