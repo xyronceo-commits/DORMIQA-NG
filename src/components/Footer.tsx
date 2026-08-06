@@ -29,10 +29,8 @@ export const Footer: React.FC<FooterProps> = ({
           
           {/* Col 1: Brand & Logo */}
           <div className="md:col-span-1 space-y-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-neutral-900 text-white font-black text-base flex items-center justify-center shadow-xs">
-                C
-              </div>
+            <div className="flex items-center gap-2">
+              <img src="/favicon.svg" alt="Campora Map Pin Logo" className="h-7 w-auto object-contain shrink-0" />
               <span className="font-black text-xl tracking-tight text-neutral-900">
                 CAMPORA
               </span>

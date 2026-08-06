@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <g>
+    <!-- Outer Map Pin (White) -->
+    <path fill="#FFFFFF" d="M 250 25 C 134 25 40 119 40 235 C 40 330 150 435 250 500 C 350 435 460 330 460 235 C 460 119 366 25 250 25 Z" />
+    
+    <!-- Dark Arch Cutout inside Pin -->
+    <path fill="#171717" d="M 250 70 C 170 70 105 135 105 215 C 105 235 110 254 118 270 L 382 270 C 390 254 395 235 395 215 C 395 135 330 70 250 70 Z" />
+    
+    <!-- Chimney on Right Slope -->
+    <rect x="300" y="132" width="22" height="42" fill="#FFFFFF" />
+
+    <!-- Main Outer Gable Roof -->
+    <path fill="#FFFFFF" d="M 250 120 L 135 208 L 158 226 L 250 156 L 342 226 L 365 208 Z" />
+
+    <!-- Secondary Inner Gable Roof -->
+    <path fill="#FFFFFF" d="M 250 172 L 168 235 L 188 250 L 250 202 L 312 250 L 332 235 Z" />
+  </g>
+</svg>

@@ -91,13 +91,11 @@ export const InfoPagesModal: React.FC<InfoPagesModalProps> = ({
         
         {/* Top Header Bar */}
         <div className="bg-neutral-900 text-white px-4 sm:px-6 py-4 flex items-center justify-between border-b border-neutral-800 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500 text-neutral-950 font-black text-sm flex items-center justify-center">
-              C
-            </div>
+          <div className="flex items-center gap-2.5">
+            <img src="/favicon-white.svg" alt="Campora White Logo" className="h-7 w-auto object-contain shrink-0" />
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-black tracking-tight text-base sm:text-lg">CAMPORA</span>
+                <span className="font-black tracking-tight text-base sm:text-lg text-white">CAMPORA</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-neutral-800 text-emerald-400 px-2 py-0.5 rounded-full border border-neutral-700">
                   Documentation & Legal
                 </span>

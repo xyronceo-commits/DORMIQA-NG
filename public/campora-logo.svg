@@ -1,19 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 580" width="100%" height="100%">
-  <!-- Outer Pin Shape -->
-  <path fill="#171717" d="M 250 20 C 145 20 60 105 60 210 C 60 315 175 425 250 480 C 325 425 440 315 440 210 C 440 105 355 20 250 20 Z" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 620" width="100%" height="100%">
+  <!-- Outer Map Pin (Dark) -->
+  <path fill="#171717" d="M 250 20 C 134 20 40 114 40 230 C 40 325 150 430 250 495 C 350 430 460 325 460 230 C 460 114 366 20 250 20 Z" />
   
-  <!-- Inner White Arch -->
-  <path fill="#ffffff" d="M 250 65 C 178 65 120 123 120 195 C 120 210 123 225 129 240 L 371 240 C 377 225 380 210 380 195 C 380 123 322 65 250 65 Z" />
+  <!-- White Arch Cutout inside Pin -->
+  <path fill="#FFFFFF" d="M 250 65 C 170 65 105 130 105 210 C 105 230 110 249 118 265 L 382 265 C 390 249 395 230 395 210 C 395 130 330 65 250 65 Z" />
   
-  <!-- Chimney -->
-  <rect x="295" y="125" width="20" height="38" fill="#171717" />
+  <!-- Chimney on Right Slope -->
+  <rect x="300" y="127" width="22" height="42" fill="#171717" />
 
-  <!-- Main Roof Peak -->
-  <path fill="#171717" d="M 250 110 L 145 195 L 165 212 L 250 142 L 335 212 L 355 195 Z" />
+  <!-- Main Outer Gable Roof -->
+  <path fill="#171717" d="M 250 115 L 135 203 L 158 221 L 250 151 L 342 221 L 365 203 Z" />
 
-  <!-- Inner/Lower Roof Peak -->
-  <path fill="#171717" d="M 250 158 L 175 220 L 192 232 L 250 185 L 308 232 L 325 220 Z" />
+  <!-- Secondary Inner Gable Roof -->
+  <path fill="#171717" d="M 250 167 L 168 230 L 188 245 L 250 197 L 312 245 L 332 230 Z" />
 
   <!-- CAMPORA Text -->
-  <text x="250" y="550" font-family="Montserrat, 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-weight="900" font-size="52" fill="#171717" text-anchor="middle" letter-spacing="3">CAMPORA</text>
+  <text x="250" y="580" font-family="'Montserrat', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-weight="900" font-size="54" fill="#171717" text-anchor="middle" letter-spacing="4">CAMPORA</text>
 </svg>
