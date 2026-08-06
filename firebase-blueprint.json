@@ -1,0 +1,156 @@
+{
+  "entities": [
+    {
+      "name": "users",
+      "fields": [
+        { "name": "name", "type": "string", "description": "Full name of user" },
+        { "name": "email", "type": "string", "description": "Email address" },
+        { "name": "role", "type": "string", "description": "Role: student, agent, or admin" },
+        { "name": "phone", "type": "string", "description": "Phone number" },
+        { "name": "universityId", "type": "string", "description": "University ID if student" },
+        { "name": "universityName", "type": "string", "description": "University name" },
+        { "name": "agencyName", "type": "string", "description": "Agency name if agent" },
+        { "name": "avatarUrl", "type": "string", "description": "Profile picture URL" },
+        { "name": "isVerifiedAgent", "type": "boolean", "description": "Verification status" },
+        { "name": "createdAt", "type": "string", "description": "Creation timestamp" }
+      ]
+    },
+    {
+      "name": "listings",
+      "fields": [
+        { "name": "title", "type": "string", "description": "Property title" },
+        { "name": "price", "type": "number", "description": "Price per period in NGN" },
+        { "name": "period", "type": "string", "description": "year or term" },
+        { "name": "universityId", "type": "string", "description": "Associated university ID" },
+        { "name": "universityName", "type": "string", "description": "University name" },
+        { "name": "state", "type": "string", "description": "Nigerian state" },
+        { "name": "city", "type": "string", "description": "City or town" },
+        { "name": "area", "type": "string", "description": "Specific neighborhood" },
+        { "name": "type", "type": "string", "description": "self-contain, 1-bedroom, shared, flat" },
+        { "name": "bedroomCount", "type": "number", "description": "Number of bedrooms" },
+        { "name": "bathroomCount", "type": "number", "description": "Number of bathrooms" },
+        { "name": "distanceToGate", "type": "string", "description": "Proximity to campus" },
+        { "name": "isVerified", "type": "boolean", "description": "Caretaker/Listing verification flag" },
+        { "name": "agentId", "type": "string", "description": "Agent user ID" },
+        { "name": "agentName", "type": "string", "description": "Agent or landlord name" },
+        { "name": "agentPhone", "type": "string", "description": "Agent phone number" },
+        { "name": "agentAvatar", "type": "string", "description": "Agent avatar URL" },
+        { "name": "imageUrls", "type": "array", "description": "Array of photo URLs" },
+        { "name": "videoUrl", "type": "string", "description": "Optional video walk-through URL" },
+        { "name": "features", "type": "array", "description": "Amenities array" },
+        { "name": "description", "type": "string", "description": "Full property description" },
+        { "name": "address", "type": "string", "description": "Full street address" },
+        { "name": "availableUnits", "type": "number", "description": "Number of vacant rooms" },
+        { "name": "isFeatured", "type": "boolean", "description": "Featured placement flag" },
+        { "name": "status", "type": "string", "description": "active, pending, rejected" },
+        { "name": "createdAt", "type": "string", "description": "Creation ISO date" }
+      ]
+    },
+    {
+      "name": "inspections",
+      "fields": [
+        { "name": "listingId", "type": "string", "description": "Target property ID" },
+        { "name": "listingTitle", "type": "string", "description": "Property title" },
+        { "name": "studentId", "type": "string", "description": "Student user ID" },
+        { "name": "studentName", "type": "string", "description": "Student name" },
+        { "name": "studentPhone", "type": "string", "description": "Student phone number" },
+        { "name": "agentId", "type": "string", "description": "Agent or caretaker ID" },
+        { "name": "date", "type": "string", "description": "Scheduled inspection date" },
+        { "name": "timeSlot", "type": "string", "description": "Morning, Afternoon, Evening" },
+        { "name": "status", "type": "string", "description": "pending, confirmed, completed, cancelled" },
+        { "name": "notes", "type": "string", "description": "Special request or notes" },
+        { "name": "createdAt", "type": "string", "description": "Booking timestamp" }
+      ]
+    },
+    {
+      "name": "conversations",
+      "fields": [
+        { "name": "studentId", "type": "string", "description": "Student ID" },
+        { "name": "studentName", "type": "string", "description": "Student name" },
+        { "name": "agentId", "type": "string", "description": "Agent ID" },
+        { "name": "agentName", "type": "string", "description": "Agent name" },
+        { "name": "listingId", "type": "string", "description": "Listing ID" },
+        { "name": "listingTitle", "type": "string", "description": "Listing title" },
+        { "name": "lastMessage", "type": "string", "description": "Text snippet of last message" },
+        { "name": "lastMessageTime", "type": "string", "description": "Time of last message" },
+        { "name": "unreadCountStudent", "type": "number", "description": "Unread messages for student" },
+        { "name": "unreadCountAgent", "type": "number", "description": "Unread messages for agent" }
+      ]
+    },
+    {
+      "name": "reports",
+      "fields": [
+        { "name": "listingId", "type": "string", "description": "Listing ID reported" },
+        { "name": "listingTitle", "type": "string", "description": "Property title" },
+        { "name": "reportedBy", "type": "string", "description": "User ID of reporter" },
+        { "name": "reason", "type": "string", "description": "Scam category/reason" },
+        { "name": "details", "type": "string", "description": "Explanation details" },
+        { "name": "status", "type": "string", "description": "open, investigating, resolved, dismissed" },
+        { "name": "createdAt", "type": "string", "description": "Timestamp" }
+      ]
+    },
+    {
+      "name": "notifications",
+      "fields": [
+        { "name": "userId", "type": "string", "description": "Target recipient user ID" },
+        { "name": "title", "type": "string", "description": "Notification title" },
+        { "name": "body", "type": "string", "description": "Notification message body" },
+        { "name": "type", "type": "string", "description": "message, inspection, listing, or system" },
+        { "name": "read", "type": "boolean", "description": "Read flag" },
+        { "name": "universityId", "type": "string", "description": "Optional university filter ID" },
+        { "name": "createdAt", "type": "string", "description": "ISO creation date" }
+      ]
+    },
+    {
+      "name": "reviews",
+      "fields": [
+        { "name": "listingId", "type": "string", "description": "Target listing ID" },
+        { "name": "authorName", "type": "string", "description": "Student reviewer name" },
+        { "name": "authorAvatar", "type": "string", "description": "Student avatar URL" },
+        { "name": "rating", "type": "number", "description": "Star rating 1-5" },
+        { "name": "comment", "type": "string", "description": "Written feedback comment" },
+        { "name": "universityCourse", "type": "string", "description": "Student course / department" },
+        { "name": "tag", "type": "string", "description": "Verified Visitor, Inspection Tour, Resident Student" },
+        { "name": "createdAt", "type": "string", "description": "Timestamp" }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "collection": "users",
+      "read": "true",
+      "write": "true"
+    },
+    {
+      "collection": "listings",
+      "read": "true",
+      "write": "true"
+    },
+    {
+      "collection": "inspections",
+      "read": "true",
+      "write": "true"
+    },
+    {
+      "collection": "conversations",
+      "read": "true",
+      "write": "true"
+    },
+    {
+      "collection": "reports",
+      "read": "true",
+      "write": "true"
+    },
+    {
+      "collection": "notifications",
+      "read": "true",
+      "write": "true"
+    },
+    {
+      "collection": "reviews",
+      "read": "true",
+      "write": "true"
+    }
+  ],
+  "indexes": []
+}
