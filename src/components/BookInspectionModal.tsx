@@ -3,6 +3,7 @@ import { X, Calendar as CalendarIcon, Clock, Video, UserCheck, CheckCircle2, Pho
 import { Listing } from '../types';
 import { bookInspection } from '../services/api';
 import { sendNotification } from '../services/notificationService';
+import { generateGoogleCalendarUrl, downloadIcsFile } from '../utils/calendar';
 
 interface BookInspectionModalProps {
   listing: Listing;
@@ -103,16 +104,64 @@ export const BookInspectionModal: React.FC<BookInspectionModalProps> = ({
         </button>
 
         {bookedSuccess ? (
-          <div className="text-center py-8 space-y-4 animate-in zoom-in-95">
+          <div className="text-center py-8 space-y-5 animate-in zoom-in-95">
             <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-10 h-10" />
             </div>
-            <h3 className="text-xl font-extrabold text-neutral-900">
-              Inspection Booking Confirmed!
-            </h3>
-            <p className="text-xs text-neutral-600 max-w-xs mx-auto">
-              Agent <strong>{listing.agent.name}</strong> has received your request for <strong>{selectedDate} ({selectedTime})</strong>. Confirmation email sent to {studentEmail}.
-            </p>
+            <div>
+              <h3 className="text-xl font-extrabold text-neutral-900">
+                Inspection Booking Confirmed!
+              </h3>
+              <p className="text-xs text-neutral-600 max-w-xs mx-auto mt-1">
+                Agent <strong>{listing.agent.name}</strong> has received your request for <strong>{selectedDate} ({selectedTime})</strong>.
+              </p>
+            </div>
+
+            {/* Google Calendar & iCal Export Buttons */}
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl space-y-2">
+              <p className="text-xs font-bold text-blue-950 flex items-center justify-center gap-1.5">
+                <CalendarIcon className="w-4 h-4 text-blue-600" />
+                Add to your Personal Calendar:
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <a
+                  href={generateGoogleCalendarUrl({
+                    title: `Inspection: ${listing.title}`,
+                    description: `Property tour with Agent ${listing.agent.name}. Contact: ${studentPhone}`,
+                    location: listing.address,
+                    date: selectedDate,
+                    timeSlot: selectedTime
+                  })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-2xs"
+                >
+                  📅 Google Calendar
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => downloadIcsFile({
+                    title: `Inspection: ${listing.title}`,
+                    description: `Property tour with Agent ${listing.agent.name}. Contact: ${studentPhone}`,
+                    location: listing.address,
+                    date: selectedDate,
+                    timeSlot: selectedTime
+                  })}
+                  className="px-3.5 py-2 bg-white hover:bg-neutral-100 text-slate-900 border border-neutral-300 font-bold rounded-xl text-xs transition-colors"
+                >
+                  📥 Download .ICS
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-2.5 bg-slate-900 text-white font-bold rounded-xl text-xs hover:bg-slate-800 transition-colors"
+            >
+              Done & Return to Dashboard
+            </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">

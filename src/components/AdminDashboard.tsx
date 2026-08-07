@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Listing, Report, User } from '../types';
 import { fetchReports, updateReportStatus, updateListingStatus } from '../services/api';
+import { notifyAgentListingReviewComplete } from '../services/notificationService';
 import { AccountManager } from './AccountManager';
 
 interface AdminDashboardProps {
@@ -48,13 +49,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const handleApproveListing = async (id: string) => {
-    await updateListingStatus(id, 'approved');
+  const handleApproveListing = async (listing: Listing) => {
+    await updateListingStatus(listing.id, 'approved');
+    await notifyAgentListingReviewComplete({
+      agentId: listing.agentId,
+      listingTitle: listing.title,
+      isApproved: true,
+      listingId: listing.id,
+      universityId: listing.universityId
+    });
     onRefresh();
   };
 
-  const handleRejectListing = async (id: string) => {
-    await updateListingStatus(id, 'rejected');
+  const handleBanListing = async (listing: Listing) => {
+    const reason = listing.aiBanReason || 'Listing failed verification checks during admin governance review.';
+    await updateListingStatus(listing.id, 'banned');
+    await notifyAgentListingReviewComplete({
+      agentId: listing.agentId,
+      listingTitle: listing.title,
+      isApproved: false,
+      rejectionReason: reason,
+      listingId: listing.id,
+      universityId: listing.universityId
+    });
     onRefresh();
   };
 
@@ -172,7 +189,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="flex items-center gap-2">
                 {l.status !== 'approved' && (
                   <button
-                    onClick={() => handleApproveListing(l.id)}
+                    onClick={() => handleApproveListing(l)}
                     className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg flex items-center gap-1"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" /> Approve
@@ -180,7 +197,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 )}
                 {l.status !== 'banned' && (
                   <button
-                    onClick={() => updateListingStatus(l.id, 'banned').then(onRefresh)}
+                    onClick={() => handleBanListing(l)}
                     className="px-3 py-1.5 bg-rose-600 text-white text-xs font-bold rounded-lg flex items-center gap-1"
                   >
                     <XCircle className="w-3.5 h-3.5" /> Ban Listing

@@ -17,8 +17,9 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Listing, Inspection, Conversation, User } from '../types';
-import { updateInspectionStatus } from '../services/api';
+import { updateInspectionStatus, fetchInspections, fetchConversations } from '../services/api';
 import { sendNotification } from '../services/notificationService';
+import { generateGoogleCalendarUrl, downloadIcsFile } from '../utils/calendar';
 import { AccountManager } from './AccountManager';
 
 interface AgentDashboardProps {
@@ -50,6 +51,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
 }) => {
   const [internalTab, setInternalTab] = useState<'schedule' | 'availability' | 'requests' | 'profile'>(activeTab);
   const [localInspections, setLocalInspections] = useState(inspections);
+  const [localConversations, setLocalConversations] = useState(conversations);
   const [propertyAvailability, setPropertyAvailability] = useState<Record<string, 'available' | 'occupied' | 'maintenance'>>(() => {
     const map: Record<string, 'available' | 'occupied' | 'maintenance'> = {};
     listings.forEach(l => {
@@ -57,6 +59,33 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
     });
     return map;
   });
+
+  // Real-time polling interval for live agent updates (inspections & messages)
+  React.useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const [freshInsps, freshConvs] = await Promise.all([
+          fetchInspections({ agentId: activeAccountId }),
+          fetchConversations(activeAccountId)
+        ]);
+        setLocalInspections(freshInsps);
+        setLocalConversations(freshConvs);
+      } catch (err) {
+        console.error('Real-time agent sync error:', err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [activeAccountId]);
+
+  // Sync prop changes
+  React.useEffect(() => {
+    setLocalInspections(inspections);
+  }, [inspections]);
+
+  React.useEffect(() => {
+    setLocalConversations(conversations);
+  }, [conversations]);
 
   const currentTab = activeTab || internalTab;
 
@@ -220,53 +249,97 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
           </div>
 
           <div className="space-y-3">
-            {localInspections.map((insp) => (
-              <div
-                key={insp.id}
-                className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4"
-              >
-                <div className="flex items-center gap-3">
-                  <img src={insp.listingPhoto} alt="" className="w-12 h-12 rounded-xl object-cover shrink-0" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold text-xs text-neutral-900">{insp.studentName}</h4>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                        {insp.type.replace('_', ' ')}
-                      </span>
+            {localInspections.length === 0 ? (
+              <div className="p-8 text-center bg-neutral-50 rounded-2xl border border-neutral-200 text-neutral-500 text-xs">
+                No inspection requests received yet. Incoming student inspection bookings will appear here in real-time.
+              </div>
+            ) : (
+              localInspections.map((insp) => (
+                <div
+                  key={insp.id}
+                  className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <img src={insp.listingPhoto} alt="" className="w-12 h-12 rounded-xl object-cover shrink-0" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-xs text-neutral-900">{insp.studentName}</h4>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                          {insp.type.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-600 font-medium">{insp.listingTitle}</p>
+                      <p className="text-[11px] text-neutral-400">
+                        Requested: <strong>{insp.date} ({insp.timeSlot})</strong> • {insp.studentPhone}
+                      </p>
                     </div>
-                    <p className="text-xs text-neutral-600 font-medium">{insp.listingTitle}</p>
-                    <p className="text-[11px] text-neutral-400">
-                      Requested: <strong>{insp.date} ({insp.timeSlot})</strong> • {insp.studentPhone}
-                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {insp.status === 'pending' ? (
+                      <>
+                        <button
+                          onClick={() => handleStatusChange(insp.id, 'confirmed')}
+                          className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-2xs"
+                        >
+                          Approve Tour
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange(insp.id, 'cancelled')}
+                          className="px-3 py-1.5 bg-neutral-200 text-neutral-700 text-xs font-bold rounded-lg hover:bg-neutral-300 transition-colors"
+                        >
+                          Decline
+                        </button>
+                      </>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+                        <span className={`text-xs font-bold px-3 py-1 rounded-lg capitalize ${
+                          insp.status === 'confirmed' ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-600'
+                        }`}>
+                          {insp.status}
+                        </span>
+
+                        {insp.status === 'confirmed' && (
+                          <div className="flex items-center gap-1">
+                            <a
+                              href={generateGoogleCalendarUrl({
+                                title: insp.listingTitle,
+                                description: `Student Tour with ${insp.studentName} (${insp.studentPhone})`,
+                                location: insp.listingAddress,
+                                date: insp.date,
+                                timeSlot: insp.timeSlot
+                              })}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-1 transition-colors shadow-2xs"
+                              title="Sync to Google Calendar"
+                            >
+                              <Calendar className="w-3 h-3" />
+                              Google Calendar
+                            </a>
+
+                            <button
+                              type="button"
+                              onClick={() => downloadIcsFile({
+                                title: insp.listingTitle,
+                                description: `Student Tour with ${insp.studentName} (${insp.studentPhone})`,
+                                location: insp.listingAddress,
+                                date: insp.date,
+                                timeSlot: insp.timeSlot
+                              })}
+                              className="px-2 py-1 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 text-[11px] font-bold rounded-lg transition-colors"
+                              title="Download iCal (.ics) File"
+                            >
+                              .ICS
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  {insp.status === 'pending' ? (
-                    <>
-                      <button
-                        onClick={() => handleStatusChange(insp.id, 'confirmed')}
-                        className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700"
-                      >
-                        Approve Tour
-                      </button>
-                      <button
-                        onClick={() => handleStatusChange(insp.id, 'cancelled')}
-                        className="px-3 py-1.5 bg-neutral-200 text-neutral-700 text-xs font-bold rounded-lg hover:bg-neutral-300"
-                      >
-                        Decline
-                      </button>
-                    </>
-                  ) : (
-                    <span className={`text-xs font-bold px-3 py-1 rounded-lg capitalize ${
-                      insp.status === 'confirmed' ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-600'
-                    }`}>
-                      {insp.status}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       )}
@@ -285,17 +358,42 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {listings.map((item) => {
+            {listings.length === 0 ? (
+              <div className="p-8 text-center bg-neutral-50 rounded-2xl border border-neutral-200 text-neutral-500 text-xs col-span-full space-y-3">
+                <p className="font-bold text-slate-900">You have not uploaded any properties yet.</p>
+                <p className="text-neutral-500">Properties you list will appear here so you can toggle their live student availability.</p>
+                <button onClick={onOpenAddModal} className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition-colors">
+                  List Your First Property
+                </button>
+              </div>
+            ) : (
+              listings.map((item) => {
               const status = propertyAvailability[item.id] || 'available';
+              const isUnapproved = item.status === 'banned' || item.isAiBanned;
               return (
                 <div key={item.id} className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 space-y-3">
                   <div className="relative aspect-video rounded-xl overflow-hidden bg-neutral-200">
                     <img src={item.photos[0]} alt="" className="w-full h-full object-cover" />
-                    <span className={`absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded text-white ${
-                      status === 'available' ? 'bg-emerald-600' : status === 'occupied' ? 'bg-rose-600' : 'bg-amber-600'
-                    }`}>
-                      {status.toUpperCase()}
-                    </span>
+                    <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded text-white shadow-xs ${
+                        status === 'available' ? 'bg-emerald-600' : status === 'occupied' ? 'bg-rose-600' : 'bg-amber-600'
+                      }`}>
+                        {status.toUpperCase()}
+                      </span>
+                      {isUnapproved ? (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-rose-900/90 text-rose-100 backdrop-blur-xs flex items-center gap-1 shadow-xs">
+                          ⚠️ Unapproved by AI
+                        </span>
+                      ) : item.status === 'approved' ? (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-900/90 text-emerald-100 backdrop-blur-xs flex items-center gap-1 shadow-xs">
+                          ✅ AI Verified & Live
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-amber-900/90 text-amber-100 backdrop-blur-xs flex items-center gap-1 shadow-xs">
+                          ⏳ AI Reviewing
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -305,6 +403,18 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                       ₦{(item.pricePerYear || (item.pricePerWeek ? item.pricePerWeek * 52 : 300000)).toLocaleString()}/yr
                     </p>
                   </div>
+
+                  {isUnapproved && (
+                    <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-800 space-y-0.5">
+                      <p className="font-bold flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                        Unapproved Reason:
+                      </p>
+                      <p className="text-[10px] text-rose-700 leading-snug">
+                        {item.aiBanReason || 'Multiple listings detected for this address by another agent.'}
+                      </p>
+                    </div>
+                  )}
 
                   <div className="pt-2 border-t border-neutral-200 space-y-1.5">
                     <span className="text-[10px] font-bold text-neutral-400 uppercase block">Set Live Status:</span>
@@ -343,7 +453,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                   </div>
                 </div>
               );
-            })}
+            }))}
           </div>
         </div>
       )}
@@ -351,18 +461,28 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
       {/* Tab 3: Requests & Chats */}
       {currentTab === 'requests' && (
         <div className="bg-white p-6 rounded-3xl border border-neutral-200 space-y-4">
-          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-purple-600" />
-            Student Requests & Chat Enquiries
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-purple-600" />
+              Student Requests & Chat Enquiries
+            </h2>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Real-time Sync Active
+            </span>
+          </div>
 
           <div className="space-y-3">
-            {conversations.map((conv) => (
-              <div
-                key={conv.id}
-                onClick={() => onOpenChat(conv)}
-                className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 hover:border-neutral-300 transition-colors cursor-pointer flex items-center justify-between"
-              >
+            {localConversations.length === 0 ? (
+              <div className="p-8 text-center bg-neutral-50 rounded-2xl border border-neutral-200 text-neutral-500 text-xs">
+                No student chat enquiries received yet. Direct student messages regarding your listings will appear here in real-time.
+              </div>
+            ) : (
+              localConversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  onClick={() => onOpenChat(conv)}
+                  className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 hover:border-neutral-300 transition-colors cursor-pointer flex items-center justify-between"
+                >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-slate-900 text-white font-extrabold flex items-center justify-center text-xs shrink-0">
                     {conv.studentName ? conv.studentName.charAt(0) : 'S'}
@@ -379,15 +499,16 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <span className="text-[10px] text-neutral-400 font-semibold block mb-1">{conv.lastMessageTime}</span>
-                  <button className="px-3 py-1 bg-slate-900 text-white text-xs font-bold rounded-lg">
-                    Open Chat
+                <div className="text-right flex items-center gap-2">
+                  <span className="text-[10px] text-neutral-400 font-semibold hidden sm:block">{conv.lastMessageTime}</span>
+                  <button className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-2xs">
+                    Reply Live 💬
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
+            ))
+          )}
+        </div>
         </div>
       )}
 

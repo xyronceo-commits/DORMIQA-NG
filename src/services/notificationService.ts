@@ -161,3 +161,46 @@ export const subscribeUserNotifications = (
     unsubscribeFirestore();
   };
 };
+
+/**
+ * Triggers a system notification to an agent once the AI or admin review process is complete.
+ * Includes explicit rejection reasons if the listing is unapproved.
+ */
+export const notifyAgentListingReviewComplete = async (params: {
+  agentId: string;
+  listingTitle: string;
+  isApproved: boolean;
+  rejectionReason?: string;
+  listingId?: string;
+  universityId?: string;
+}): Promise<AppNotification> => {
+  const { agentId, listingTitle, isApproved, rejectionReason, listingId, universityId } = params;
+
+  if (isApproved) {
+    return sendNotification({
+      userId: agentId,
+      title: `🎉 Listing Approved: ${listingTitle}`,
+      body: `Review Complete: Your property "${listingTitle}" has passed AI verification and is now published live for students.`,
+      type: 'system',
+      universityId,
+      metadata: {
+        listingId,
+        status: 'approved'
+      }
+    });
+  } else {
+    const reasonText = rejectionReason || 'Multiple duplicate listings detected or failed property verification criteria.';
+    return sendNotification({
+      userId: agentId,
+      title: `⚠️ Listing Unapproved: ${listingTitle}`,
+      body: `Review Complete: UNAPPROVED. Reason: ${reasonText}`,
+      type: 'system',
+      universityId,
+      metadata: {
+        listingId,
+        status: 'unapproved',
+        reason: reasonText
+      }
+    });
+  }
+};

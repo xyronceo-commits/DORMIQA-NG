@@ -13,6 +13,8 @@ import {
   Star
 } from 'lucide-react';
 import { Listing, Inspection, Conversation, User } from '../types';
+import { fetchInspections, fetchConversations } from '../services/api';
+import { generateGoogleCalendarUrl, downloadIcsFile } from '../utils/calendar';
 import { AccountManager } from './AccountManager';
 
 interface StudentDashboardProps {
@@ -47,6 +49,34 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   onDeleteAccount
 }) => {
   const [internalTab, setInternalTab] = useState<'inspections' | 'saved' | 'chats' | 'profile'>(activeTab);
+  const [localInspections, setLocalInspections] = useState<Inspection[]>(inspections);
+  const [localConversations, setLocalConversations] = useState<Conversation[]>(conversations);
+
+  // Real-time polling for student inspections & messages
+  React.useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const [freshInsps, freshConvs] = await Promise.all([
+          fetchInspections({ studentId: activeAccountId }),
+          fetchConversations(activeAccountId)
+        ]);
+        setLocalInspections(freshInsps);
+        setLocalConversations(freshConvs);
+      } catch (err) {
+        console.error('Real-time student sync error:', err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [activeAccountId]);
+
+  React.useEffect(() => {
+    setLocalInspections(inspections);
+  }, [inspections]);
+
+  React.useEffect(() => {
+    setLocalConversations(conversations);
+  }, [conversations]);
 
   const currentTab = activeTab || internalTab;
 
@@ -148,12 +178,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       {/* Tab 1: Inspections / Requests */}
       {currentTab === 'inspections' && (
         <div className="space-y-4">
-          {inspections.length === 0 ? (
+          {localInspections.length === 0 ? (
             <div className="p-8 text-center bg-white rounded-2xl border border-neutral-200 text-neutral-500 text-xs">
               No inspections booked yet. Browse housing and click "Book Free Inspection".
             </div>
           ) : (
-            inspections.map((insp) => (
+            localInspections.map((insp) => (
               <div
                 key={insp.id}
                 className="bg-white p-5 rounded-2xl border border-neutral-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
@@ -170,11 +200,44 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       </span>
                     </div>
                     <p className="text-xs text-neutral-500">{insp.listingAddress}</p>
-                    <p className="text-xs font-semibold text-slate-900 flex items-center gap-3">
+                    <p className="text-xs font-semibold text-slate-900 flex flex-wrap items-center gap-3">
                       <span>📅 Date: <strong>{insp.date}</strong></span>
                       <span>⏰ Slot: <strong>{insp.timeSlot}</strong></span>
                       <span>Type: <strong className="capitalize">{insp.type.replace('_', ' ')}</strong></span>
                     </p>
+
+                    {/* Google Calendar / iCal Sync Buttons */}
+                    <div className="pt-2 flex items-center gap-2">
+                      <a
+                        href={generateGoogleCalendarUrl({
+                          title: insp.listingTitle,
+                          description: `Property Tour with Agent ${insp.agentName}`,
+                          location: insp.listingAddress,
+                          date: insp.date,
+                          timeSlot: insp.timeSlot
+                        })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-1 transition-colors shadow-2xs"
+                      >
+                        <Calendar className="w-3 h-3" />
+                        Add to Google Calendar
+                      </a>
+
+                      <button
+                        type="button"
+                        onClick={() => downloadIcsFile({
+                          title: insp.listingTitle,
+                          description: `Property Tour with Agent ${insp.agentName}`,
+                          location: insp.listingAddress,
+                          date: insp.date,
+                          timeSlot: insp.timeSlot
+                        })}
+                        className="px-2 py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-[11px] font-bold rounded-lg border border-neutral-200 transition-colors"
+                      >
+                        Download iCal
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -241,31 +304,40 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       {/* Tab 3: Agent Messages */}
       {currentTab === 'chats' && (
         <div className="space-y-3">
-          {conversations.map((conv) => (
-            <div
-              key={conv.id}
-              onClick={() => onOpenChat(conv)}
-              className="bg-white p-4 rounded-2xl border border-neutral-200 hover:border-neutral-300 transition-colors cursor-pointer flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3">
-                <img src={conv.agentAvatar} alt="" className="w-12 h-12 rounded-full object-cover" />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-neutral-900 text-sm">{conv.agentName}</h3>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
-                      {conv.agencyName}
-                    </span>
+          {localConversations.length === 0 ? (
+            <div className="p-8 text-center bg-white rounded-2xl border border-neutral-200 text-neutral-500 text-xs">
+              No chat conversations started yet. Click "Chat Agent" on any property listing to start messaging.
+            </div>
+          ) : (
+            localConversations.map((conv) => (
+              <div
+                key={conv.id}
+                onClick={() => onOpenChat(conv)}
+                className="bg-white p-4 rounded-2xl border border-neutral-200 hover:border-neutral-300 transition-colors cursor-pointer flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <img src={conv.agentAvatar} alt="" className="w-12 h-12 rounded-full object-cover" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-neutral-900 text-sm">{conv.agentName}</h3>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
+                        {conv.agencyName}
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-500 font-medium">{conv.listingTitle}</p>
+                    <p className="text-xs text-neutral-700 italic mt-0.5 line-clamp-1">"{conv.lastMessage}"</p>
                   </div>
-                  <p className="text-xs text-neutral-500 font-medium">{conv.listingTitle}</p>
-                  <p className="text-xs text-neutral-700 italic mt-0.5 line-clamp-1">"{conv.lastMessage}"</p>
+                </div>
+
+                <div className="text-right flex items-center gap-2">
+                  <span className="text-[10px] text-neutral-400 font-semibold hidden sm:block">{conv.lastMessageTime}</span>
+                  <button className="px-3.5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-2xs">
+                    Open Chat 💬
+                  </button>
                 </div>
               </div>
-
-              <div className="text-right text-[10px] text-neutral-400 font-semibold">
-                {conv.lastMessageTime}
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       )}
 

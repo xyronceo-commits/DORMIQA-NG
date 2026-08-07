@@ -25,6 +25,18 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   useEffect(() => {
     if (!conversation) return;
     loadMessages();
+
+    // Real-time polling every 2.5s for instant message updates
+    const interval = setInterval(() => {
+      fetchMessages(conversation.id).then(data => {
+        setMessages(prev => {
+          if (data.length !== prev.length) return data;
+          return prev;
+        });
+      }).catch(console.error);
+    }, 2500);
+
+    return () => clearInterval(interval);
   }, [conversation?.id]);
 
   useEffect(() => {
@@ -130,8 +142,9 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
               </h3>
               <span title="Verified Agent"><ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /></span>
             </div>
-            <p className="text-[10px] text-slate-400 font-medium">
+            <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1.5">
               {currentRole === 'student' ? conversation.agencyName : 'Verified Student Applicant'}
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
             </p>
           </div>
         </div>
@@ -193,8 +206,34 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Quick Suggestions Chips */}
+      <div className="px-3 py-2 bg-neutral-50 border-t border-neutral-200 flex items-center gap-1.5 overflow-x-auto no-scrollbar text-[11px]">
+        {(currentRole === 'student' ? [
+          "Is this lodge available?",
+          "Can I inspect tomorrow?",
+          "Are light & water included?",
+          "What is the total package price?"
+        ] : [
+          "Hello! Yes, it's available.",
+          "I can arrange an inspection for you today.",
+          "Please book a tour slot using the calendar.",
+          "Water & 24/7 power backup are included!"
+        ]).map((chip, idx) => (
+          <button
+            key={idx}
+            type="button"
+            onClick={() => {
+              setInputText(chip);
+            }}
+            className="px-2.5 py-1 rounded-full bg-white border border-neutral-200 hover:border-slate-800 text-neutral-700 font-medium whitespace-nowrap transition-colors shadow-2xs hover:bg-slate-900 hover:text-white"
+          >
+            {chip}
+          </button>
+        ))}
+      </div>
+
       {/* Message Input Box */}
-      <form onSubmit={handleSend} className="p-3 bg-white border-t border-neutral-200 flex items-center gap-2">
+      <form onSubmit={handleSend} className="p-3 bg-white border-t border-neutral-100 flex items-center gap-2">
         <input
           type="text"
           placeholder="Ask a question about availability, bills, or tours..."

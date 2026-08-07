@@ -219,7 +219,7 @@ async function runLLMCompletion(params: {
 }
 
 
-// Universal AI Anti-Scam & Duplicate Listing Detection and Auto-Ban Engine
+// Universal AI Anti-Scam & Duplicate Listing Detection Engine (Instant response, max 2.5s)
 async function evaluateListingSafetyAndDuplicates(
   listingToEvaluate: Listing, 
   reportContext?: { reason: string; details: string }
@@ -236,6 +236,22 @@ async function evaluateListingSafetyAndDuplicates(
   );
 
   const isDuplicate = Boolean(duplicateMatch);
+
+  // If strict duplicate match is found locally, flag immediately
+  if (isDuplicate) {
+    const banReason = `UNAPPROVED BY AI: Duplicate property listing detected. Another verified agent (${duplicateMatch?.agent?.name || 'an existing agent'}) has already listed this property at ${duplicateMatch?.address || 'this address'}. Multiple agents cannot list identical properties.`;
+    listingToEvaluate.status = 'banned';
+    listingToEvaluate.isAiBanned = true;
+    listingToEvaluate.aiBanReason = banReason;
+    if (duplicateMatch) listingToEvaluate.duplicateListingId = duplicateMatch.id;
+
+    return {
+      shouldBan: true,
+      banReason,
+      isDuplicate: true,
+      duplicateAgentName: duplicateMatch?.agent?.name
+    };
+  }
 
   const systemInstruction = `You are Campora Nigeria's Chief AI Anti-Scam & Trust Verification Inspector.
 Your sole job is to protect university students from fake listings, scam deposits, stolen photos, and duplicate property uploads across different estate agents.
@@ -257,55 +273,49 @@ ${reportContext ? `Student Fraud Report Complaint:
 
 ${isDuplicate ? `CRITICAL SYSTEM FINDING: Duplicate property match detected! Another agent (${duplicateMatch?.agent?.name}, Agency: "${duplicateMatch?.agent?.agencyName}", ID: ${duplicateMatch?.agentId}) already published this exact property ("${duplicateMatch?.title}" at ${duplicateMatch?.address}).` : 'No exact system address/photo duplicate match found.'}
 
-Task: Determine if this listing should be IMMEDIATELY BANNED.
+Task: Determine if this listing should be BANNED / UNAPPROVED.
 Return JSON strictly in this structure:
 {
-  "shouldBan": true,
-  "banReason": "Detailed 2-sentence explanation of why the listing was banned by AI",
-  "isFakeOrDuplicate": true,
-  "duplicateAgentName": "${duplicateMatch?.agent?.name || ''}"
+  "shouldBan": false,
+  "banReason": "Detailed explanation if unapproved",
+  "isFakeOrDuplicate": false,
+  "duplicateAgentName": ""
 }`;
 
   try {
-    const rawResult = await runLLMCompletion({
-      systemInstruction,
-      prompt,
-      responseFormatJson: true
-    });
+    // 2.5 second timeout race to prevent hanging
+    const timeoutPromise = new Promise<string>((_, reject) => 
+      setTimeout(() => reject(new Error('AI moderation timeout')), 2500)
+    );
+
+    const rawResult = await Promise.race([
+      runLLMCompletion({
+        systemInstruction,
+        prompt,
+        responseFormatJson: true
+      }),
+      timeoutPromise
+    ]);
 
     const cleaned = rawResult.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
     const parsed = JSON.parse(cleaned || '{}');
 
-    const shouldBan = Boolean(parsed.shouldBan || isDuplicate || (reportContext && (reportContext.reason === 'fake_listing' || reportContext.reason === 'scam_attempt')));
-    const banReason = parsed.banReason || (isDuplicate 
-      ? `AUTO-BANNED BY AI: Duplicate property uploaded by a different agent (${duplicateMatch?.agent?.name || 'another agent'}). Multiple agents cannot upload identical listings.`
-      : `BANNED BY AI ANTI-SCAM: Listing failed verification following student scam report.`);
+    const shouldBan = Boolean(parsed.shouldBan || (reportContext && (reportContext.reason === 'fake_listing' || reportContext.reason === 'scam_attempt')));
+    const banReason = parsed.banReason || `UNAPPROVED BY AI: Listing failed verification parameters following audit.`;
 
     if (shouldBan) {
       listingToEvaluate.status = 'banned';
       listingToEvaluate.isAiBanned = true;
       listingToEvaluate.aiBanReason = banReason;
-      if (duplicateMatch) {
-        listingToEvaluate.duplicateListingId = duplicateMatch.id;
-      }
     }
 
     return {
       shouldBan,
       banReason,
-      isDuplicate,
-      duplicateAgentName: duplicateMatch?.agent?.name
+      isDuplicate: false
     };
   } catch (err) {
-    console.error('AI Moderation Error:', err);
-    if (isDuplicate) {
-      const banReason = `AUTO-BANNED BY AI: Duplicate property uploaded by a different agent (${duplicateMatch?.agent?.name}).`;
-      listingToEvaluate.status = 'banned';
-      listingToEvaluate.isAiBanned = true;
-      listingToEvaluate.aiBanReason = banReason;
-      if (duplicateMatch) listingToEvaluate.duplicateListingId = duplicateMatch.id;
-      return { shouldBan: true, banReason, isDuplicate: true, duplicateAgentName: duplicateMatch?.agent?.name };
-    }
+    console.warn('AI Moderation fast fallback:', err);
     return { shouldBan: false, banReason: '', isDuplicate: false };
   }
 }

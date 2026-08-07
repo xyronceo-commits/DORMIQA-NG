@@ -202,6 +202,8 @@ export interface AppNotification {
     conversationId?: string;
     senderName?: string;
     senderAvatar?: string;
+    status?: string;
+    reason?: string;
   };
 }
 

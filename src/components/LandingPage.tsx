@@ -71,44 +71,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     return matchesState && matchesSearch;
   });
 
-  const sampleRoommateRequests = [
-    {
-      id: 'rm-1',
-      name: 'Blessing A.',
-      dept: '300L Accounting',
-      uni: 'UNILAG (Akoka)',
-      location: 'Abule Oja Gate',
-      budget: '₦250,000/yr',
-      lookingFor: 'Female Flatmate',
-      details: 'Looking for a tidy, quiet female student to split an executive self-contain with solar inverter setup.',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-      verifiedStudent: true
-    },
-    {
-      id: 'rm-2',
-      name: 'Tobi & Segun',
-      dept: '200L Computer Engr',
-      uni: 'FUTA (Akure)',
-      location: 'South Gate Axis',
-      budget: '₦180,000/yr each',
-      lookingFor: '3rd Male Flatmate',
-      details: 'Spacious 2-bedroom lodge with fenced gate, borehole water, and steady light schedule.',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
-      verifiedStudent: true
-    },
-    {
-      id: 'rm-3',
-      name: 'Aminat M.',
-      dept: '400L Medicine (MBBS)',
-      uni: 'University of Ibadan (UI)',
-      location: 'Agbowo Opposite Gate',
-      budget: '₦300,000/yr',
-      lookingFor: 'Female Roommate',
-      details: 'Needs a serious-minded study buddy for a furnished 1-bedroom flat near UCH / UI main gate.',
-      avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=200&q=80',
-      verifiedStudent: true
-    }
-  ];
+  const sampleRoommateRequests: any[] = [];
 
   const faqs = [
     {
@@ -232,45 +195,54 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
             </div>
 
-            {/* Hero Right Column: Product Showcase Card */}
+            {/* Hero Right Column: Real-Time Platform Standards */}
             <div className="lg:col-span-5">
-              <div className="bg-white rounded-2xl border border-neutral-300 p-4 shadow-md space-y-3">
-                <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
-                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Verified Listing Preview
+              <div className="bg-white rounded-2xl border border-neutral-300 p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+                  <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" /> Physical Property Verification
                   </span>
+                  <span className="text-[10px] font-semibold text-neutral-400">Campora NG</span>
                 </div>
 
-                <div className="relative aspect-[16/10] rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200">
-                  <img 
-                    src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80" 
-                    alt="Executive Self Contain" 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-2.5 left-2.5 bg-neutral-900/90 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                    <Footprints className="w-3 h-3 text-emerald-400" /> 4 min walk to Main Gate
+                <div className="space-y-3 text-xs text-neutral-600">
+                  <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1">
+                    <div className="flex items-center gap-2 text-slate-900 font-bold">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Strict Physical Inspection</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-500 pl-6">
+                      Every student lodge listed undergoes location verification to confirm actual walking distance to campus gates.
+                    </p>
                   </div>
-                  <div className="absolute bottom-2.5 right-2.5 bg-white text-neutral-900 font-extrabold text-xs px-2.5 py-1 rounded shadow-xs">
-                    ₦450,000 <span className="text-[10px] font-normal text-neutral-500">/ year</span>
-                  </div>
-                </div>
 
-                <div className="space-y-1.5">
-                  <h3 className="font-extrabold text-sm text-neutral-900">Executive Tiled Self-Contain Studio</h3>
-                  
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">⚡ 24/7 Solar Backup</span>
-                    <span className="text-[10px] font-semibold bg-blue-50 text-blue-800 px-2 py-0.5 rounded border border-blue-200">💧 Running Water Tap</span>
-                    <span className="text-[10px] font-semibold bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded">🔒 Fenced Gate & Security</span>
+                  <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1">
+                    <div className="flex items-center gap-2 text-slate-900 font-bold">
+                      <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+                      <span>Transparent Utilities Audit</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-500 pl-6">
+                      Borehole water pumps, prepaid PHCN meters, and solar inverter specs are explicitly documented before going live.
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1">
+                    <div className="flex items-center gap-2 text-slate-900 font-bold">
+                      <Shield className="w-4 h-4 text-blue-600 shrink-0" />
+                      <span>Verified Caretakers & Agents</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-500 pl-6">
+                      Direct contact with verified lodge caretakers and property managers — zero ghost agent search fees.
+                    </p>
                   </div>
                 </div>
 
                 <button
-                  onClick={() => onOpenOnboarding ? onOpenOnboarding() : onSearchUniversity('unilag')}
-                  className="w-full py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-900 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1"
+                  onClick={() => onOpenAgentPortal()}
+                  className="w-full py-2.5 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
                 >
-                  <span>Explore UNILAG Listings</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <Building2 className="w-4 h-4 text-emerald-400" />
+                  <span>Agent / Caretaker Listing Portal</span>
                 </button>
               </div>
             </div>
@@ -299,16 +271,31 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {featuredListings.slice(0, 6).map((listing) => (
-            <ListingCard
-              key={listing.id}
-              listing={listing}
-              isSaved={savedIds.includes(listing.id)}
-              onToggleSave={() => onOpenOnboarding ? onOpenOnboarding() : onToggleSave(listing.id)}
-              onOpenDetail={() => onOpenOnboarding ? onOpenOnboarding() : onOpenListingDetail(listing)}
-              onBookInspection={() => onOpenOnboarding ? onOpenOnboarding() : onBookInspection(listing)}
-            />
-          ))}
+          {featuredListings.length === 0 ? (
+            <div className="col-span-full text-center py-12 bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-8 max-w-md mx-auto space-y-3 shadow-2xs">
+              <Building2 className="w-8 h-8 text-neutral-400 mx-auto" />
+              <p className="text-sm font-bold text-slate-900 dark:text-white">No active listings uploaded yet</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">Real-time listings uploaded by verified agents will appear here as soon as they are submitted and AI verified.</p>
+              <button
+                onClick={() => onOpenAgentPortal()}
+                className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold rounded-xl hover:opacity-90 transition-opacity"
+              >
+                <span>Upload First Listing</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            featuredListings.slice(0, 6).map((listing) => (
+              <ListingCard
+                key={listing.id}
+                listing={listing}
+                isSaved={savedIds.includes(listing.id)}
+                onToggleSave={() => onOpenOnboarding ? onOpenOnboarding() : onToggleSave(listing.id)}
+                onOpenDetail={() => onOpenOnboarding ? onOpenOnboarding() : onOpenListingDetail(listing)}
+                onBookInspection={() => onOpenOnboarding ? onOpenOnboarding() : onBookInspection(listing)}
+              />
+            ))
+          )}
         </div>
       </section>
 
@@ -393,41 +380,55 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {sampleRoommateRequests.map((rm) => (
-            <div key={rm.id} className="bg-white rounded-2xl border border-neutral-200 p-5 space-y-3 hover:border-neutral-300 transition-all shadow-xs flex flex-col justify-between">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <img src={rm.avatar} alt={rm.name} className="w-10 h-10 rounded-full object-cover border border-neutral-200" />
-                  <div>
-                    <h3 className="font-bold text-sm text-neutral-900">{rm.name}</h3>
-                  </div>
-                </div>
-
-                <div className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-100 space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-neutral-500 font-medium">Location:</span>
-                    <span className="font-bold text-neutral-800">{rm.location}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-neutral-500 font-medium">Budget Share:</span>
-                    <span className="font-extrabold text-emerald-700">{rm.budget}</span>
-                  </div>
-                </div>
-
-                <p className="text-xs text-neutral-600 leading-relaxed italic">
-                  "{rm.details}"
-                </p>
-              </div>
-
+          {sampleRoommateRequests.length === 0 ? (
+            <div className="col-span-full text-center py-10 bg-white rounded-2xl border border-neutral-200 p-8 space-y-3 shadow-2xs">
+              <Users className="w-8 h-8 text-neutral-400 mx-auto" />
+              <p className="text-xs font-bold text-slate-900">No active roommate requests posted yet</p>
+              <p className="text-[11px] text-neutral-500 max-w-sm mx-auto">Verified students seeking flatmates to share rent and solar utility expenses will appear here.</p>
               <button
                 onClick={onOpenOnboarding}
-                className="w-full py-2 mt-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-900 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                className="mt-1 px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-black transition-colors"
               >
-                <MessageSquare className="w-3.5 h-3.5 text-neutral-600" />
-                <span>Connect with {rm.name.split(' ')[0]}</span>
+                Post First Roommate Request
               </button>
             </div>
-          ))}
+          ) : (
+            sampleRoommateRequests.map((rm) => (
+              <div key={rm.id} className="bg-white rounded-2xl border border-neutral-200 p-5 space-y-3 hover:border-neutral-300 transition-all shadow-xs flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <img src={rm.avatar} alt={rm.name} className="w-10 h-10 rounded-full object-cover border border-neutral-200" />
+                    <div>
+                      <h3 className="font-bold text-sm text-neutral-900">{rm.name}</h3>
+                    </div>
+                  </div>
+
+                  <div className="bg-neutral-50 p-2.5 rounded-xl border border-neutral-100 space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-neutral-500 font-medium">Location:</span>
+                      <span className="font-bold text-neutral-800">{rm.location}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-neutral-500 font-medium">Budget Share:</span>
+                      <span className="font-extrabold text-emerald-700">{rm.budget}</span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-neutral-600 leading-relaxed italic">
+                    "{rm.details}"
+                  </p>
+                </div>
+
+                <button
+                  onClick={onOpenOnboarding}
+                  className="w-full py-2 mt-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-900 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-neutral-600" />
+                  <span>Connect with {rm.name.split(' ')[0]}</span>
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </section>
 

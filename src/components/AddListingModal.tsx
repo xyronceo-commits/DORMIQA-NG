@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Building2, Upload, Plus, CheckCircle2, Footprints, Video, AlertCircle, Camera, Check } from 'lucide-react';
 import { University, PropertyType, Listing } from '../types';
 import { createListing } from '../services/api';
-import { sendNotification } from '../services/notificationService';
+import { sendNotification, notifyAgentListingReviewComplete } from '../services/notificationService';
 
 interface AddListingModalProps {
   universities: University[];
@@ -161,9 +161,37 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         description: description || `${title} at ${hotelName}. A premium student accommodation situated just ${walkingDistanceMinutes} minutes walk to ${selectedUni?.name || 'campus'}. Features ${vacanciesCount} available rooms, full 24/7 solar backup light, and verified 360° video walkthrough.`
       });
 
+      setSubmitting(false);
+
+      if (created.status === 'banned' || created.isAiBanned) {
+        const banReason = created.aiBanReason || 'UNAPPROVED BY AI: Duplicate property listing detected by another agent. Multiple agents cannot list identical properties.';
+        
+        // Notify agent directly of unapproved listing with clear reasons
+        await notifyAgentListingReviewComplete({
+          agentId,
+          listingTitle: title,
+          isApproved: false,
+          rejectionReason: banReason,
+          listingId: created.id,
+          universityId
+        });
+
+        setValidationError(`🚨 ${banReason}`);
+        return;
+      }
+
+      // Notify agent of successful AI approval
+      await notifyAgentListingReviewComplete({
+        agentId,
+        listingTitle: title,
+        isApproved: true,
+        listingId: created.id,
+        universityId
+      });
+
       // Broadcast real-time notification to students around this campus
       sendNotification({
-        userId: 'usr_student_1', // Broadcast or student target
+        userId: 'all',
         title: `🏠 New Campus Lodge: ${title}`,
         body: `New ${propertyType.replace('_', ' ')} listed ${walkingDistanceMinutes} mins from ${selectedUni?.name || 'campus'} at ₦${pricePerYear.toLocaleString()}/yr.`,
         type: 'listing',
@@ -172,13 +200,6 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
           listingId: created.id
         }
       });
-
-      setSubmitting(false);
-
-      if (created.status === 'banned' || created.isAiBanned) {
-        setValidationError(`🚨 ${created.aiBanReason || 'AUTO-BANNED BY AI: Duplicate property uploaded by a different agent detected. Multi-agent duplicate listings are strictly prohibited on Campora.'}`);
-        return;
-      }
 
       onSuccess(created);
     } catch (err) {
@@ -536,7 +557,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
             disabled={submitting || photos.length < 5 || !videoUrl.trim()}
             className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl text-xs uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md mt-6 flex items-center justify-center gap-2"
           >
-            {submitting ? 'Publishing Hotel Listing...' : 'Publish Hotel Accommodation Live'}
+            {submitting ? '⚡ AI Inspecting & Verifying Listing (Takes 2s)...' : 'Publish Hotel Accommodation Live'}
           </button>
         </form>
       </div>
