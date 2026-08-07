@@ -479,15 +479,22 @@ export default function App() {
         {activeView === 'business-verification' && (
           <BusinessVerificationPage
             agentData={pendingAgentRegistration}
-            onCompleteVerification={({ licenseNumber }) => {
+            onCompleteVerification={({ licenseNumber, avatarUrl }) => {
               if (pendingAgentRegistration?.id) {
                 setAccounts(prev => prev.map(a => 
                   a.id === pendingAgentRegistration.id
-                    ? { ...a, licenseNumber, isVerifiedAgent: true }
+                    ? { 
+                        ...a, 
+                        licenseNumber, 
+                        isVerifiedAgent: true,
+                        avatarUrl: avatarUrl || a.avatarUrl,
+                        isAvatarLocked: true,
+                        verificationPhotoUrl: avatarUrl || a.avatarUrl
+                      }
                     : a
                 ));
               }
-              setToastNotice('Business verification submitted! Welcome to Campora.');
+              setToastNotice('Identity & Business verification submitted! Verified photo set as profile picture.');
               setTimeout(() => setToastNotice(null), 4000);
               setActiveView('agent-dash');
             }}

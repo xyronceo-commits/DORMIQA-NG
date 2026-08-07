@@ -232,6 +232,7 @@ export async function verifyAgentBusiness(payload: {
   documentStorageUrl?: string | null;
   agentName?: string;
   agencyName?: string;
+  agentPortraitUrl?: string | null;
   preferredModel?: string;
 }) {
   const res = await fetch(`${API_BASE}/ai/verify-agent`, {

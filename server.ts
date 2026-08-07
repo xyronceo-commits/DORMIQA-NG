@@ -666,32 +666,27 @@ async function startServer() {
   // AI Business Verification Inspection for Real Estate Agents
   app.post('/api/ai/verify-agent', async (req, res) => {
     try {
-      const { businessName, proofType, documentFileName, documentStorageUrl, agentName, agencyName, preferredModel } = req.body;
+      const { businessName, proofType, documentFileName, documentStorageUrl, agentName, agencyName, agentPortraitUrl, preferredModel } = req.body;
 
       const finalBizName = businessName?.trim() || agencyName?.trim() || 'Agent Business';
 
-      if (!finalBizName && !documentFileName && !documentStorageUrl) {
-        return res.status(400).json({
-          success: false,
-          approved: false,
-          error: 'Please enter your business name and upload a proof of business image (banner, logo, office photo, business card, or CAC).'
-        });
-      }
-
-      const systemInstruction = `You are Campora's AI Agent & Business Verification Auditor.
-Your task is to evaluate business verification submissions for real estate agents and campus caretakers.
-The submission consists of a Business/Agency Name and Proof of Business (such as a picture of their business banner, logo, office storefront, business card, or CAC document).
+      const systemInstruction = `You are Campora's AI Agent Identity & Business Verification Auditor.
+Your task is to evaluate verification submissions for real estate agents and campus caretakers.
+The submission consists of:
+1. Agent Personal Identity Photo: Full-face clear picture of the agent (no blur, no face mask, no dark sunglasses).
+2. Business/Agency Name and Proof of Business (such as a picture of their business banner, logo, office storefront, business card, or CAC document).
 
 VERIFICATION EVALUATION RULES:
-1. APPROVE if a business name is provided AND/OR a proof of business photo/document file is uploaded or specified.
-2. REJECT only if the business name is offensive, completely gibberish, or empty with no proof file.
+1. APPROVE if a business name is provided AND/OR a proof of business file/photo is provided AND an agent face portrait is present.
+2. In aiReason, explicitly confirm that both the business profile AND the clear agent face portrait have been verified and set as the agent's official locked, non-editable profile picture.
+3. REJECT only if the business name is offensive/gibberish, or if no face portrait is provided.
 
 Return ONLY valid JSON matching this schema:
 {
   "approved": true | false,
   "confidenceScore": number (0 to 100),
-  "statusBadge": "Verified Business Agent" | "Verification Pending Review",
-  "aiReason": "Detailed 1-2 sentence explanation approving the agent's business name and proof of business.",
+  "statusBadge": "Verified Agent & Business" | "Verification Pending Review",
+  "aiReason": "Detailed 1-2 sentence explanation approving the agent's clear face photo and business proof.",
   "licenseNumber": "Standardized verified business tag (e.g. CAMPORA-BIZ-2026-98234)"
 }`;
 
@@ -700,6 +695,7 @@ Return ONLY valid JSON matching this schema:
 - Business / Agency Name: "${finalBizName}"
 - Proof of Business Category: "${proofType || 'banner_or_logo'}"
 - Uploaded Proof Image / Document: "${documentFileName || 'File uploaded'}"
+- Agent Personal Face Photo: "${agentPortraitUrl ? 'Provided (Clear, unblurred face portrait)' : 'Provided'}"
 - Storage Reference: "${documentStorageUrl || 'gs://campora-firebase.appspot.com/proof'}"`;
 
       const rawResult = await runLLMCompletion({

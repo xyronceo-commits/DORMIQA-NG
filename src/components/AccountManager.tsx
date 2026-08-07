@@ -53,11 +53,18 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-neutral-200 shadow-xs space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-neutral-100 pb-6">
           <div className="flex items-center gap-4">
-            <img
-              src={activeAccount?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'}
-              alt=""
-              className="w-16 h-16 rounded-full object-cover border-2 border-slate-900 shadow-xs"
-            />
+            <div className="relative shrink-0">
+              <img
+                src={activeAccount?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'}
+                alt=""
+                className="w-16 h-16 rounded-full object-cover border-2 border-slate-900 shadow-xs"
+              />
+              {(activeAccount?.isVerifiedAgent || activeAccount?.isAvatarLocked || activeAccount?.role === 'agent') && (
+                <div className="absolute -bottom-1 -right-1 bg-slate-900 text-emerald-400 p-1.5 rounded-full border border-emerald-500 shadow-xs" title="Verified Identity Photo (Locked)">
+                  <Lock className="w-3.5 h-3.5" />
+                </div>
+              )}
+            </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-xl font-extrabold text-neutral-900">{activeAccount?.name || 'Account Holder'}</h3>
@@ -95,6 +102,28 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Locked Profile Picture Non-Editable Notice */}
+        {(activeAccount?.isVerifiedAgent || activeAccount?.isAvatarLocked || activeAccount?.role === 'agent') && (
+          <div className="p-4 bg-slate-900 text-white rounded-2xl flex items-center gap-3 text-xs border border-slate-800">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-white text-xs">
+                  Verified Identity Profile Picture
+                </span>
+                <span className="text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/40">
+                  Non-Editable
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 font-medium leading-relaxed">
+                Your profile picture was set during Agent Identity Verification (unblurred, clear face photo without mask). To protect students from scam listings and impersonation, verified profile photos cannot be edited.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Email Verification Status Notice */}
         <div className="p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs bg-slate-50 border-slate-200">
