@@ -666,6 +666,12 @@ export default function App() {
             activeAccountId={activeAccountId}
             onSignOut={handleSignOut}
             onDeleteAccount={handleDeleteAccount}
+            onListingUpdate={(updatedListing) => {
+              setListings(prev => prev.map(l => l.id === updatedListing.id ? updatedListing : l));
+              if (detailListing?.id === updatedListing.id) {
+                setDetailListing(updatedListing);
+              }
+            }}
           />
         )}
 

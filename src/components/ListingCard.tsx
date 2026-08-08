@@ -120,14 +120,26 @@ export const ListingCard: React.FC<ListingCardProps> = ({
           </button>
         </div>
 
-        {/* Bottom Property Type Pill & Hotel Badge */}
-        <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
+        {/* Bottom Property Type Pill & Unit Status Badge */}
+        <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none gap-1">
           <span className="bg-white/95 text-neutral-900 text-[10px] font-bold px-2 py-0.5 rounded border border-neutral-200 shadow-xs uppercase tracking-wider">
             {typeLabel}
           </span>
-          {listing.vacanciesCount && (
+          {listing.unitStatus === 'occupied' ? (
+            <span className="bg-rose-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow-xs">
+              🔴 Fully Rented
+            </span>
+          ) : listing.unitStatus === 'under_renovation' ? (
+            <span className="bg-orange-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow-xs">
+              🟠 Under Renovation
+            </span>
+          ) : listing.unitStatus === 'remaining' || listing.vacanciesCount ? (
+            <span className="bg-amber-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow-xs">
+              🟡 {listing.vacanciesCount || 1} Rooms Left
+            </span>
+          ) : (
             <span className="bg-emerald-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow-xs">
-              {listing.vacanciesCount} Rooms Left
+              🟢 Vacant & Available
             </span>
           )}
         </div>
@@ -189,12 +201,17 @@ export const ListingCard: React.FC<ListingCardProps> = ({
               </span>
               <span className="text-xs text-neutral-500 font-normal">/ yr</span>
             </div>
-            <div className="text-[10px] text-neutral-400 flex items-center gap-1">
+            <div className="text-[10px] text-neutral-400 flex items-center gap-1 flex-wrap">
               <span>₦{(listing.pricePerMonth || Math.round((listing.pricePerYear || 300000) / 12)).toLocaleString()}/mo</span>
               {listing.billsIncluded && (
-                <span className="text-emerald-700 font-bold">• Solar/Power Inc.</span>
+                <span className="text-emerald-700 font-bold">• Power Inc.</span>
               )}
             </div>
+            {listing.promoDiscount && (
+              <span className="text-[9px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1 py-0.2 rounded mt-1 inline-block">
+                🎉 {listing.promoDiscount}
+              </span>
+            )}
           </div>
 
           {/* Quick Action Buttons */}

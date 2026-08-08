@@ -53,6 +53,31 @@ export async function createListing(listingData: Partial<Listing>): Promise<List
   return await res.json();
 }
 
+export async function updateListingStatusAndSales(
+  listingId: string, 
+  updateData: {
+    unitStatus?: 'vacant' | 'occupied' | 'remaining' | 'under_renovation';
+    vacanciesCount?: number;
+    unitStatusNote?: string;
+    pricePerYear?: number;
+    pricePerMonth?: number;
+    pricePerWeek?: number;
+    deposit?: number;
+    agencyFeeNote?: string;
+    promoDiscount?: string;
+    salesNote?: string;
+    isAvailableForSale?: boolean;
+  }
+): Promise<Listing> {
+  const res = await fetch(`${API_BASE}/listings/${listingId}/status-and-sales`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updateData)
+  });
+  if (!res.ok) throw new Error('Failed to update listing unit status and sales info');
+  return await res.json();
+}
+
 export async function submitListingReview(
   listingId: string, 
   reviewData: { authorName: string; authorAvatar?: string; rating: number; comment: string; universityCourse?: string; tag?: string }

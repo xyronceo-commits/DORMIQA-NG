@@ -1,7 +1,6 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI, Type } from '@google/genai';
 import { 
   UNIVERSITIES, 
   MOCK_LISTINGS, 
@@ -13,24 +12,38 @@ import {
 } from './src/data/mockData.js';
 import { Listing, Inspection, Conversation, ChatMessage, Report, User } from './src/types.js';
 
-// Resilient Multi-Provider AI completion runner supporting Groq (gsk_), OpenAI/OpenRouter (sk-), and Google Gemini (AIza / standard)
+// Helper to clean LLM outputs (strips <think> tags, reasoning blocks, context headers)
+function cleanLLMOutput(text: string): string {
+  if (!text) return '';
+  let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<thought>[\s\S]*?<\/thought>/gi, '');
+  cleaned = cleaned.replace(/<think>[\s\S]*/gi, '').replace(/<thought>[\s\S]*/gi, '');
+  cleaned = cleaned.replace(/^(Thought|Thinking|Reasoning|Chain of thought|Context|User Input|Student Question|System):\s*/gmi, '');
+  return cleaned.trim();
+}
+
+// Dedicated Groq AI completion runner using Groq models
 async function runLLMCompletion(params: {
   systemInstruction: string;
   prompt: string;
   responseFormatJson?: boolean;
   preferredModel?: string;
 }): Promise<string> {
-  // Collect all available key candidates
+  // Collect all potential API keys from environment / secrets tab
   const rawCandidates = [
+    process.env.GROQ_API_KEY,
     process.env.CAMPORA_API_KEY,
-    process.env.GEMINI_API_KEY,
+    process.env.GROQ_KEY,
+    process.env.GROQ_AI_API_KEY,
+    process.env.GROQ,
     process.env.API_KEY,
+    process.env.GEMINI_API_KEY,
     process.env.OPENROUTER_API_KEY,
     process.env.OPENAI_API_KEY,
     process.env.CUSTOM_API_KEY,
     process.env.LLM_API_KEY,
     process.env.AI_API_KEY,
-    process.env.SECRET_LAB_API_KEY
+    process.env.SECRET_LAB_API_KEY,
+    process.env.SECRET_KEY
   ];
 
   const keysToTry = Array.from(new Set(
@@ -38,101 +51,102 @@ async function runLLMCompletion(params: {
   ));
 
   if (keysToTry.length === 0) {
-    throw new Error('No API key found. Please verify your CAMPORA_API_KEY or secret key in the Secrets tab.');
+    throw new Error('No API key found. Please ensure your Groq or Campora API key is set in the Secrets tab.');
   }
 
   let lastError: any = null;
 
   for (const apiKey of keysToTry) {
-    // 1) Groq API Keys (start with gsk_)
-    if (apiKey.startsWith('gsk_')) {
-      let groqModels: string[] = [];
-
-      try {
-        const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
-          headers: { 'Authorization': `Bearer ${apiKey}` }
-        });
-        if (modelsRes.ok) {
-          const modelsData = await modelsRes.json();
-          if (Array.isArray(modelsData?.data)) {
-            // Filter out non-chat models (audio, guard, compound, whisper, etc.)
-            groqModels = modelsData.data
-              .map((m: any) => m.id)
-              .filter((id: string) => 
-                id && 
-                !id.includes('whisper') && 
-                !id.includes('prompt-guard') && 
-                !id.includes('safeguard') && 
-                !id.includes('orpheus') && 
-                !id.includes('compound') &&
-                !id.includes('allam')
-              );
-          }
-        }
-      } catch (err) {
-        // Silently handle model list fetch error
-      }
-
-      // Default curated list of Groq chat models in priority order
-      const priorityGroqModels = [
-        'llama-3.3-70b-versatile',
-        'llama-3.3-70b-specdec',
-        'llama-3.1-8b-instant',
-        'llama-3.2-11b-vision-preview',
-        'llama-3.2-3b-preview',
-        'llama-3.2-1b-preview',
-        'deepseek-r1-distill-llama-70b',
-        'qwen-2.5-coder-32b'
-      ];
-
-      // Merge priority models with fetched models, putting priority models first
-      const allGroqModels = Array.from(new Set([
-        ...priorityGroqModels.filter(m => groqModels.length === 0 || groqModels.includes(m)),
-        ...groqModels
-      ]));
-
-      const modelsToTry = params.preferredModel && allGroqModels.includes(params.preferredModel)
-        ? [params.preferredModel, ...allGroqModels.filter(m => m !== params.preferredModel)]
-        : allGroqModels;
-
-      for (const model of modelsToTry) {
-        try {
-          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-              model: model,
-              messages: [
-                { role: 'system', content: params.systemInstruction },
-                { role: 'user', content: params.prompt }
-              ],
-              ...(params.responseFormatJson ? { response_format: { type: 'json_object' } } : {}),
-              temperature: 0.7
-            })
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            const textContent = data.choices?.[0]?.message?.content;
-            if (textContent && textContent.trim()) {
-              return textContent;
-            }
-          } else {
-            const errJson = await res.json().catch(() => null);
-            const errMsg = errJson?.error?.message || `Status ${res.status}`;
-            lastError = new Error(`Groq (${model}): ${errMsg}`);
-          }
-        } catch (err: any) {
-          lastError = err;
+    // 1) Primary Strategy: Groq AI API
+    let groqModels: string[] = [];
+    try {
+      const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { 'Authorization': `Bearer ${apiKey}` }
+      });
+      if (modelsRes.ok) {
+        const modelsData = await modelsRes.json();
+        if (Array.isArray(modelsData?.data)) {
+          groqModels = modelsData.data
+            .map((m: any) => m.id)
+            .filter((id: string) => 
+              id && 
+              !id.includes('whisper') && 
+              !id.includes('prompt-guard') && 
+              !id.includes('safeguard') && 
+              !id.includes('orpheus') && 
+              !id.includes('compound') &&
+              !id.includes('allam')
+            );
         }
       }
-      continue;
+    } catch (err) {
+      // Silently handle model list fetch
     }
 
-    // 2) OpenAI / OpenRouter Keys (start with sk-)
+    const priorityGroqModels = [
+      'llama-3.3-70b-versatile',
+      'llama-3.1-8b-instant',
+      'llama-3.2-11b-vision-preview',
+      'llama-3.2-3b-preview',
+      'llama-3.2-1b-preview',
+      'llama3-70b-8192',
+      'llama3-8b-8192',
+      'deepseek-r1-distill-llama-70b',
+      'qwen-2.5-coder-32b',
+      'mixtral-8x7b-32768',
+      'gemma2-9b-it'
+    ];
+
+    const allGroqModels = Array.from(new Set([
+      ...priorityGroqModels.filter(m => groqModels.length === 0 || groqModels.includes(m)),
+      ...groqModels
+    ]));
+
+    const groqModelsToTry = params.preferredModel && allGroqModels.includes(params.preferredModel)
+      ? [params.preferredModel, ...allGroqModels.filter(m => m !== params.preferredModel)]
+      : allGroqModels;
+
+    for (const model of groqModelsToTry) {
+      try {
+        const body: any = {
+          model: model,
+          messages: [
+            { role: 'system', content: params.systemInstruction },
+            { role: 'user', content: params.prompt }
+          ],
+          temperature: 0.7
+        };
+
+        if (params.responseFormatJson) {
+          body.response_format = { type: 'json_object' };
+        }
+
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(body)
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const textContent = data.choices?.[0]?.message?.content;
+          if (textContent && textContent.trim()) {
+            return cleanLLMOutput(textContent);
+          }
+        } else {
+          const errJson = await res.json().catch(() => null);
+          const errMsg = errJson?.error?.message || `Status ${res.status}`;
+          lastError = new Error(`Groq AI (${model}): ${errMsg}`);
+        }
+      } catch (err: any) {
+        lastError = err;
+      }
+    }
+
+    // 2) Secondary Fallback: OpenAI / OpenRouter if key is sk- format
     if (apiKey.startsWith('sk-')) {
       const defaultModels = [
         'openai/gpt-oss-120b', 
@@ -141,7 +155,7 @@ async function runLLMCompletion(params: {
         'gpt-4o-mini'
       ];
 
-      const modelsToTry = params.preferredModel && params.preferredModel !== 'auto' && params.preferredModel !== 'gemini-3.6-flash'
+      const modelsToTry = params.preferredModel && params.preferredModel !== 'auto'
         ? [params.preferredModel, ...defaultModels.filter(m => m !== params.preferredModel)]
         : defaultModels;
 
@@ -175,47 +189,17 @@ async function runLLMCompletion(params: {
             const data = await res.json();
             const textContent = data.choices?.[0]?.message?.content;
             if (textContent && textContent.trim()) {
-              return textContent;
+              return cleanLLMOutput(textContent);
             }
           }
         } catch (err) {
-          console.warn(`OpenAI/OpenRouter call attempt failed for key ${apiKey.substring(0, 6)}...:`, err);
           lastError = err;
         }
       }
-      continue;
-    }
-
-    // 3) Google Gemini API (standard keys or AIza...)
-    try {
-      const ai = new GoogleGenAI({
-        apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build'
-          }
-        }
-      });
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: params.prompt,
-        config: {
-          systemInstruction: params.systemInstruction,
-          ...(params.responseFormatJson ? { responseMimeType: 'application/json' } : {})
-        }
-      });
-
-      if (response && response.text) {
-        return response.text;
-      }
-    } catch (err: any) {
-      console.warn(`Gemini API call attempt failed for key ${apiKey.substring(0, 6)}...:`, err?.message || err);
-      lastError = err;
     }
   }
 
-  throw new Error(`AI completion failed. Please verify your API Key in the Secrets tab. (${lastError?.message || 'Invalid key'})`);
+  throw new Error(`Groq AI completion failed. Please verify your API Key in the Secrets tab. (${lastError?.message || 'Invalid key'})`);
 }
 
 
@@ -330,11 +314,76 @@ let reportsStore: Report[] = [];
 
 const CLEAN_UNIVERSITIES = UNIVERSITIES.map(u => ({ ...u, totalListings: 0 }));
 
+// In-memory Rate Limiter Store
+interface RateLimitBucket {
+  count: number;
+  resetTime: number;
+}
+
+const generalRateLimitStore = new Map<string, RateLimitBucket>();
+const aiRateLimitStore = new Map<string, RateLimitBucket>();
+
+function createRateLimiter(maxRequests: number, windowMs: number, store: Map<string, RateLimitBucket>) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+
+    let bucket = store.get(ip);
+    if (!bucket || now > bucket.resetTime) {
+      bucket = { count: 1, resetTime: now + windowMs };
+      store.set(ip, bucket);
+      return next();
+    }
+
+    bucket.count += 1;
+    if (bucket.count > maxRequests) {
+      const retryAfterSeconds = Math.ceil((bucket.resetTime - now) / 1000);
+      res.setHeader('Retry-After', String(retryAfterSeconds));
+      return res.status(429).json({
+        error: 'Too Many Requests',
+        message: `Rate limit exceeded. Please wait ${retryAfterSeconds} seconds before trying again.`,
+        retryAfterSeconds
+      });
+    }
+
+    next();
+  };
+}
+
+// Security Headers Middleware
+function securityHeadersMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(self)');
+  next();
+}
+
+// Input Sanitization Helper
+function sanitizeInputString(str: any, maxLength = 2000): string {
+  if (typeof str !== 'string') return '';
+  return str
+    .trim()
+    .slice(0, maxLength)
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/javascript:/gi, '');
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  // Strict Payload Size Limit
+  app.use(express.json({ limit: '2mb' }));
+  app.use(securityHeadersMiddleware);
+
+  // General Rate Limiting (120 requests per minute per IP)
+  const generalRateLimiter = createRateLimiter(120, 60 * 1000, generalRateLimitStore);
+  app.use('/api', generalRateLimiter);
+
+  // Stricter AI Rate Limiting (15 requests per minute per IP)
+  const aiRateLimiter = createRateLimiter(15, 60 * 1000, aiRateLimitStore);
+  app.use('/api/ai', aiRateLimiter);
 
   // --- API ROUTES ---
 
@@ -455,8 +504,39 @@ async function startServer() {
 
   // Create new listing (Agent) with AI Anti-Scam & Duplicate Listing Check
   app.post('/api/listings', async (req, res) => {
+    const title = sanitizeInputString(req.body.title, 150);
+    const hotelName = sanitizeInputString(req.body.hotelName, 150);
+    const address = sanitizeInputString(req.body.address, 300);
+    const universityId = sanitizeInputString(req.body.universityId, 50);
+    const description = sanitizeInputString(req.body.description, 2000);
+    const agentId = sanitizeInputString(req.body.agentId, 100) || 'agent_1';
+    
+    if (!title || title.length < 3) {
+      return res.status(400).json({ error: 'Validation Error', message: 'Title is required (at least 3 characters).' });
+    }
+    if (!hotelName) {
+      return res.status(400).json({ error: 'Validation Error', message: 'Hotel / Building name is required.' });
+    }
+    if (!address || address.length < 5) {
+      return res.status(400).json({ error: 'Validation Error', message: 'Valid street address is required.' });
+    }
+    if (!Array.isArray(req.body.photos) || req.body.photos.length < 5) {
+      return res.status(400).json({ error: 'Validation Error', message: 'At least 5 property photos are required.' });
+    }
+
+    const pricePerYear = Math.max(10000, Number(req.body.pricePerYear) || 450000);
+    const pricePerWeek = Math.max(100, Number(req.body.pricePerWeek) || Math.round(pricePerYear / 52));
+
     const newListing: Listing = {
       ...req.body,
+      title,
+      hotelName,
+      address,
+      universityId,
+      description,
+      agentId,
+      pricePerYear,
+      pricePerWeek,
       id: `lst_${Date.now()}`,
       isVerified: true,
       status: 'pending',
@@ -479,6 +559,47 @@ async function startServer() {
 
     listingsStore.unshift(newListing);
     res.status(201).json(newListing);
+  });
+
+  // Update listing unit status and sales information (Agent)
+  app.patch('/api/listings/:id/status-and-sales', (req, res) => {
+    const listing = listingsStore.find(l => l.id === req.params.id);
+    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+
+    const { 
+      unitStatus, 
+      vacanciesCount, 
+      unitStatusNote, 
+      pricePerYear, 
+      pricePerMonth, 
+      pricePerWeek, 
+      deposit, 
+      agencyFeeNote, 
+      promoDiscount, 
+      salesNote, 
+      isAvailableForSale 
+    } = req.body;
+
+    if (unitStatus !== undefined) listing.unitStatus = unitStatus;
+    if (vacanciesCount !== undefined) listing.vacanciesCount = Number(vacanciesCount);
+    if (unitStatusNote !== undefined) listing.unitStatusNote = sanitizeInputString(unitStatusNote, 300);
+    
+    if (pricePerYear !== undefined) {
+      const yearPrice = Math.max(0, Number(pricePerYear));
+      listing.pricePerYear = yearPrice;
+      listing.pricePerWeek = Math.round(yearPrice / 52);
+      listing.pricePerMonth = Math.round(yearPrice / 12);
+    }
+    if (pricePerMonth !== undefined) listing.pricePerMonth = Math.max(0, Number(pricePerMonth));
+    if (pricePerWeek !== undefined) listing.pricePerWeek = Math.max(0, Number(pricePerWeek));
+    if (deposit !== undefined) listing.deposit = Math.max(0, Number(deposit));
+
+    if (agencyFeeNote !== undefined) listing.agencyFeeNote = sanitizeInputString(agencyFeeNote, 200);
+    if (promoDiscount !== undefined) listing.promoDiscount = sanitizeInputString(promoDiscount, 200);
+    if (salesNote !== undefined) listing.salesNote = sanitizeInputString(salesNote, 500);
+    if (isAvailableForSale !== undefined) listing.isAvailableForSale = Boolean(isAvailableForSale);
+
+    res.json(listing);
   });
 
   // Submit student star-rating review for listing
@@ -832,7 +953,12 @@ You assist students with:
 2. Understanding rent terms, caution deposits, agreement & commission fees in Nigeria.
 3. Inspection tips (checking water supply, security gates, prepay electricity meter, solar/generator backup).
 4. Roommate matching advice and landlord negotiation tips.
-Be concise, practical, warm, and highly helpful. Do NOT mention internal code or secrets.`;
+
+CRITICAL INSTRUCTIONS:
+- Output ONLY the final reply message to the student.
+- DO NOT show any thinking process, reasoning steps, <think> or <thought> tags, or chain-of-thought.
+- DO NOT show or echo the context, prompt header, system instructions, or user input.
+- Just output the clean, direct conversational reply.`;
 
       let contentsPrompt = `Student Question: ${userMessage}\n`;
       if (universityName) contentsPrompt += `Target Campus: ${universityName}\n`;

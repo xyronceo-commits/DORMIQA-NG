@@ -125,10 +125,10 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   if (!conversation) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] bg-white shadow-2xl border-l border-neutral-200 flex flex-col animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] bg-white dark:bg-slate-900 shadow-2xl border-l border-neutral-200 dark:border-slate-800 flex flex-col animate-in slide-in-from-right duration-200">
       
       {/* Drawer Header */}
-      <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+      <div className="p-4 bg-slate-900 dark:bg-slate-950 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-3">
           <img
             src={currentRole === 'student' ? conversation.agentAvatar : conversation.studentAvatar}
@@ -151,29 +151,29 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
 
         <button
           onClick={onClose}
-          className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
       </div>
 
       {/* Property Snippet Bar */}
-      <div className="px-4 py-2.5 bg-neutral-50 border-b border-neutral-200 flex items-center gap-3 text-xs">
-        <img src={conversation.listingPhoto} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+      <div className="px-4 py-2.5 bg-neutral-50 dark:bg-slate-800/80 border-b border-neutral-200 dark:border-slate-700/80 flex items-center gap-3 text-xs shrink-0">
+        <img src={conversation.listingPhoto} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0 border border-neutral-200 dark:border-slate-700" />
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-neutral-900 truncate">{conversation.listingTitle}</p>
-          <p className="text-[11px] text-emerald-700 font-bold">£{conversation.listingPrice}/wk</p>
+          <p className="font-bold text-neutral-900 dark:text-white truncate">{conversation.listingTitle}</p>
+          <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold">₦{(conversation.listingPrice || 300000).toLocaleString()}/yr</p>
         </div>
       </div>
 
       {/* Chat Messages Body */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-neutral-100/50">
+      <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-neutral-100/50 dark:bg-slate-950/80">
         {loading ? (
-          <div className="text-center py-8 text-xs text-neutral-400 font-medium">
+          <div className="text-center py-8 text-xs text-neutral-400 dark:text-slate-500 font-medium">
             Loading chat messages...
           </div>
         ) : messages.length === 0 ? (
-          <div className="text-center py-8 text-xs text-neutral-400 font-medium">
+          <div className="text-center py-8 text-xs text-neutral-400 dark:text-slate-500 font-medium">
             No messages yet. Send a message to start conversing with the agent.
           </div>
         ) : (
@@ -187,17 +187,17 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
                 <div
                   className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-xs font-medium leading-relaxed ${
                     msg.isSystemNotice
-                      ? 'bg-amber-100 text-amber-900 border border-amber-200 text-center mx-auto'
+                      ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 text-center mx-auto'
                       : isMe
-                      ? 'bg-slate-900 text-white rounded-br-xs'
-                      : 'bg-white text-neutral-900 border border-neutral-200 rounded-bl-xs shadow-xs'
+                      ? 'bg-slate-900 dark:bg-emerald-600 text-white rounded-br-xs'
+                      : 'bg-white dark:bg-slate-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-slate-700 rounded-bl-xs shadow-xs'
                   }`}
                 >
                   <p>{msg.text}</p>
                 </div>
-                <span className="text-[9px] text-neutral-400 font-semibold mt-1 px-1 flex items-center gap-1">
+                <span className="text-[9px] text-neutral-400 dark:text-slate-500 font-semibold mt-1 px-1 flex items-center gap-1">
                   {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  {isMe && <CheckCheck className="w-3 h-3 text-emerald-600" />}
+                  {isMe && <CheckCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />}
                 </span>
               </div>
             );
@@ -207,7 +207,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
       </div>
 
       {/* Quick Suggestions Chips */}
-      <div className="px-3 py-2 bg-neutral-50 border-t border-neutral-200 flex items-center gap-1.5 overflow-x-auto no-scrollbar text-[11px]">
+      <div className="px-3 py-2 bg-neutral-50 dark:bg-slate-900 border-t border-neutral-200 dark:border-slate-800 flex items-center gap-1.5 overflow-x-auto no-scrollbar text-[11px] shrink-0">
         {(currentRole === 'student' ? [
           "Is this lodge available?",
           "Can I inspect tomorrow?",
@@ -225,7 +225,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
             onClick={() => {
               setInputText(chip);
             }}
-            className="px-2.5 py-1 rounded-full bg-white border border-neutral-200 hover:border-slate-800 text-neutral-700 font-medium whitespace-nowrap transition-colors shadow-2xs hover:bg-slate-900 hover:text-white"
+            className="px-2.5 py-1 rounded-full bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 hover:border-slate-800 dark:hover:border-emerald-500 text-neutral-700 dark:text-neutral-200 hover:text-white dark:hover:text-white font-medium whitespace-nowrap transition-colors shadow-2xs hover:bg-slate-900 dark:hover:bg-slate-700 cursor-pointer"
           >
             {chip}
           </button>
@@ -233,18 +233,18 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
       </div>
 
       {/* Message Input Box */}
-      <form onSubmit={handleSend} className="p-3 bg-white border-t border-neutral-100 flex items-center gap-2">
+      <form onSubmit={handleSend} className="p-3 bg-white dark:bg-slate-900 border-t border-neutral-100 dark:border-slate-800 flex items-center gap-2 shrink-0">
         <input
           type="text"
           placeholder="Ask a question about availability, bills, or tours..."
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          className="flex-1 px-3.5 py-2.5 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-900 focus:outline-none focus:border-slate-900"
+          className="flex-1 px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-slate-700 text-xs font-medium text-neutral-900 dark:text-white bg-neutral-50 dark:bg-slate-800 placeholder-neutral-400 dark:placeholder-slate-500 focus:outline-none focus:border-slate-900 dark:focus:border-emerald-500"
         />
         <button
           type="submit"
           disabled={!inputText.trim()}
-          className="p-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl transition-all disabled:opacity-40"
+          className="p-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl transition-all disabled:opacity-40 cursor-pointer shrink-0"
         >
           <Send className="w-4 h-4" />
         </button>

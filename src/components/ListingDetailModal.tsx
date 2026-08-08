@@ -30,6 +30,7 @@ import {
 import { Listing, ListingReview } from '../types';
 import { submitListingReview } from '../services/api';
 import { sendNotification } from '../services/notificationService';
+import { updateListingSeo, updateDocumentSeo } from '../utils/seo';
 
 interface ListingDetailModalProps {
   listing: Listing | null;
@@ -83,6 +84,14 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
     setShowReviewForm(false);
     setReviewSuccess(false);
     setShowShareModal(false);
+
+    if (initialListing) {
+      updateListingSeo(initialListing);
+    }
+
+    return () => {
+      updateDocumentSeo({});
+    };
   }, [initialListing]);
 
   if (!currentListing) return null;
@@ -339,17 +348,58 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
             </div>
           </div>
 
-          {/* 3. Title, Hotel Name & Campus Proximity */}
-          <div className="space-y-2">
-            {listing.hotelName && (
-              <div className="flex items-center gap-2">
+          {/* 3. Title, Hotel Name, Unit Status & Sales Information */}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {listing.hotelName && (
                 <span className="text-xs font-extrabold text-purple-900 bg-purple-100 px-3 py-1 rounded-full border border-purple-200 uppercase tracking-wider">
                   Hotel / Building: {listing.hotelName}
                 </span>
-                {listing.vacanciesCount && (
-                  <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                    🔥 {listing.vacanciesCount} Rooms Available
-                  </span>
+              )}
+
+              {/* Unit Posted Status Badge */}
+              {listing.unitStatus === 'occupied' ? (
+                <span className="text-xs font-extrabold text-rose-900 bg-rose-100 px-3 py-1 rounded-full border border-rose-200">
+                  🔴 FULLY OCCUPIED / RENTED
+                </span>
+              ) : listing.unitStatus === 'under_renovation' ? (
+                <span className="text-xs font-extrabold text-orange-900 bg-orange-100 px-3 py-1 rounded-full border border-orange-200">
+                  🟠 UNDER RENOVATION / WORK IN PROGRESS
+                </span>
+              ) : listing.unitStatus === 'remaining' || listing.vacanciesCount ? (
+                <span className="text-xs font-extrabold text-amber-900 bg-amber-100 px-3 py-1 rounded-full border border-amber-200">
+                  🟡 FEW UNITS REMAINING ({listing.vacanciesCount || 1} Rooms Left)
+                </span>
+              ) : (
+                <span className="text-xs font-extrabold text-emerald-900 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-200">
+                  🟢 VACANT & AVAILABLE FOR MOVE-IN
+                </span>
+              )}
+
+              {listing.promoDiscount && (
+                <span className="text-xs font-extrabold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-300">
+                  🎉 {listing.promoDiscount}
+                </span>
+              )}
+            </div>
+
+            {/* Sales & Fee Info Note Banner */}
+            {(listing.unitStatusNote || listing.agencyFeeNote || listing.salesNote) && (
+              <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-2xl space-y-1.5 text-xs">
+                {listing.unitStatusNote && (
+                  <p className="text-neutral-800 font-semibold flex items-center gap-1.5">
+                    <span className="font-bold text-slate-900">Unit Status Detail:</span> {listing.unitStatusNote}
+                  </p>
+                )}
+                {listing.agencyFeeNote && (
+                  <p className="text-neutral-700 flex items-center gap-1.5">
+                    <span className="font-bold text-slate-900">Agency & Agreement Terms:</span> {listing.agencyFeeNote}
+                  </p>
+                )}
+                {listing.salesNote && (
+                  <p className="text-neutral-700 flex items-center gap-1.5">
+                    <span className="font-bold text-slate-900">Payment & Sales Notes:</span> {listing.salesNote}
+                  </p>
                 )}
               </div>
             )}

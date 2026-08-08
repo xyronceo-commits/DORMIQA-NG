@@ -734,19 +734,24 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                         </div>
                       </div>
 
-                      {/* Serviced University */}
+                      {/* Serviced University - Single Select Dropdown */}
                       <div>
-                        <label className="text-xs font-bold text-neutral-800 block mb-1">Primary University / Polytechnic Serviced</label>
+                        <label className="text-xs font-bold text-neutral-800 block mb-1">Primary University / Polytechnic Serviced (Select One)</label>
                         <div className="relative">
-                          <GraduationCap className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                          <input
-                            type="text"
+                          <GraduationCap className="w-4 h-4 text-neutral-400 absolute left-3 top-3 z-10" />
+                          <select
                             required
                             value={agentUni}
                             onChange={(e) => setAgentUni(e.target.value)}
-                            placeholder="e.g. UNILAG & YABATECH Akoka Axis"
                             className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                          />
+                          >
+                            <option value="">-- Select One Primary University --</option>
+                            {universities.map(u => (
+                              <option key={u.id} value={u.name}>
+                                {u.name} ({u.state})
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </div>
 

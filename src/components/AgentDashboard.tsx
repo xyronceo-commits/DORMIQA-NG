@@ -17,10 +17,11 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Listing, Inspection, Conversation, User } from '../types';
-import { updateInspectionStatus, fetchInspections, fetchConversations } from '../services/api';
+import { updateInspectionStatus, fetchInspections, fetchConversations, updateListingStatusAndSales } from '../services/api';
 import { sendNotification } from '../services/notificationService';
 import { generateGoogleCalendarUrl, downloadIcsFile } from '../utils/calendar';
 import { AccountManager } from './AccountManager';
+import { EditUnitStatusAndSalesModal } from './EditUnitStatusAndSalesModal';
 
 interface AgentDashboardProps {
   listings: Listing[];
@@ -34,6 +35,7 @@ interface AgentDashboardProps {
   activeAccountId: string;
   onSignOut: () => void;
   onDeleteAccount: (accountId: string) => void;
+  onListingUpdate?: (updatedListing: Listing) => void;
 }
 
 export const AgentDashboard: React.FC<AgentDashboardProps> = ({
@@ -47,15 +49,18 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
   accounts,
   activeAccountId,
   onSignOut,
-  onDeleteAccount
+  onDeleteAccount,
+  onListingUpdate
 }) => {
   const [internalTab, setInternalTab] = useState<'schedule' | 'availability' | 'requests' | 'profile'>(activeTab);
   const [localInspections, setLocalInspections] = useState(inspections);
   const [localConversations, setLocalConversations] = useState(conversations);
-  const [propertyAvailability, setPropertyAvailability] = useState<Record<string, 'available' | 'occupied' | 'maintenance'>>(() => {
-    const map: Record<string, 'available' | 'occupied' | 'maintenance'> = {};
+  const [selectedListingForEdit, setSelectedListingForEdit] = useState<Listing | null>(null);
+
+  const [propertyAvailability, setPropertyAvailability] = useState<Record<string, 'vacant' | 'occupied' | 'under_renovation' | 'remaining'>>(() => {
+    const map: Record<string, 'vacant' | 'occupied' | 'under_renovation' | 'remaining'> = {};
     listings.forEach(l => {
-      map[l.id] = (l.status as any) || 'available';
+      map[l.id] = l.unitStatus || 'vacant';
     });
     return map;
   });
@@ -118,11 +123,20 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
     }
   };
 
-  const handleToggleAvailability = (listingId: string, newStatus: 'available' | 'occupied' | 'maintenance') => {
+  const handleToggleAvailability = async (listingId: string, newStatus: 'vacant' | 'occupied' | 'under_renovation' | 'remaining') => {
     setPropertyAvailability(prev => ({
       ...prev,
       [listingId]: newStatus
     }));
+
+    try {
+      const updated = await updateListingStatusAndSales(listingId, { unitStatus: newStatus });
+      if (onListingUpdate) {
+        onListingUpdate(updated);
+      }
+    } catch (err) {
+      console.error('Failed to quick-update unit status:', err);
+    }
   };
 
   const activeUser = accounts.find(a => a.id === activeAccountId) || accounts[0];
@@ -350,10 +364,10 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
           <div>
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              Check & Update Property Availability
+              Manage Unit Posted Status & Sales Info
             </h2>
             <p className="text-xs text-neutral-500 mt-1">
-              Easily toggle property status so students see real-time availability on their walking map search.
+              Access and update unit room availability (vacant, occupied, remaining, renovation) and manage rental sales details in real-time.
             </p>
           </div>
 
@@ -361,100 +375,159 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
             {listings.length === 0 ? (
               <div className="p-8 text-center bg-neutral-50 rounded-2xl border border-neutral-200 text-neutral-500 text-xs col-span-full space-y-3">
                 <p className="font-bold text-slate-900">You have not uploaded any properties yet.</p>
-                <p className="text-neutral-500">Properties you list will appear here so you can toggle their live student availability.</p>
-                <button onClick={onOpenAddModal} className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition-colors">
+                <p className="text-neutral-500">Properties you list will appear here so you can update their status and sales information.</p>
+                <button onClick={onOpenAddModal} className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition-colors cursor-pointer">
                   List Your First Property
                 </button>
               </div>
             ) : (
               listings.map((item) => {
-              const status = propertyAvailability[item.id] || 'available';
+              const status = item.unitStatus || propertyAvailability[item.id] || 'vacant';
               const isUnapproved = item.status === 'banned' || item.isAiBanned;
               return (
-                <div key={item.id} className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 space-y-3">
-                  <div className="relative aspect-video rounded-xl overflow-hidden bg-neutral-200">
-                    <img src={item.photos[0]} alt="" className="w-full h-full object-cover" />
-                    <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded text-white shadow-xs ${
-                        status === 'available' ? 'bg-emerald-600' : status === 'occupied' ? 'bg-rose-600' : 'bg-amber-600'
-                      }`}>
-                        {status.toUpperCase()}
-                      </span>
-                      {isUnapproved ? (
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-rose-900/90 text-rose-100 backdrop-blur-xs flex items-center gap-1 shadow-xs">
-                          ⚠️ Unapproved by AI
+                <div key={item.id} className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 space-y-3 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <div className="relative aspect-video rounded-xl overflow-hidden bg-neutral-200">
+                      <img src={item.photos[0]} alt="" className="w-full h-full object-cover" />
+                      <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded text-white shadow-xs ${
+                          status === 'vacant' ? 'bg-emerald-600' :
+                          status === 'remaining' ? 'bg-amber-600' :
+                          status === 'under_renovation' ? 'bg-orange-600' : 'bg-rose-600'
+                        }`}>
+                          {status === 'vacant' ? '🟢 VACANT & AVAILABLE' :
+                           status === 'remaining' ? `🟡 ${item.vacanciesCount || 1} REMAINING` :
+                           status === 'under_renovation' ? '🟠 UNDER RENOVATION' : '🔴 OCCUPIED'}
                         </span>
-                      ) : item.status === 'approved' ? (
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-900/90 text-emerald-100 backdrop-blur-xs flex items-center gap-1 shadow-xs">
-                          ✅ AI Verified & Live
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-amber-900/90 text-amber-100 backdrop-blur-xs flex items-center gap-1 shadow-xs">
-                          ⏳ AI Reviewing
-                        </span>
-                      )}
+                        {isUnapproved ? (
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-rose-900/90 text-rose-100 backdrop-blur-xs flex items-center gap-1 shadow-xs">
+                            ⚠️ Unapproved by AI
+                          </span>
+                        ) : item.status === 'approved' ? (
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-900/90 text-emerald-100 backdrop-blur-xs flex items-center gap-1 shadow-xs">
+                            ✅ AI Verified & Live
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-amber-900/90 text-amber-100 backdrop-blur-xs flex items-center gap-1 shadow-xs">
+                            ⏳ AI Reviewing
+                          </span>
+                        )}
+                      </div>
                     </div>
+
+                    <div>
+                      <h3 className="font-bold text-neutral-900 text-xs line-clamp-1">{item.title}</h3>
+                      <p className="text-[11px] text-neutral-500 line-clamp-1">{item.address}</p>
+                      
+                      {/* Sales Pricing Summary */}
+                      <div className="mt-2 p-2.5 bg-white border border-neutral-200 rounded-xl space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-extrabold text-slate-900">
+                            ₦{(item.pricePerYear || 350000).toLocaleString()}<span className="text-[10px] font-normal text-neutral-500">/yr</span>
+                          </span>
+                          <span className="text-[10px] font-semibold text-neutral-500">
+                            Caution: ₦{(item.deposit || 30000).toLocaleString()}
+                          </span>
+                        </div>
+                        {item.promoDiscount && (
+                          <p className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded line-clamp-1">
+                            🎉 {item.promoDiscount}
+                          </p>
+                        )}
+                        {item.agencyFeeNote && (
+                          <p className="text-[10px] font-medium text-neutral-600 line-clamp-1">
+                            📋 {item.agencyFeeNote}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {isUnapproved && (
+                      <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-800 space-y-0.5">
+                        <p className="font-bold flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          Unapproved Reason:
+                        </p>
+                        <p className="text-[10px] text-rose-700 leading-snug">
+                          {item.aiBanReason || 'Multiple listings detected for this address by another agent.'}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  <div>
-                    <h3 className="font-bold text-neutral-900 text-xs line-clamp-1">{item.title}</h3>
-                    <p className="text-[11px] text-neutral-500">{item.address}</p>
-                    <p className="text-xs font-extrabold text-slate-900 mt-1">
-                      ₦{(item.pricePerYear || (item.pricePerWeek ? item.pricePerWeek * 52 : 300000)).toLocaleString()}/yr
-                    </p>
-                  </div>
-
-                  {isUnapproved && (
-                    <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-800 space-y-0.5">
-                      <p className="font-bold flex items-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                        Unapproved Reason:
-                      </p>
-                      <p className="text-[10px] text-rose-700 leading-snug">
-                        {item.aiBanReason || 'Multiple listings detected for this address by another agent.'}
-                      </p>
+                  <div className="pt-2 border-t border-neutral-200 space-y-2">
+                    <div>
+                      <span className="text-[10px] font-bold text-neutral-400 uppercase block mb-1">Quick Status Update:</span>
+                      <div className="grid grid-cols-4 gap-1 text-[9px] font-bold">
+                        <button
+                          onClick={() => handleToggleAvailability(item.id, 'vacant')}
+                          className={`py-1.5 rounded-lg border transition-all cursor-pointer ${
+                            status === 'vacant'
+                              ? 'bg-emerald-600 text-white border-emerald-600'
+                              : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
+                          }`}
+                        >
+                          Vacant
+                        </button>
+                        <button
+                          onClick={() => handleToggleAvailability(item.id, 'remaining')}
+                          className={`py-1.5 rounded-lg border transition-all cursor-pointer ${
+                            status === 'remaining'
+                              ? 'bg-amber-600 text-white border-amber-600'
+                              : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
+                          }`}
+                        >
+                          Remaining
+                        </button>
+                        <button
+                          onClick={() => handleToggleAvailability(item.id, 'under_renovation')}
+                          className={`py-1.5 rounded-lg border transition-all cursor-pointer ${
+                            status === 'under_renovation'
+                              ? 'bg-orange-600 text-white border-orange-600'
+                              : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
+                          }`}
+                        >
+                          Renovation
+                        </button>
+                        <button
+                          onClick={() => handleToggleAvailability(item.id, 'occupied')}
+                          className={`py-1.5 rounded-lg border transition-all cursor-pointer ${
+                            status === 'occupied'
+                              ? 'bg-rose-600 text-white border-rose-600'
+                              : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
+                          }`}
+                        >
+                          Occupied
+                        </button>
+                      </div>
                     </div>
-                  )}
 
-                  <div className="pt-2 border-t border-neutral-200 space-y-1.5">
-                    <span className="text-[10px] font-bold text-neutral-400 uppercase block">Set Live Status:</span>
-                    <div className="grid grid-cols-3 gap-1">
-                      <button
-                        onClick={() => handleToggleAvailability(item.id, 'available')}
-                        className={`py-1.5 text-[10px] font-bold rounded-lg border transition-all ${
-                          status === 'available'
-                            ? 'bg-emerald-600 text-white border-emerald-600'
-                            : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
-                        }`}
-                      >
-                        Available
-                      </button>
-                      <button
-                        onClick={() => handleToggleAvailability(item.id, 'occupied')}
-                        className={`py-1.5 text-[10px] font-bold rounded-lg border transition-all ${
-                          status === 'occupied'
-                            ? 'bg-rose-600 text-white border-rose-600'
-                            : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
-                        }`}
-                      >
-                        Occupied
-                      </button>
-                      <button
-                        onClick={() => handleToggleAvailability(item.id, 'maintenance')}
-                        className={`py-1.5 text-[10px] font-bold rounded-lg border transition-all ${
-                          status === 'maintenance'
-                            ? 'bg-amber-600 text-white border-amber-600'
-                            : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
-                        }`}
-                      >
-                        Renovation
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setSelectedListingForEdit(item)}
+                      className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Edit Unit Status & Sales Info</span>
+                    </button>
                   </div>
                 </div>
               );
             }))}
           </div>
+
+          {/* Edit Modal Render */}
+          {selectedListingForEdit && (
+            <EditUnitStatusAndSalesModal
+              listing={selectedListingForEdit}
+              isOpen={!!selectedListingForEdit}
+              onClose={() => setSelectedListingForEdit(null)}
+              onListingUpdated={(updated) => {
+                if (onListingUpdate) {
+                  onListingUpdate(updated);
+                }
+              }}
+            />
+          )}
         </div>
       )}
 

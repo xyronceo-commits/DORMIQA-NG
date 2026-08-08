@@ -47,6 +47,8 @@ export type PropertyType =
   | 'ensuite' 
   | 'duplex_flat';
 
+export type UnitStatus = 'vacant' | 'occupied' | 'remaining' | 'under_renovation';
+
 export interface ListingReview {
   id: string;
   authorName: string;
@@ -81,6 +83,12 @@ export interface Listing {
   photos: string[];
   hotelName?: string;
   vacanciesCount?: number;
+  unitStatus?: UnitStatus;
+  unitStatusNote?: string;
+  agencyFeeNote?: string;
+  promoDiscount?: string;
+  salesNote?: string;
+  isAvailableForSale?: boolean;
   videoUrl?: string;
   facilities: string[];
   genderPreference: 'any' | 'female_only' | 'male_only';
