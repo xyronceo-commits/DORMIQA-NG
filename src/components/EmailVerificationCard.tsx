@@ -1,15 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   Mail, 
   RefreshCw, 
   CheckCircle2, 
   AlertCircle, 
-  Clock, 
   Loader2, 
-  ArrowLeft 
+  ArrowLeft,
+  Sparkles
 } from 'lucide-react';
-import { sendVerificationCode, verifyCode, checkVerificationCodeStatus } from '../services/api';
+import { sendEmailVerification, applyActionCode } from 'firebase/auth';
+import { auth, getActionCodeSettings } from '../services/firebase';
 
 interface EmailVerificationCardProps {
   email: string;
@@ -26,237 +27,215 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
   title = "Verify your email",
   subtitle
 }) => {
-  const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
-  const [secondsRemaining, setSecondsRemaining] = useState<number>(600); // 10 minutes default
-  const [isTimerRunning, setIsTimerRunning] = useState<boolean>(true);
-  const [isSendingCode, setIsSendingCode] = useState<boolean>(false);
-  const [isVerifying, setIsVerifying] = useState<boolean>(false);
-  const [statusState, setStatusState] = useState<'idle' | 'success' | 'expired' | 'error'>('idle');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isChecking, setIsChecking] = useState<boolean>(false);
+  const [isResending, setIsResending] = useState<boolean>(false);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
+  const [noticeMessage, setNoticeMessage] = useState<{ text: string; type: 'info' | 'error' | 'success' | 'warning' } | null>(null);
+  const [isVerified, setIsVerified] = useState<boolean>(false);
 
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const displayEmail = email || auth.currentUser?.email || 'your registered email';
 
-  // Send initial code on mount & Auto-Focus first OTP input box
+  // Check URL parameters for incoming Firebase action code (?mode=verifyEmail&oobCode=...)
   useEffect(() => {
     let isMounted = true;
-    const initializeVerification = async () => {
-      setIsSendingCode(true);
-      setErrorMessage(null);
-      try {
-        // Check if there is already an active code timer on server
-        const status = await checkVerificationCodeStatus(email);
-        if (isMounted && status.active && status.remainingSeconds && status.remainingSeconds > 0) {
-          setSecondsRemaining(status.remainingSeconds);
-          setIsTimerRunning(true);
-          setIsSendingCode(false);
-          setTimeout(() => inputRefs.current[0]?.focus(), 100);
-          return;
-        }
 
-        // Dispatch initial code
-        const res = await sendVerificationCode(email);
-        if (isMounted) {
-          setSecondsRemaining(res.expiresInSeconds || 600);
-          setIsTimerRunning(true);
-          setResendCooldown(60); // 60 seconds cooldown for resends
-          setTimeout(() => inputRefs.current[0]?.focus(), 100);
+    const handleIncomingActionCode = async () => {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const mode = urlParams.get('mode');
+        const oobCode = urlParams.get('oobCode');
+
+        if (mode === 'verifyEmail' && oobCode) {
+          setIsChecking(true);
+          try {
+            await applyActionCode(auth, oobCode);
+            if (auth.currentUser) {
+              await auth.currentUser.reload();
+            }
+            if (isMounted) {
+              setIsVerified(true);
+              setNoticeMessage({
+                text: "Your email address has been successfully verified!",
+                type: 'success'
+              });
+              setTimeout(() => {
+                if (isMounted) onVerified();
+              }, 1200);
+            }
+          } catch (codeErr: any) {
+            console.error("Firebase applyActionCode error:", codeErr);
+            if (isMounted) {
+              setNoticeMessage({
+                text: "This verification link is invalid or has expired. Please click 'Resend verification email' to receive a fresh link.",
+                type: 'error'
+              });
+            }
+          } finally {
+            if (isMounted) setIsChecking(false);
+          }
         }
-      } catch (err: any) {
-        if (isMounted) {
-          console.warn("Failed to dispatch initial verification code:", err);
-          setErrorMessage(err.message || "Could not send verification code. Click 'Resend code' to try again.");
-        }
-      } finally {
-        if (isMounted) {
-          setIsSendingCode(false);
-          setTimeout(() => inputRefs.current[0]?.focus(), 100);
-        }
+      } catch (e) {
+        console.warn("URL action code check failed:", e);
       }
     };
 
-    initializeVerification();
+    handleIncomingActionCode();
 
     return () => {
       isMounted = false;
     };
-  }, [email]);
+  }, [onVerified]);
 
-  // Live countdown timer (10:00 -> 00:00)
+  // Automatic verification polling while screen is open
   useEffect(() => {
-    let interval: any = null;
-    if (isTimerRunning && secondsRemaining > 0) {
-      interval = setInterval(() => {
-        setSecondsRemaining((prev) => {
-          if (prev <= 1) {
-            setIsTimerRunning(false);
-            setStatusState('expired');
-            setErrorMessage('This code has expired. Request a new code.');
-            return 0;
+    let isMounted = true;
+
+    const checkInitialState = async () => {
+      if (auth.currentUser) {
+        try {
+          await auth.currentUser.reload();
+          if (isMounted && auth.currentUser.emailVerified) {
+            setIsVerified(true);
+            setNoticeMessage({
+              text: "Email verified! Redirecting to your dashboard...",
+              type: 'success'
+            });
+            setTimeout(() => {
+              if (isMounted) onVerified();
+            }, 1000);
           }
-          return prev - 1;
-        });
-      }, 1000);
-    } else if (secondsRemaining === 0) {
-      setIsTimerRunning(false);
-      setStatusState('expired');
-    }
+        } catch (err) {
+          console.warn("Initial user reload notice:", err);
+        }
+      }
+    };
+
+    checkInitialState();
+
+    const intervalId = setInterval(async () => {
+      if (!isMounted || isVerified) return;
+      if (auth.currentUser) {
+        try {
+          await auth.currentUser.reload();
+          if (isMounted && auth.currentUser.emailVerified) {
+            clearInterval(intervalId);
+            setIsVerified(true);
+            setNoticeMessage({
+              text: "Your email address has been verified!",
+              type: 'success'
+            });
+            setTimeout(() => {
+              if (isMounted) onVerified();
+            }, 1000);
+          }
+        } catch (err) {
+          console.warn("Polling user reload notice:", err);
+        }
+      }
+    }, 3000);
 
     return () => {
-      if (interval) clearInterval(interval);
+      isMounted = false;
+      clearInterval(intervalId);
     };
-  }, [isTimerRunning, secondsRemaining]);
+  }, [onVerified, isVerified]);
 
   // Resend cooldown timer
   useEffect(() => {
-    let interval: any = null;
-    if (resendCooldown > 0) {
-      interval = setInterval(() => {
-        setResendCooldown((prev) => Math.max(0, prev - 1));
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // Format MM:SS
-  const formatTime = (totalSecs: number) => {
-    const mins = Math.floor(totalSecs / 60);
-    const secs = totalSecs % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+  // Manual Check Button Handler: "I've verified my email"
+  const handleIHaveVerified = async () => {
+    if (isChecking || isVerified) return;
 
-  // Handle Digit Change
-  const handleDigitChange = (index: number, value: string) => {
-    if (statusState === 'expired') return;
-
-    // Filter to last entered digit
-    const cleanValue = value.replace(/[^0-9]/g, '').slice(-1);
-    const newDigits = [...digits];
-    newDigits[index] = cleanValue;
-    setDigits(newDigits);
-    setErrorMessage(null);
-    if (statusState === 'error') setStatusState('idle');
-
-    // Auto-advance focus to next input
-    if (cleanValue && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
-  };
-
-  // Handle Backspace Key
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace') {
-      if (!digits[index] && index > 0) {
-        inputRefs.current[index - 1]?.focus();
-      }
-    }
-  };
-
-  // Handle Paste 6 digits
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    if (statusState === 'expired') return;
-
-    const pastedData = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 6);
-    if (!pastedData) return;
-
-    const newDigits = [...digits];
-    for (let i = 0; i < 6; i++) {
-      newDigits[i] = pastedData[i] || '';
-    }
-    setDigits(newDigits);
-    setErrorMessage(null);
-    if (statusState === 'error') setStatusState('idle');
-
-    // Focus last filled box or next empty box
-    const nextEmptyIndex = newDigits.findIndex(d => !d);
-    if (nextEmptyIndex !== -1) {
-      inputRefs.current[nextEmptyIndex]?.focus();
-    } else {
-      inputRefs.current[5]?.focus();
-    }
-  };
-
-  // Resend Code Action
-  const handleResend = async () => {
-    if (resendCooldown > 0 || isSendingCode) return;
-
-    setIsSendingCode(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    setStatusState('idle');
-    setDigits(['', '', '', '', '', '']);
+    setIsChecking(true);
+    setNoticeMessage(null);
 
     try {
-      const res = await sendVerificationCode(email);
-      setSecondsRemaining(res.expiresInSeconds || 600);
-      setIsTimerRunning(true);
-      setResendCooldown(60); // 60s cooldown
-      setSuccessMessage('✓ A new 6-digit code has been dispatched to your email.');
-      setTimeout(() => setSuccessMessage(null), 4000);
-      inputRefs.current[0]?.focus();
-    } catch (err: any) {
-      const errResp = err.response;
-      if (errResp?.error === 'too_frequent') {
-        setErrorMessage(errResp.message || 'Please wait before requesting another code.');
+      if (auth.currentUser) {
+        // ALWAYS refresh current Firebase user authentication state before checking verification status
+        await auth.currentUser.reload();
+
+        if (auth.currentUser.emailVerified) {
+          setIsVerified(true);
+          setNoticeMessage({
+            text: "✓ Email verified! Loading your Dormiqa account...",
+            type: 'success'
+          });
+          setTimeout(() => {
+            onVerified();
+          }, 1000);
+        } else {
+          setNoticeMessage({
+            text: "Your email hasn't been verified yet. Please click the verification link sent to your email.",
+            type: 'warning'
+          });
+        }
       } else {
-        setErrorMessage(err.message || 'Failed to resend code. Please try again.');
+        setNoticeMessage({
+          text: "No active user session found. Please sign in to verify your account.",
+          type: 'error'
+        });
       }
+    } catch (err: any) {
+      console.error("Error reloading auth user:", err);
+      setNoticeMessage({
+        text: err?.message || "Failed to check verification status. Please try again.",
+        type: 'error'
+      });
     } finally {
-      setIsSendingCode(false);
+      setIsChecking(false);
     }
   };
 
-  // Verify Code Submission
-  const handleVerify = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const fullCode = digits.join('');
-    if (fullCode.length < 6 || secondsRemaining === 0 || isVerifying) return;
+  // Resend Verification Link Handler
+  const handleResendLink = async () => {
+    if (resendCooldown > 0 || isResending) return;
 
-    setIsVerifying(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
+    setIsResending(true);
+    setNoticeMessage(null);
 
     try {
-      await verifyCode(email, fullCode);
-      setStatusState('success');
-      setSuccessMessage('✓ Email address verified successfully!');
-      
-      // Brief pause for success state, then complete
-      setTimeout(() => {
-        onVerified();
-      }, 1000);
-    } catch (err: any) {
-      const resp = err.response;
-      setStatusState('error');
-      if (resp?.error === 'expired') {
-        setStatusState('expired');
-        setSecondsRemaining(0);
-        setIsTimerRunning(false);
-        setErrorMessage('This code has expired. Request a new code.');
-      } else if (resp?.error === 'too_many_attempts') {
-        setStatusState('expired');
-        setSecondsRemaining(0);
-        setIsTimerRunning(false);
-        setErrorMessage('Too many incorrect attempts. This code was invalidated. Request a new code.');
+      if (auth.currentUser) {
+        await sendEmailVerification(auth.currentUser, getActionCodeSettings());
+        setResendCooldown(60); // 60s cooldown
+        setNoticeMessage({
+          text: `A fresh verification link has been sent to ${displayEmail}. Please check your inbox and spam folder.`,
+          type: 'info'
+        });
       } else {
-        setErrorMessage(err.message || 'Incorrect 6-digit code. Please check and try again.');
+        setNoticeMessage({
+          text: "No active session. Please sign in to request a verification email.",
+          type: 'error'
+        });
+      }
+    } catch (err: any) {
+      console.error("Resend verification email error:", err);
+      if (err?.code === 'auth/too-many-requests') {
+        setNoticeMessage({
+          text: "Too many verification requests. Please wait a moment before trying again.",
+          type: 'error'
+        });
+      } else {
+        setNoticeMessage({
+          text: err?.message || "Could not resend verification email. Please try again.",
+          type: 'error'
+        });
       }
     } finally {
-      setIsVerifying(false);
+      setIsResending(false);
     }
   };
-
-  const isCodeComplete = digits.every(d => d.length === 1);
-  const isExpired = secondsRemaining === 0;
 
   return (
     <div className="w-full max-w-md mx-auto bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 sm:p-8 shadow-xl transition-all">
       
-      {/* Top Header & Back Button */}
+      {/* Top Navigation Back Button */}
       {onBack && (
         <button
           onClick={onBack}
@@ -268,7 +247,7 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
         </button>
       )}
 
-      {/* Main Icon & Title */}
+      {/* Main Header Icon & Title */}
       <div className="text-center space-y-3">
         <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50 flex items-center justify-center mx-auto shadow-xs">
           <Mail className="w-7 h-7" />
@@ -278,133 +257,111 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
           <h2 className="text-xl sm:text-2xl font-black text-neutral-900 dark:text-white tracking-tight">
             {title}
           </h2>
-          <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+          <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed px-2">
             {subtitle || (
               <>
-                We've sent a 6-digit verification code to <strong className="text-neutral-900 dark:text-white font-bold">{email}</strong>.
+                We've sent a verification link to <strong className="text-neutral-900 dark:text-white font-extrabold">{displayEmail}</strong>. Please check your inbox and click the link to verify your account.
               </>
             )}
           </p>
         </div>
       </div>
 
-      {/* Verification Form */}
-      <form onSubmit={handleVerify} className="mt-6 space-y-6">
-        
-        {/* 6 Digit Code Inputs */}
-        <div className="flex items-center justify-center gap-2 sm:gap-2.5">
-          {digits.map((digit, idx) => (
-            <input
-              key={idx}
-              ref={(el) => (inputRefs.current[idx] = el)}
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={1}
-              value={digit}
-              disabled={isExpired || isSendingCode || isVerifying || statusState === 'success'}
-              onChange={(e) => handleDigitChange(idx, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(idx, e)}
-              onPaste={handlePaste}
-              className={`w-11 h-13 sm:w-12 sm:h-14 text-center text-xl font-extrabold rounded-2xl border-2 transition-all outline-hidden
-                ${isExpired 
-                  ? 'bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-400 dark:text-neutral-500 cursor-not-allowed' 
-                  : statusState === 'error'
-                    ? 'border-red-500 dark:border-red-500/80 bg-red-50/30 dark:bg-red-950/20 text-red-900 dark:text-red-300 focus:ring-2 focus:ring-red-500/20'
-                    : statusState === 'success'
-                      ? 'border-emerald-500 dark:border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300'
-                      : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:border-emerald-600 dark:focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'
-                }
-              `}
-            />
-          ))}
-        </div>
+      {/* Dynamic Notifications & Buttons */}
+      <div className="mt-6 space-y-4">
 
-        {/* Live Countdown Timer Banner */}
-        <div className="flex items-center justify-between text-xs px-2 py-1">
-          <div className="flex items-center gap-1.5 font-bold">
-            <Clock className={`w-4 h-4 ${isExpired ? 'text-amber-500' : 'text-emerald-600 dark:text-emerald-400'}`} />
-            <span className={isExpired ? 'text-amber-600 dark:text-amber-400' : 'text-neutral-700 dark:text-neutral-300'}>
-              {isExpired ? 'Code expired' : `Code expires in ${formatTime(secondsRemaining)}`}
-            </span>
+        {noticeMessage && (
+          <div className={`p-4 rounded-2xl border text-xs flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1 ${
+            noticeMessage.type === 'success'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-300 font-bold'
+              : noticeMessage.type === 'warning'
+              ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-300 font-semibold'
+              : noticeMessage.type === 'info'
+              ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60 text-blue-900 dark:text-blue-300 font-semibold'
+              : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60 text-rose-900 dark:text-rose-300 font-semibold'
+          }`}>
+            {noticeMessage.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            ) : noticeMessage.type === 'warning' ? (
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            ) : noticeMessage.type === 'info' ? (
+              <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            )}
+            <span className="leading-relaxed">{noticeMessage.text}</span>
           </div>
+        )}
 
+        {/* Action Buttons */}
+        <div className="space-y-3 pt-2">
+          
+          {/* Primary Button: [ I've verified my email ] */}
           <button
             type="button"
-            onClick={handleResend}
-            disabled={resendCooldown > 0 || isSendingCode}
-            className={`font-semibold transition-colors text-xs cursor-pointer flex items-center gap-1
-              ${resendCooldown > 0 || isSendingCode 
-                ? 'text-neutral-400 dark:text-neutral-600 cursor-not-allowed' 
-                : 'text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 hover:underline'
-              }
-            `}
+            onClick={handleIHaveVerified}
+            disabled={isChecking || isVerified}
+            className={`w-full py-3.5 px-4 rounded-2xl font-extrabold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-sm ${
+              isVerified
+                ? 'bg-emerald-600 text-white cursor-default'
+                : 'bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white shadow-emerald-600/20 cursor-pointer'
+            }`}
           >
-            {isSendingCode && <Loader2 className="w-3 h-3 animate-spin" />}
-            {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Didn't receive it? Resend code"}
+            {isChecking ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Checking verification status...
+              </>
+            ) : isVerified ? (
+              <>
+                <CheckCircle2 className="w-4 h-4" />
+                Email Verified!
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="w-4 h-4" />
+                I've verified my email
+              </>
+            )}
           </button>
+
+          {/* Secondary Button: [ Resend verification email ] */}
+          <button
+            type="button"
+            onClick={handleResendLink}
+            disabled={resendCooldown > 0 || isResending || isVerified}
+            className={`w-full py-3 px-4 rounded-2xl font-bold text-xs transition-all flex items-center justify-center gap-2 border ${
+              resendCooldown > 0 || isResending || isVerified
+                ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-400 border-neutral-200 dark:border-neutral-700 cursor-not-allowed'
+                : 'bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 border-neutral-300 dark:border-neutral-700 cursor-pointer'
+            }`}
+          >
+            {isResending ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-500" />
+                Sending email...
+              </>
+            ) : resendCooldown > 0 ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 text-neutral-400" />
+                Resend verification email in {resendCooldown}s
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-3.5 h-3.5" />
+                Resend verification email
+              </>
+            )}
+          </button>
+
         </div>
 
-        {/* Dynamic Status / Feedback Messages */}
-        {errorMessage && (
-          <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 rounded-2xl flex items-start gap-2 text-xs text-red-800 dark:text-red-300 animate-in fade-in">
-            <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="font-bold">{errorMessage}</p>
-              {isExpired && (
-                <button
-                  type="button"
-                  onClick={handleResend}
-                  className="text-[11px] font-extrabold text-red-700 dark:text-red-400 underline hover:text-red-900 cursor-pointer"
-                >
-                  Request a new verification code →
-                </button>
-              )}
-            </div>
-          </div>
-        )}
+      </div>
 
-        {successMessage && (
-          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl flex items-center gap-2 text-xs font-bold text-emerald-800 dark:text-emerald-300 animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <span>{successMessage}</span>
-          </div>
-        )}
-
-        {/* Action Button: [ Verify ] */}
-        <button
-          type="submit"
-          disabled={!isCodeComplete || isExpired || isVerifying || statusState === 'success'}
-          className={`w-full py-3.5 px-4 rounded-2xl font-extrabold text-sm transition-all flex items-center justify-center gap-2 shadow-sm
-            ${!isCodeComplete || isExpired || isVerifying || statusState === 'success'
-              ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed'
-              : 'bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white shadow-emerald-600/20 cursor-pointer'
-            }
-          `}
-        >
-          {isVerifying ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Verifying Code...
-            </>
-          ) : statusState === 'success' ? (
-            <>
-              <CheckCircle2 className="w-4 h-4" />
-              Verified!
-            </>
-          ) : (
-            <>
-              <ShieldCheck className="w-4 h-4" />
-              Verify
-            </>
-          )}
-        </button>
-
-      </form>
-
-      {/* Security Disclaimer Footnote */}
-      <div className="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800/60 text-center text-[11px] text-neutral-500 dark:text-neutral-400">
-        Codes are valid for 10 minutes and never stored plaintext on client devices.
+      {/* Footnote instruction */}
+      <div className="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800/60 text-center text-[11px] text-neutral-500 dark:text-neutral-400 space-y-1">
+        <p>Didn't receive the email? Check your spam folder or click resend.</p>
+        <p className="text-[10px] text-neutral-400 dark:text-neutral-500">Firebase Authentication Direct Link Verification</p>
       </div>
 
     </div>

@@ -14,7 +14,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { User, UserRole } from '../types';
-import { resendVerificationEmail, checkEmailVerified } from '../services/firebase';
+import { resendVerificationEmail, checkEmailVerified, saveUserToFirestore } from '../services/firebase';
 import { EmailVerificationCard } from './EmailVerificationCard';
 
 interface AccountManagerProps {
@@ -141,7 +141,7 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
               <p className="text-[11px] text-slate-500 mt-0.5">
                 {activeAccount?.isEmailVerified 
                   ? 'Your email address is fully verified and secure.' 
-                  : 'Enter the 6-digit verification code sent to your registered email.'}
+                  : 'Click the verification link sent to your email address.'}
               </p>
             </div>
           </div>
@@ -152,12 +152,12 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer"
             >
               <ShieldCheck className="w-4 h-4" />
-              Verify Email Code
+              Verify Email Link
             </button>
           )}
         </div>
 
-        {/* 6-Digit Code Verification Modal */}
+        {/* Email Link Verification Modal */}
         {isVerifyingModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
             <EmailVerificationCard
@@ -166,6 +166,7 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
               onVerified={() => {
                 if (activeAccount) {
                   activeAccount.isEmailVerified = true;
+                  saveUserToFirestore(activeAccount);
                 }
                 setIsVerifyingModalOpen(false);
               }}

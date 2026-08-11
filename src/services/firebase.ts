@@ -121,9 +121,24 @@ export const signInWithGoogle = async () => {
   }
 };
 
+export const getActionCodeSettings = () => {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://dormiqa.ng';
+  return {
+    url: origin,
+    handleCodeInApp: true
+  };
+};
+
 export const registerWithEmail = async (email: string, pass: string) => {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, pass);
+    if (result.user) {
+      try {
+        await sendEmailVerification(result.user, getActionCodeSettings());
+      } catch (verr) {
+        console.warn("Failed to send initial Firebase verification email:", verr);
+      }
+    }
     return result.user;
   } catch (error) {
     console.error("Firebase Email Sign-Up Error:", error);
@@ -133,16 +148,13 @@ export const registerWithEmail = async (email: string, pass: string) => {
 
 export const resendVerificationEmail = async (userEmail?: string): Promise<boolean> => {
   try {
-    const emailToUse = userEmail || auth.currentUser?.email;
-    if (emailToUse) {
-      // Trigger Dormiqa's 6-digit verification code dispatch
-      const { sendVerificationCode } = await import('./api');
-      await sendVerificationCode(emailToUse);
+    if (auth.currentUser) {
+      await sendEmailVerification(auth.currentUser, getActionCodeSettings());
       return true;
     }
     return false;
   } catch (err) {
-    console.error("Failed to resend 6-digit verification code:", err);
+    console.error("Failed to resend Firebase verification email:", err);
     throw err;
   }
 };
@@ -184,6 +196,38 @@ export const uploadFileToFirebaseStorage = async (file: File, path: string): Pro
   } catch (err) {
     console.error("Firebase Storage upload error:", err);
     throw err;
+  }
+};
+
+export const saveUserToFirestore = async (userObj: {
+  id?: string;
+  name: string;
+  email: string;
+  role?: string;
+  phone?: string;
+  universityName?: string;
+  agencyName?: string;
+  isEmailVerified?: boolean;
+  avatarUrl?: string;
+}) => {
+  try {
+    if (!userObj.email) return;
+    const cleanEmail = userObj.email.trim().toLowerCase();
+    const userRef = doc(db, 'users', cleanEmail);
+    await setDoc(userRef, {
+      id: userObj.id || auth.currentUser?.uid || `usr_${Date.now()}`,
+      name: userObj.name || cleanEmail.split('@')[0],
+      email: cleanEmail,
+      role: userObj.role || 'student',
+      phone: userObj.phone || '',
+      universityName: userObj.universityName || '',
+      agencyName: userObj.agencyName || '',
+      isEmailVerified: !!userObj.isEmailVerified,
+      avatarUrl: userObj.avatarUrl || '',
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch (err) {
+    console.warn("Failed to sync user to Firestore users collection:", err);
   }
 };
 

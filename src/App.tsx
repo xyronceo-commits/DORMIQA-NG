@@ -43,6 +43,8 @@ import { AISearchModal } from './components/AISearchModal';
 import { AIChatbotWidget } from './components/AIChatbotWidget';
 import { InfoPagesModal } from './components/InfoPagesModal';
 import { checkAdminSession, clearAdminToken } from './services/api';
+import { auth, saveUserToFirestore, logoutFirebase } from './services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function App() {
   const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash'>('landing');
@@ -75,9 +77,15 @@ export default function App() {
       setActiveView('onboarding');
       setToastNotice('Please sign up or sign in to access verified accommodation.');
       setTimeout(() => setToastNotice(null), 4000);
-    } else {
-      setActiveView(view);
+      return;
     }
+    if (isLoggedIn && auth.currentUser && !auth.currentUser.emailVerified && !auth.currentUser.providerData.some(p => p.providerId === 'google.com') && view !== 'landing' && view !== 'onboarding') {
+      setActiveView('onboarding');
+      setToastNotice('Email verification required. Please check your inbox and verify your email.');
+      setTimeout(() => setToastNotice(null), 4000);
+      return;
+    }
+    setActiveView(view);
   };
   const [pendingAgentRegistration, setPendingAgentRegistration] = useState<User | null>(null);
   const [currentRole, setCurrentRole] = useState<UserRole>('student');
@@ -142,6 +150,45 @@ export default function App() {
     setSelectedInfoDocId(docId);
     setIsInfoModalOpen(true);
   };
+
+  // Firebase Auth Verification State Sync
+  useEffect(() => {
+    const syncUser = async (user: any) => {
+      if (!user) return;
+      try {
+        await user.reload();
+      } catch (e) {
+        // ignore reload errors
+      }
+      if (user.emailVerified) {
+        setAccounts(prev => prev.map(acc => {
+          if (acc.email.toLowerCase() === user.email?.toLowerCase()) {
+            return { ...acc, isEmailVerified: true };
+          }
+          return acc;
+        }));
+      }
+    };
+
+    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+      if (fbUser) {
+        syncUser(fbUser);
+      }
+    });
+
+    // Also re-check when the user refocuses the tab
+    const handleFocus = () => {
+      if (auth.currentUser) {
+        syncUser(auth.currentUser);
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
 
   // Auto-open property listing modal if shared link contains ?listing=
   useEffect(() => {
@@ -230,17 +277,31 @@ export default function App() {
     }
   }, [activeAccountId, accounts]);
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    try {
+      await logoutFirebase();
+    } catch (err) {
+      console.warn("Firebase signout error:", err);
+    }
     const currentAcc = accounts.find(a => a.id === activeAccountId);
     setIsLoggedIn(false);
     localStorage.removeItem('dormiqa_is_logged_in');
     localStorage.removeItem('campora_is_logged_in');
+    localStorage.removeItem('dormiqa_user_accounts');
+    localStorage.removeItem('dormiqa_active_account_id');
+    setAccounts([]);
+    setActiveAccountId('');
     setToastNotice(`Successfully signed out of ${currentAcc?.name || 'account'}`);
     setTimeout(() => setToastNotice(null), 4000);
     setActiveView('landing');
   };
 
-  const handleDeleteAccount = (accountId: string) => {
+  const handleDeleteAccount = async (accountId: string) => {
+    try {
+      await logoutFirebase();
+    } catch (err) {
+      console.warn("Firebase signout on delete error:", err);
+    }
     const accToDelete = accounts.find(a => a.id === accountId);
     const remaining = accounts.filter(a => a.id !== accountId);
 
@@ -249,9 +310,11 @@ export default function App() {
     localStorage.removeItem('campora_is_logged_in');
 
     if (remaining.length === 0) {
-      setAccounts(defaultInitialAccounts);
-      setActiveAccountId(defaultInitialAccounts[0].id);
-      setCurrentRole(defaultInitialAccounts[0].role);
+      localStorage.removeItem('dormiqa_user_accounts');
+      localStorage.removeItem('dormiqa_active_account_id');
+      setAccounts([]);
+      setActiveAccountId('');
+      setCurrentRole('student');
       setActiveView('landing');
       setToastNotice(`Account deleted. Returned to home screen.`);
       setTimeout(() => setToastNotice(null), 4000);
@@ -456,7 +519,7 @@ export default function App() {
               localStorage.setItem('dormiqa_is_logged_in', 'true');
               setCurrentRole(userData.role);
 
-              // Create new user account object
+              const isVerified = userData.isEmailVerified === true;
               const newAccount: User = {
                 id: `usr_${Date.now()}`,
                 name: userData.name || 'User',
@@ -467,8 +530,11 @@ export default function App() {
                 universityName: userData.universityName,
                 agencyName: userData.agencyName,
                 isVerifiedAgent: false,
+                isEmailVerified: isVerified,
                 createdAt: new Date().toISOString().split('T')[0]
               };
+
+              saveUserToFirestore(newAccount);
 
               setAccounts(prev => [...prev, newAccount]);
               setActiveAccountId(newAccount.id);
