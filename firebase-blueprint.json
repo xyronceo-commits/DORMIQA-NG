@@ -113,6 +113,19 @@
         { "name": "tag", "type": "string", "description": "Verified Visitor, Inspection Tour, Resident Student" },
         { "name": "createdAt", "type": "string", "description": "Timestamp" }
       ]
+    },
+    {
+      "name": "emailVerifications",
+      "fields": [
+        { "name": "email", "type": "string", "description": "Recipient email address" },
+        { "name": "userId", "type": "string", "description": "Associated user ID or null" },
+        { "name": "otpHash", "type": "string", "description": "SHA-256 hashed 6-digit OTP code" },
+        { "name": "createdAt", "type": "number", "description": "Creation timestamp in milliseconds" },
+        { "name": "expiresAt", "type": "number", "description": "Expiration timestamp in milliseconds" },
+        { "name": "attempts", "type": "number", "description": "Verification attempts count" },
+        { "name": "used", "type": "boolean", "description": "Whether the OTP has been used or invalidated" },
+        { "name": "verified", "type": "boolean", "description": "Whether email was successfully verified" }
+      ]
     }
   ],
   "rules": [
@@ -150,6 +163,11 @@
       "collection": "reviews",
       "read": "true",
       "write": "true"
+    },
+    {
+      "collection": "emailVerifications",
+      "read": "true",
+      "write": "false"
     }
   ],
   "indexes": []

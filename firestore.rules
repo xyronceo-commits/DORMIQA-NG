@@ -123,5 +123,12 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update, delete: if isAdmin();
     }
+
+    // EMAIL VERIFICATIONS COLLECTION
+    match /emailVerifications/{verificationId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.email == request.auth.token.email || isAdmin());
+      // Direct writes from client SDK are forbidden — OTP generation and verification MUST be handled via secure server-side API
+      allow create, update, delete: if false;
+    }
   }
 }

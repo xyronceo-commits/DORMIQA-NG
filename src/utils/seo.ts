@@ -14,12 +14,12 @@ interface PageSeoParams {
  */
 export function updateDocumentSeo(params: PageSeoParams) {
   const siteName = 'Dormiqa';
-  const defaultDescription = 'Dormiqa helps students discover, compare, and book verified hostels and apartments near their campus with ease.';
+  const defaultDescription = 'Dormiqa helps students discover trusted accommodation around their university and connect with verified agents.';
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://dormiqa.ng';
 
   const title = params.title 
     ? `${params.title} | ${siteName}`
-    : `${siteName} - Verified Student Housing & Hostels Near Campus Gate`;
+    : `${siteName} — Find Trusted Accommodation`;
 
   const description = params.description || defaultDescription;
   const canonicalUrl = params.canonicalUrl || (typeof window !== 'undefined' ? window.location.href : baseUrl);

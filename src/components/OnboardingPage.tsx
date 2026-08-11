@@ -147,23 +147,22 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     };
 
     try {
-      if (authMode === 'signup' && studentPassword) {
-        await registerWithEmail(studentEmail, studentPassword);
+      if (studentPassword) {
+        if (authMode === 'signup') {
+          await registerWithEmail(studentEmail, studentPassword);
+        } else {
+          await loginWithEmail(studentEmail, studentPassword);
+        }
         setPendingUserOnboardingData(studentData);
         setShowEmailVerificationScreen(true);
         return;
-      } else if (authMode === 'signin' && studentPassword) {
-        await loginWithEmail(studentEmail, studentPassword);
       }
       onCompleteOnboarding(studentData);
     } catch (err: any) {
       console.error("Firebase Student Auth Error:", err);
-      if (authMode === 'signup') {
-        setPendingUserOnboardingData(studentData);
-        setShowEmailVerificationScreen(true);
-      } else {
-        onCompleteOnboarding(studentData);
-      }
+      // Fallback: Proceed to verification screen with provided student data
+      setPendingUserOnboardingData(studentData);
+      setShowEmailVerificationScreen(true);
     } finally {
       setIsLoading(false);
     }
@@ -184,24 +183,22 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     };
 
     try {
-      if (authMode === 'signup' && agentPassword) {
-        await registerWithEmail(agentEmail, agentPassword);
+      if (agentPassword) {
+        if (authMode === 'signup') {
+          await registerWithEmail(agentEmail, agentPassword);
+        } else {
+          await loginWithEmail(agentEmail, agentPassword);
+        }
         setPendingUserOnboardingData(agentData);
         setShowEmailVerificationScreen(true);
         return;
-      } else if (authMode === 'signin' && agentPassword) {
-        await loginWithEmail(agentEmail, agentPassword);
       }
-      
       onCompleteOnboarding(agentData);
     } catch (err: any) {
       console.error("Firebase Agent Auth Error:", err);
-      if (authMode === 'signup') {
-        setPendingUserOnboardingData(agentData);
-        setShowEmailVerificationScreen(true);
-      } else {
-        onCompleteOnboarding(agentData);
-      }
+      // Fallback: Proceed to verification screen with provided agent data
+      setPendingUserOnboardingData(agentData);
+      setShowEmailVerificationScreen(true);
     } finally {
       setIsLoading(false);
     }

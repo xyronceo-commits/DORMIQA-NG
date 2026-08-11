@@ -1,7 +1,26 @@
 import express from 'express';
 import path from 'path';
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs, 
+  collection, 
+  query, 
+  where, 
+  updateDoc 
+} from 'firebase/firestore';
 import { createServer as createViteServer } from 'vite';
+import firebaseConfig from './firebase-applet-config.json';
+
+const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const db = firebaseConfig.firestoreDatabaseId
+  ? getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId)
+  : getFirestore(firebaseApp);
 import { 
   UNIVERSITIES, 
   MOCK_LISTINGS, 
@@ -382,12 +401,8 @@ const verificationResendLimiter = createRateLimiter(6, 15 * 60 * 1000, resendRat
 
 // Admin Active Sessions & Security
 const validAdminPasswords = new Set<string>([
-  'Dormiqa26/27',
-  'Dormiqa2026/27'
+  (process.env.ADMIN_PASSWORD && process.env.ADMIN_PASSWORD.trim()) || 'Dormiqa26/27'
 ]);
-if (process.env.ADMIN_PASSWORD && process.env.ADMIN_PASSWORD.trim()) {
-  validAdminPasswords.add(process.env.ADMIN_PASSWORD.trim());
-}
 
 const activeAdminSessions = new Set<string>();
 
@@ -908,69 +923,273 @@ Return ONLY valid JSON matching this schema:
 
   // --- SECURE VERIFICATION CODE SYSTEM ENDPOINTS ---
 
+  interface EmailDispatchResult {
+    success: boolean;
+    provider?: string;
+    error?: string;
+    missingConfig?: string;
+    requiredVariables?: string[];
+    details?: string;
+  }
+
+  async function dispatchVerificationEmail(recipientEmail: string, code: string): Promise<EmailDispatchResult> {
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpPort = process.env.SMTP_PORT;
+    const smtpUser = process.env.SMTP_USER || process.env.SMTP_USERNAME || process.env.GMAIL_USER;
+    const smtpPass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD || process.env.GMAIL_APP_PASS;
+    const sendgridApiKey = process.env.SENDGRID_API_KEY;
+    const emailFrom = process.env.EMAIL_FROM || 'Dormiqa <no-reply@dormiqa.ng>';
+
+    const plainTextBody = `DORMIQA
+
+Verify your email
+
+Your verification code is:
+
+${code}
+
+This code expires in 10 minutes.
+
+If you did not request this code, you can ignore this email.`;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Verify your email - Dormiqa</title>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 32px 16px;">
+          <div style="max-width: 480px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <h1 style="color: #047857; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin: 0;">DORMIQA</h1>
+              <p style="color: #64748b; font-size: 13px; font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px;">Student Accommodation Platform</p>
+            </div>
+            
+            <h2 style="color: #0f172a; font-size: 18px; font-weight: 700; margin-top: 0; margin-bottom: 12px; text-align: center;">Verify your email</h2>
+            <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 24px; text-align: center;">
+              Your verification code is:
+            </p>
+            
+            <div style="background-color: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px;">
+              <span style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 36px; font-weight: 900; letter-spacing: 10px; color: #15803d; display: inline-block; padding-left: 10px;">${code}</span>
+            </div>
+            
+            <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-bottom: 12px; text-align: center;">
+              This code expires in 10 minutes.
+            </p>
+            <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-bottom: 24px; text-align: center;">
+              If you did not request this code, you can ignore this email.
+            </p>
+            
+            <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 24px 0;" />
+            
+            <p style="color: #94a3b8; font-size: 11px; text-align: center; margin: 0;">
+              &copy; ${new Date().getFullYear()} Dormiqa.
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    // 1. Standard SMTP Transport via Nodemailer
+    if (smtpHost || (smtpUser && smtpPass)) {
+      try {
+        const isGmail = smtpUser?.includes('@gmail.com');
+        const transporter = nodemailer.createTransport({
+          host: smtpHost || (isGmail ? 'smtp.gmail.com' : 'smtp.mailgun.org'),
+          port: Number(smtpPort) || 587,
+          secure: smtpPort === '465',
+          auth: {
+            user: smtpUser,
+            pass: smtpPass
+          }
+        });
+
+        const info = await transporter.sendMail({
+          from: emailFrom,
+          to: recipientEmail,
+          subject: `${code} is your Dormiqa verification code`,
+          text: plainTextBody,
+          html: htmlContent
+        });
+
+        console.log(`[EMAIL DISPATCH SUCCESS] Verification code sent to ${recipientEmail} via SMTP. (ID: ${info.messageId})`);
+        return { success: true, provider: 'SMTP' };
+      } catch (err: any) {
+        console.error(`[EMAIL DISPATCH SMTP ERROR] Delivery failed for ${recipientEmail}:`, err);
+        return {
+          success: false,
+          provider: 'SMTP',
+          error: err.message || 'SMTP transport failed'
+        };
+      }
+    }
+
+    // 2. SendGrid API
+    if (sendgridApiKey && sendgridApiKey.trim().length > 0) {
+      try {
+        const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${sendgridApiKey.trim()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            personalizations: [{ to: [{ email: recipientEmail }] }],
+            from: { email: emailFrom.replace(/.*<([^>]+)>.*/, '$1') || 'no-reply@dormiqa.ng', name: 'Dormiqa' },
+            subject: `${code} is your Dormiqa verification code`,
+            content: [
+              { type: 'text/plain', value: plainTextBody },
+              { type: 'text/html', value: htmlContent }
+            ]
+          })
+        });
+
+        if (response.ok || response.status === 202) {
+          console.log(`[EMAIL DISPATCH SUCCESS] Verification code sent to ${recipientEmail} via SendGrid.`);
+          return { success: true, provider: 'SendGrid' };
+        } else {
+          const resData: any = await response.json().catch(() => ({}));
+          const errorMsg = resData.errors?.[0]?.message || response.statusText;
+          console.error(`[EMAIL DISPATCH SENDGRID ERROR] SendGrid failed for ${recipientEmail}:`, resData);
+          return {
+            success: false,
+            provider: 'SendGrid',
+            error: typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)
+          };
+        }
+      } catch (err: any) {
+        console.error(`[EMAIL DISPATCH SENDGRID NETWORK ERROR] SendGrid error for ${recipientEmail}:`, err);
+        return {
+          success: false,
+          provider: 'SendGrid',
+          error: err.message || 'Network error connecting to SendGrid'
+        };
+      }
+    }
+
+    // Console logging for debugging/inspection
+    console.log(`\n==================================================\nDORMIQA VERIFICATION CODE DISPATCH (DEV LOG)\nRecipient: ${recipientEmail}\nVerification Code: ${code}\nExpires: 10 Minutes\n==================================================\n`);
+
+    console.warn(`[EMAIL DISPATCH CONFIG NOTICE] No active SMTP or SendGrid provider configured in environment variables.`);
+
+    return {
+      success: false,
+      missingConfig: 'SMTP_CONFIG',
+      requiredVariables: ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'],
+      error: 'Email provider configuration missing. Required environment variables: SMTP_HOST, SMTP_USER, and SMTP_PASS (or SENDGRID_API_KEY).'
+    };
+  }
+
   // Send / Resend 6-Digit Verification Code
-  app.post('/api/auth/send-verification-code', verificationResendLimiter, (req, res) => {
-    const { email } = req.body;
-    if (!email || typeof email !== 'string' || !email.includes('@')) {
-      return res.status(400).json({
+  app.post('/api/auth/send-verification-code', verificationResendLimiter, async (req, res) => {
+    try {
+      const { email } = req.body || {};
+      if (!email || typeof email !== 'string' || !email.includes('@') || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        return res.status(400).json({
+          success: false,
+          error: 'invalid_email',
+          message: 'Please provide a valid email address.'
+        });
+      }
+
+      const cleanEmail = email.trim().toLowerCase();
+      const now = Date.now();
+      const existing = verificationCodesStore.get(cleanEmail);
+
+      // Resend Cooldown Check: 60 seconds
+      if (existing && (now - existing.lastResentAt) < 60000) {
+        const waitSeconds = Math.ceil((60000 - (now - existing.lastResentAt)) / 1000);
+        return res.status(429).json({
+          success: false,
+          error: 'too_frequent',
+          message: `Please wait ${waitSeconds} second${waitSeconds === 1 ? '' : 's'} before requesting a new code.`,
+          retryAfterSeconds: waitSeconds
+        });
+      }
+
+      // Generate secure random 6-digit verification code
+      const codeNum = crypto.randomInt(100000, 1000000);
+      const code = codeNum.toString();
+      const salt = crypto.randomBytes(16).toString('hex');
+      const hashedCode = hashOtpCode(code, salt);
+
+      const expiresInSeconds = 600; // 10 minutes
+      const expiresAt = now + expiresInSeconds * 1000;
+      const resendAttempts = (existing ? existing.resendAttempts : 0) + 1;
+
+      // Save code record to Firestore emailVerifications collection
+      try {
+        const verificationRef = doc(db, 'emailVerifications', cleanEmail);
+        await setDoc(verificationRef, {
+          email: cleanEmail,
+          userId: null,
+          otpHash: hashedCode,
+          salt: salt,
+          createdAt: now,
+          expiresAt: expiresAt,
+          attempts: 0,
+          used: false,
+          verified: false
+        });
+      } catch (fsErr) {
+        console.warn('[FIRESTORE VERIFICATION SAVE NOTICE] Could not write to Firestore emailVerifications:', fsErr);
+      }
+
+      // Dispatch Verification Email
+      const dispatchResult = await dispatchVerificationEmail(cleanEmail, code);
+
+      if (!dispatchResult.success) {
+        console.error(`[VERIFICATION DISPATCH FAILURE] ${cleanEmail}:`, dispatchResult);
+
+        if (dispatchResult.missingConfig) {
+          return res.status(503).json({
+            success: false,
+            error: 'missing_email_config',
+            message: dispatchResult.error || 'Email service is not configured. Missing environment variables: SMTP_HOST, SMTP_USER, SMTP_PASS.',
+            requiredVariables: dispatchResult.requiredVariables
+          });
+        }
+
+        return res.status(502).json({
+          success: false,
+          error: 'email_provider_failure',
+          message: `Email dispatch failed via provider: ${dispatchResult.error || 'Unable to deliver verification email.'}`
+        });
+      }
+
+      // Save code record after successful email dispatch
+      verificationCodesStore.set(cleanEmail, {
+        hashedCode,
+        salt,
+        email: cleanEmail,
+        createdAt: now,
+        expiresAt,
+        attempts: 0,
+        resendAttempts,
+        lastResentAt: now
+      });
+
+      return res.json({
+        success: true,
+        message: `A 6-digit verification code has been sent to ${cleanEmail}.`,
+        expiresAt,
+        expiresInSeconds
+      });
+    } catch (err: any) {
+      console.error('[CRITICAL VERIFICATION DISPATCH ERROR]', err);
+      return res.status(500).json({
         success: false,
-        error: 'invalid_email',
-        message: 'Please provide a valid email address.'
+        error: 'server_error',
+        message: err.message || 'Server error occurred while dispatching verification code.'
       });
     }
-
-    const cleanEmail = email.trim().toLowerCase();
-    const now = Date.now();
-    const existing = verificationCodesStore.get(cleanEmail);
-
-    // Resend Cooldown Check: 60 seconds
-    if (existing && (now - existing.lastResentAt) < 60000) {
-      const waitSeconds = Math.ceil((60000 - (now - existing.lastResentAt)) / 1000);
-      return res.status(429).json({
-        success: false,
-        error: 'too_frequent',
-        message: `Please wait ${waitSeconds} second${waitSeconds === 1 ? '' : 's'} before requesting a new code.`,
-        retryAfterSeconds: waitSeconds
-      });
-    }
-
-    // Generate secure random 6-digit verification code
-    const codeNum = crypto.randomInt(100000, 1000000);
-    const code = codeNum.toString();
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hashedCode = hashOtpCode(code, salt);
-
-    const expiresInSeconds = 600; // 10 minutes
-    const expiresAt = now + expiresInSeconds * 1000;
-
-    const resendAttempts = (existing ? existing.resendAttempts : 0) + 1;
-
-    // Overwrite previous code record - invalidating any prior code
-    verificationCodesStore.set(cleanEmail, {
-      hashedCode,
-      salt,
-      email: cleanEmail,
-      createdAt: now,
-      expiresAt,
-      attempts: 0,
-      resendAttempts,
-      lastResentAt: now
-    });
-
-    // Dispatch / Log Verification Email Body
-    console.log(`\n==================================================\nDORMIQA\n\nVerify your email\n\nYour verification code is:\n\n${code}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this code, you can ignore this email.\n==================================================\n`);
-
-    res.json({
-      success: true,
-      message: `A 6-digit verification code has been sent to ${cleanEmail}.`,
-      expiresAt,
-      expiresInSeconds
-    });
   });
 
   // Verify 6-Digit Code
-  app.post('/api/auth/verify-code', (req, res) => {
-    const { email, code } = req.body;
+  app.post('/api/auth/verify-code', async (req, res) => {
+    const { email, code } = req.body || {};
     if (!email || !code) {
       return res.status(400).json({
         success: false,
@@ -981,7 +1200,38 @@ Return ONLY valid JSON matching this schema:
 
     const cleanEmail = String(email).trim().toLowerCase();
     const cleanCode = String(code).trim();
-    const record = verificationCodesStore.get(cleanEmail);
+
+    // Check Firestore record first, falling back to memory store
+    let record = verificationCodesStore.get(cleanEmail);
+    let fsData: any = null;
+
+    try {
+      const docSnap = await getDoc(doc(db, 'emailVerifications', cleanEmail));
+      if (docSnap.exists()) {
+        fsData = docSnap.data();
+        if (fsData.used) {
+          return res.status(400).json({
+            success: false,
+            error: 'code_used',
+            message: 'This code has already been used or invalidated. Request a new code.'
+          });
+        }
+        if (!record) {
+          record = {
+            hashedCode: fsData.otpHash,
+            salt: fsData.salt,
+            email: fsData.email,
+            createdAt: fsData.createdAt,
+            expiresAt: fsData.expiresAt,
+            attempts: fsData.attempts || 0,
+            resendAttempts: 1,
+            lastResentAt: fsData.createdAt
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('[FIRESTORE VERIFICATION READ NOTICE]', err);
+    }
 
     if (!record) {
       return res.status(400).json({
@@ -991,9 +1241,15 @@ Return ONLY valid JSON matching this schema:
       });
     }
 
+    const now = Date.now();
+
     // Check expiry (10 minutes limit)
-    if (Date.now() > record.expiresAt) {
+    if (now > record.expiresAt) {
       verificationCodesStore.delete(cleanEmail);
+      try {
+        await updateDoc(doc(db, 'emailVerifications', cleanEmail), { used: true });
+      } catch (_) {}
+
       return res.status(400).json({
         success: false,
         error: 'expired',
@@ -1005,6 +1261,10 @@ Return ONLY valid JSON matching this schema:
     record.attempts += 1;
     if (record.attempts > 5) {
       verificationCodesStore.delete(cleanEmail);
+      try {
+        await updateDoc(doc(db, 'emailVerifications', cleanEmail), { used: true });
+      } catch (_) {}
+
       return res.status(429).json({
         success: false,
         error: 'too_many_attempts',
@@ -1016,6 +1276,10 @@ Return ONLY valid JSON matching this schema:
     const providedHash = hashOtpCode(cleanCode, record.salt);
     if (providedHash !== record.hashedCode) {
       const remainingAttempts = Math.max(0, 5 - record.attempts);
+      try {
+        await updateDoc(doc(db, 'emailVerifications', cleanEmail), { attempts: record.attempts });
+      } catch (_) {}
+
       return res.status(400).json({
         success: false,
         error: 'invalid_code',
@@ -1024,12 +1288,35 @@ Return ONLY valid JSON matching this schema:
       });
     }
 
-    // Code matched! Mark email as verified and delete code record so it cannot be reused
+    // Code matched! Mark record as used & verified in Firestore and delete from active memory store
     verificationCodesStore.delete(cleanEmail);
+    try {
+      await updateDoc(doc(db, 'emailVerifications', cleanEmail), {
+        used: true,
+        verified: true,
+        verifiedAt: now
+      });
+    } catch (fsErr) {
+      console.warn('[FIRESTORE VERIFICATION UPDATE NOTICE]', fsErr);
+    }
 
+    // Mark user email as verified in memory store and Firestore
     const user = usersStore.find(u => u.email.toLowerCase() === cleanEmail);
     if (user) {
       user.isEmailVerified = true;
+    }
+
+    try {
+      const usersQuery = query(collection(db, 'users'), where('email', '==', cleanEmail));
+      const querySnap = await getDocs(usersQuery);
+      querySnap.forEach(async (userDoc) => {
+        await updateDoc(doc(db, 'users', userDoc.id), {
+          isEmailVerified: true,
+          emailVerifiedAt: now
+        });
+      });
+    } catch (fsErr) {
+      console.warn('[FIRESTORE USER VERIFICATION UPDATE NOTICE]', fsErr);
     }
 
     res.json({
@@ -1040,14 +1327,35 @@ Return ONLY valid JSON matching this schema:
   });
 
   // Check Active Code Status (timer sync)
-  app.get('/api/auth/code-status', (req, res) => {
+  app.get('/api/auth/code-status', async (req, res) => {
     const email = req.query.email as string;
     if (!email) {
       return res.json({ active: false });
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const record = verificationCodesStore.get(cleanEmail);
+    let record = verificationCodesStore.get(cleanEmail);
+
+    if (!record) {
+      try {
+        const docSnap = await getDoc(doc(db, 'emailVerifications', cleanEmail));
+        if (docSnap.exists()) {
+          const fsData = docSnap.data();
+          if (!fsData.used && Date.now() < fsData.expiresAt) {
+            record = {
+              hashedCode: fsData.otpHash,
+              salt: fsData.salt,
+              email: fsData.email,
+              createdAt: fsData.createdAt,
+              expiresAt: fsData.expiresAt,
+              attempts: fsData.attempts || 0,
+              resendAttempts: 1,
+              lastResentAt: fsData.createdAt
+            };
+          }
+        }
+      } catch (_) {}
+    }
 
     if (!record || Date.now() > record.expiresAt) {
       if (record) verificationCodesStore.delete(cleanEmail);
