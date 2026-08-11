@@ -140,13 +140,15 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
         photoURL
       });
     } catch (err: any) {
-      console.error("Google Auth Failure:", err);
-      let errorMsg = err?.message || "Google Authentication failed. Please try again or use Email.";
+      if (err?.code !== 'auth/popup-closed-by-user' && err?.code !== 'auth/cancelled-popup-request') {
+        console.error("Google Auth Failure:", err);
+      }
+      let errorMsg: string | null = err?.message || "Google Authentication failed. Please try again or use Email.";
       if (err?.code === 'auth/unauthorized-domain') {
         const currentHostname = typeof window !== 'undefined' ? window.location.hostname : 'dormiqa-ng.vercel.app';
         errorMsg = `Firebase Auth Error (auth/unauthorized-domain): The domain '${currentHostname}' is not authorized for Firebase Authentication. Please add '${currentHostname}' to Authorized Domains under Firebase Console -> Authentication -> Settings.`;
-      } else if (err?.code === 'auth/popup-closed-by-user') {
-        errorMsg = "Google Sign-In popup was closed before completing authentication. Please try again.";
+      } else if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
+        errorMsg = null;
       }
       setAuthError(errorMsg);
     } finally {

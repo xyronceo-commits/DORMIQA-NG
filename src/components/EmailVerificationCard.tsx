@@ -358,10 +358,39 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
 
       </div>
 
-      {/* Footnote instruction */}
-      <div className="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800/60 text-center text-[11px] text-neutral-500 dark:text-neutral-400 space-y-1">
-        <p>Didn't receive the email? Check your spam folder or click resend.</p>
-        <p className="text-[10px] text-neutral-400 dark:text-neutral-500">Firebase Authentication Direct Link Verification</p>
+      {/* Spam Folder & Deliverability Guidance Box */}
+      <div className="mt-6 pt-5 border-t border-neutral-200 dark:border-neutral-800 space-y-3">
+        <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-4 text-xs space-y-2">
+          <div className="flex items-center gap-2 text-amber-900 dark:text-amber-300 font-bold">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Didn't receive the email in your primary inbox?</span>
+          </div>
+          <p className="text-amber-800/90 dark:text-amber-400/90 text-[11px] leading-relaxed">
+            Automated verification emails are sometimes routed to alternate folders by email providers.
+          </p>
+          <ul className="space-y-1.5 pt-1 text-[11px] text-amber-900 dark:text-amber-300 font-medium">
+            <li className="flex items-start gap-1.5">
+              <span className="text-amber-600 font-bold">•</span>
+              <span><strong>Check Spam / Junk Folder:</strong> Search for sender <em>Firebase / Dormiqa</em> or subject <em>Verify your email</em>.</span>
+            </li>
+            <li className="flex items-start gap-1.5">
+              <span className="text-amber-600 font-bold">•</span>
+              <span><strong>Check Gmail Promotions Tab:</strong> Look under "Promotions", "Social", or "Updates" categories.</span>
+            </li>
+            <li className="flex items-start gap-1.5">
+              <span className="text-amber-600 font-bold">•</span>
+              <span><strong>Mark as "Not Spam":</strong> If found in Spam, click "Report not spam" so links work properly.</span>
+            </li>
+            <li className="flex items-start gap-1.5">
+              <span className="text-amber-600 font-bold">•</span>
+              <span><strong>Search All Mail:</strong> Enter <code>noreply</code> or <code>verify</code> in your email search bar.</span>
+            </li>
+          </ul>
+        </div>
+
+        <p className="text-center text-[10px] text-neutral-400 dark:text-neutral-500 font-medium">
+          Firebase Authentication • Direct Link & Spam Protection Verified
+        </p>
       </div>
 
     </div>
