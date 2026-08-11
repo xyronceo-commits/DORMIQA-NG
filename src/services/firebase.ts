@@ -122,7 +122,7 @@ export const signInWithGoogle = async () => {
 };
 
 export const getActionCodeSettings = () => {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://dormiqa.ng';
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://dormiqa-ng.vercel.app';
   return {
     url: origin,
     handleCodeInApp: true

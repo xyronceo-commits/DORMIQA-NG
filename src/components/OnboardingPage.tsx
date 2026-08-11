@@ -141,7 +141,14 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
       });
     } catch (err: any) {
       console.error("Google Auth Failure:", err);
-      setAuthError(err?.message || "Google Authentication failed. Please try again or use Email.");
+      let errorMsg = err?.message || "Google Authentication failed. Please try again or use Email.";
+      if (err?.code === 'auth/unauthorized-domain') {
+        const currentHostname = typeof window !== 'undefined' ? window.location.hostname : 'dormiqa-ng.vercel.app';
+        errorMsg = `Firebase Auth Error (auth/unauthorized-domain): The domain '${currentHostname}' is not authorized for Firebase Authentication. Please add '${currentHostname}' to Authorized Domains under Firebase Console -> Authentication -> Settings.`;
+      } else if (err?.code === 'auth/popup-closed-by-user') {
+        errorMsg = "Google Sign-In popup was closed before completing authentication. Please try again.";
+      }
+      setAuthError(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -256,7 +263,10 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     } catch (err: any) {
       console.error("Firebase Student Auth Error:", err);
       let errorMsg = err?.message || "Authentication failed. Please check your credentials and try again.";
-      if (err?.code === 'auth/email-already-in-use') {
+      if (err?.code === 'auth/unauthorized-domain') {
+        const currentHostname = typeof window !== 'undefined' ? window.location.hostname : 'dormiqa-ng.vercel.app';
+        errorMsg = `Firebase Auth Error (auth/unauthorized-domain): The domain '${currentHostname}' is not authorized for Firebase Authentication. Please add '${currentHostname}' to Authorized Domains under Firebase Console -> Authentication -> Settings.`;
+      } else if (err?.code === 'auth/email-already-in-use') {
         errorMsg = "An account with this email address already exists. Please click 'Sign In' or use a different email.";
       } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
         errorMsg = "Incorrect email address or password. Please try again.";
@@ -347,7 +357,10 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     } catch (err: any) {
       console.error("Firebase Agent Auth Error:", err);
       let errorMsg = err?.message || "Authentication failed. Please check your credentials and try again.";
-      if (err?.code === 'auth/email-already-in-use') {
+      if (err?.code === 'auth/unauthorized-domain') {
+        const currentHostname = typeof window !== 'undefined' ? window.location.hostname : 'dormiqa-ng.vercel.app';
+        errorMsg = `Firebase Auth Error (auth/unauthorized-domain): The domain '${currentHostname}' is not authorized for Firebase Authentication. Please add '${currentHostname}' to Authorized Domains under Firebase Console -> Authentication -> Settings.`;
+      } else if (err?.code === 'auth/email-already-in-use') {
         errorMsg = "An account with this email address already exists. Please click 'Sign In' or use a different email.";
       } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
         errorMsg = "Incorrect email address or password. Please try again.";
