@@ -13,9 +13,9 @@ interface PageSeoParams {
  * for search engine discoverability & social card previews.
  */
 export function updateDocumentSeo(params: PageSeoParams) {
-  const siteName = 'Campora';
-  const defaultDescription = 'Campora helps students discover, compare, and book verified hostels and apartments near their campus with ease.';
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://campora.ng';
+  const siteName = 'Dormiqa';
+  const defaultDescription = 'Dormiqa helps students discover, compare, and book verified hostels and apartments near their campus with ease.';
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://dormiqa.ng';
 
   const title = params.title 
     ? `${params.title} | ${siteName}`
@@ -76,7 +76,7 @@ export function updateListingSeo(listing: Listing | null) {
   }
 
   const title = `${listing.title} at ${listing.hotelName}`;
-  const description = `${listing.title} (${listing.propertyType || 'Apartment'}) - ₦${(listing.pricePerYear || 0).toLocaleString()}/yr. ${listing.address}, servicing ${listing.universityName || 'campus'}. Verified student housing on Campora.`;
+  const description = `${listing.title} (${listing.propertyType || 'Apartment'}) - ₦${(listing.pricePerYear || 0).toLocaleString()}/yr. ${listing.address}, servicing ${listing.universityName || 'campus'}. Verified student housing on Dormiqa.`;
   const primaryImage = listing.photos && listing.photos.length > 0 ? listing.photos[0] : undefined;
   const canonicalUrl = typeof window !== 'undefined' 
     ? `${window.location.origin}/?listing=${listing.id}` 

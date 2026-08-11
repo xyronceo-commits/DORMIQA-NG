@@ -175,9 +175,142 @@ export async function submitReport(data: Partial<Report>): Promise<Report> {
   return await res.json();
 }
 
+export function getAdminToken(): string | null {
+  try {
+    return sessionStorage.getItem('dormiqa_admin_token') || 
+           localStorage.getItem('dormiqa_admin_token') ||
+           sessionStorage.getItem('campora_admin_token') || 
+           localStorage.getItem('campora_admin_token');
+  } catch {
+    return null;
+  }
+}
+
+export function setAdminToken(token: string) {
+  try {
+    sessionStorage.setItem('dormiqa_admin_token', token);
+    localStorage.setItem('dormiqa_admin_token', token);
+    sessionStorage.setItem('campora_admin_token', token);
+    localStorage.setItem('campora_admin_token', token);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+export function clearAdminToken() {
+  try {
+    sessionStorage.removeItem('dormiqa_admin_token');
+    localStorage.removeItem('dormiqa_admin_token');
+    sessionStorage.removeItem('campora_admin_token');
+    localStorage.removeItem('campora_admin_token');
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function getAdminAuthHeaders() {
+  const token = getAdminToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+}
+
+export async function adminLogin(password: string): Promise<{ success: boolean; token?: string; message?: string }> {
+  const res = await fetch(`${API_BASE}/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password })
+  });
+
+  const data = await res.json();
+  if (res.ok && data.success && data.token) {
+    setAdminToken(data.token);
+  }
+  return data;
+}
+
+export async function adminLogout(): Promise<void> {
+  const token = getAdminToken();
+  if (token) {
+    await fetch(`${API_BASE}/admin/logout`, {
+      method: 'POST',
+      headers: getAdminAuthHeaders()
+    }).catch(() => {});
+  }
+  clearAdminToken();
+}
+
+export async function checkAdminSession(): Promise<boolean> {
+  const token = getAdminToken();
+  if (!token) return false;
+  try {
+    const res = await fetch(`${API_BASE}/admin/check-session`, {
+      headers: getAdminAuthHeaders()
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function fetchAdminStats() {
-  const res = await fetch(`${API_BASE}/admin/stats`);
+  const res = await fetch(`${API_BASE}/admin/stats`, {
+    headers: getAdminAuthHeaders()
+  });
   if (!res.ok) throw new Error('Failed to fetch admin stats');
+  return await res.json();
+}
+
+export async function fetchAdminAgents() {
+  const res = await fetch(`${API_BASE}/admin/agents`, {
+    headers: getAdminAuthHeaders()
+  });
+  if (!res.ok) throw new Error('Failed to fetch agent applications');
+  return await res.json();
+}
+
+export async function updateAdminAgentStatus(agentId: string, status: 'verified' | 'rejected', reason?: string) {
+  const res = await fetch(`${API_BASE}/admin/agents/${agentId}/status`, {
+    method: 'PATCH',
+    headers: getAdminAuthHeaders(),
+    body: JSON.stringify({ status, reason })
+  });
+  if (!res.ok) throw new Error('Failed to update agent status');
+  return await res.json();
+}
+
+export async function fetchAdminProperties() {
+  const res = await fetch(`${API_BASE}/admin/properties`, {
+    headers: getAdminAuthHeaders()
+  });
+  if (!res.ok) throw new Error('Failed to fetch admin properties');
+  return await res.json();
+}
+
+export async function updateAdminPropertyStatus(propertyId: string, status: string, reason?: string) {
+  const res = await fetch(`${API_BASE}/admin/properties/${propertyId}/status`, {
+    method: 'PATCH',
+    headers: getAdminAuthHeaders(),
+    body: JSON.stringify({ status, reason })
+  });
+  if (!res.ok) throw new Error('Failed to update property status');
+  return await res.json();
+}
+
+export async function fetchStudentOverview() {
+  const res = await fetch(`${API_BASE}/admin/students/overview`, {
+    headers: getAdminAuthHeaders()
+  });
+  if (!res.ok) throw new Error('Failed to fetch student overview');
+  return await res.json();
+}
+
+export async function fetchAdminAnalytics() {
+  const res = await fetch(`${API_BASE}/admin/analytics`, {
+    headers: getAdminAuthHeaders()
+  });
+  if (!res.ok) throw new Error('Failed to fetch admin analytics');
   return await res.json();
 }
 
@@ -270,5 +403,64 @@ export async function verifyAgentBusiness(payload: {
     throw new Error(errorData.error || 'Failed to analyze business verification with AI');
   }
   return await res.json();
+}
+
+export async function sendVerificationCode(email: string): Promise<{
+  success: boolean;
+  message: string;
+  expiresAt?: number;
+  expiresInSeconds?: number;
+  error?: string;
+  retryAfterSeconds?: number;
+}> {
+  const res = await fetch(`${API_BASE}/auth/send-verification-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email })
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.message || 'Failed to send verification code');
+    (err as any).response = data;
+    throw err;
+  }
+  return data;
+}
+
+export async function verifyCode(email: string, code: string): Promise<{
+  success: boolean;
+  isEmailVerified?: boolean;
+  message?: string;
+  error?: string;
+  remainingAttempts?: number;
+}> {
+  const res = await fetch(`${API_BASE}/auth/verify-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code })
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.message || 'Invalid or expired verification code');
+    (err as any).response = data;
+    throw err;
+  }
+  return data;
+}
+
+export async function checkVerificationCodeStatus(email: string): Promise<{
+  active: boolean;
+  expiresAt?: number;
+  remainingSeconds?: number;
+}> {
+  try {
+    const res = await fetch(`${API_BASE}/auth/code-status?email=${encodeURIComponent(email)}`);
+    if (!res.ok) return { active: false };
+    return await res.json();
+  } catch {
+    return { active: false };
+  }
 }
 

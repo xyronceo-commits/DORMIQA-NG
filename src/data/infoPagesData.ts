@@ -30,33 +30,33 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     category: 'legal',
     categoryLabel: 'Legal',
     lastUpdated: 'August 2026',
-    summary: 'The primary legal agreement governing your access to and use of Campora platform services.',
+    summary: 'The primary legal agreement governing your access to and use of Dormiqa platform services.',
     badge: 'Core Legal Agreement',
     sections: [
       {
         heading: '1. Introduction & Acceptance of Terms',
         content: [
-          'Welcome to Campora ("Platform", "We", "Us", or "Our"), operated by [Campora Technologies Limited - RC XXXXXXX], headquartered at [Plot 12 Campus Way, Yaba, Lagos State, Nigeria]. By accessing our website, mobile interface, or associated software applications, you ("User", "Student", or "Agent") agree to be bound by these Terms & Conditions and all referenced operational policies.',
+          'Welcome to Dormiqa ("Platform", "We", "Us", or "Our"), operated by [Dormiqa Technologies Limited - RC XXXXXXX], headquartered at [Plot 12 Campus Way, Yaba, Lagos State, Nigeria]. By accessing our website, mobile interface, or associated software applications, you ("User", "Student", or "Agent") agree to be bound by these Terms & Conditions and all referenced operational policies.',
           'If you do not agree to these Terms in full, you must immediately discontinue use of the Platform. Continued use constitutes explicit assent to these Terms.'
         ]
       },
       {
         heading: '2. Platform Intermediary & Technology Status',
         content: [
-          'CRITICAL NOTICE: Campora operates strictly as an online technology intermediary and venue platform. Campora does NOT own, manage, lease, inspect as a property manager, or hold legal title to any real estate or student accommodation listed on the Platform.',
-          'Campora does NOT process, collect, hold, or escrow tenancy payments, security deposits, caution fees, or agent commissions. All tenancy negotiations, lease agreements, property inspections, and monetary transactions occur directly between the Student and the verified Agent or landlord.'
+          'CRITICAL NOTICE: Dormiqa operates strictly as an online technology intermediary and venue platform. Dormiqa does NOT own, manage, lease, inspect as a property manager, or hold legal title to any real estate or student accommodation listed on the Platform.',
+          'Dormiqa does NOT process, collect, hold, or escrow tenancy payments, security deposits, caution fees, or agent commissions. All tenancy negotiations, lease agreements, property inspections, and monetary transactions occur directly between the Student and the verified Agent or landlord.'
         ]
       },
       {
         heading: '3. User Eligibility & Account Creation',
         content: [
-          'To register an account on Campora, you must be at least 18 years of age or possess legal capacity under [Laws of the Federal Republic of Nigeria] or the applicable jurisdiction of your university.',
+          'To register an account on Dormiqa, you must be at least 18 years of age or possess legal capacity under [Laws of the Federal Republic of Nigeria] or the applicable jurisdiction of your university.',
           'You are responsible for maintaining the strict confidentiality of your account credentials. Any activities originating from your account are legally attributable to you.'
         ],
         subpoints: [
           'Provide accurate, verifiable personal details including legal name, official email, and phone number.',
           'Do not impersonate any person, tertiary institution staff member, or registered corporate entity.',
-          'Notify [security@campora.ng] immediately upon suspecting unauthorized account access.'
+          'Notify [security@dormiqa.ng] immediately upon suspecting unauthorized account access.'
         ]
       },
       {
@@ -73,12 +73,12 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
         heading: '5. Disclaimers & Limitation of Liability',
         content: [
           'The Platform is provided on an "AS IS" and "AS AVAILABLE" basis without warranties of any kind, whether express or implied.',
-          'To the maximum extent permitted under applicable law, Campora, its directors, employees, and software engineers shall not be liable for any direct, indirect, incidental, or consequential damages resulting from off-platform agreements, property defects, tenancy disputes, financial loss from unverified wire transfers, or physical injury during off-campus house inspections.'
+          'To the maximum extent permitted under applicable law, Dormiqa, its directors, employees, and software engineers shall not be liable for any direct, indirect, incidental, or consequential damages resulting from off-platform agreements, property defects, tenancy disputes, financial loss from unverified wire transfers, or physical injury during off-campus house inspections.'
         ]
       },
       {
         heading: '6. Account Termination & Suspension',
-        content: 'Campora reserves the absolute right to suspend or permanently deactivate any account found to violate our Verification Policy, Anti-Fraud Policy, or Community Guidelines without prior formal notice.'
+        content: 'Dormiqa reserves the absolute right to suspend or permanently deactivate any account found to violate our Verification Policy, Anti-Fraud Policy, or Community Guidelines without prior formal notice.'
       },
       {
         heading: '7. Governing Law & Dispute Resolution',
@@ -86,7 +86,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
       },
       {
         heading: '8. Corporate Contact Information',
-        content: 'For legal queries or formal notices, write to [legal@campora.ng] or send physical mail to [Campora Technologies Limited, Plot 12 Campus Way, Yaba, Lagos, Nigeria].'
+        content: 'For legal queries or formal notices, write to [legal@dormiqa.ng] or send physical mail to [Dormiqa Technologies Limited, Plot 12 Campus Way, Yaba, Lagos, Nigeria].'
       }
     ]
   },
@@ -97,12 +97,12 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     category: 'legal',
     categoryLabel: 'Legal',
     lastUpdated: 'August 2026',
-    summary: 'How Campora collects, encrypts, uses, and safeguards personal data under Nigerian and African data protection regulations.',
+    summary: 'How Dormiqa collects, encrypts, uses, and safeguards personal data under Nigerian and African data protection regulations.',
     badge: 'Data Protection & Compliance',
     sections: [
       {
         heading: '1. Compliance Framework',
-        content: 'Campora operates in compliance with the Nigeria Data Protection Act (NDPA), the Nigeria Data Protection Regulation (NDPR), and applicable African regional data protection legislation. We respect user privacy and are committed to maintaining data security.'
+        content: 'Dormiqa operates in compliance with the Nigeria Data Protection Act (NDPA), the Nigeria Data Protection Regulation (NDPR), and applicable African regional data protection legislation. We respect user privacy and are committed to maintaining data security.'
       },
       {
         heading: '2. Information We Collect',
@@ -125,7 +125,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
       },
       {
         heading: '4. Data Protection & Encryption',
-        content: 'All data transmitted between your browser/app and Campora servers is encrypted using industry-standard TLS 1.3 encryption. Stored databases utilize AES-256 at-rest encryption behind secure firewalls.'
+        content: 'All data transmitted between your browser/app and Dormiqa servers is encrypted using industry-standard TLS 1.3 encryption. Stored databases utilize AES-256 at-rest encryption behind secure firewalls.'
       },
       {
         heading: '5. Sharing & Third-Party Processors',
@@ -133,7 +133,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
       },
       {
         heading: '6. Your Rights',
-        content: 'You have the right to request access to, correction of, or permanent deletion of your personal data stored on Campora. Email [privacy@campora.ng] to exercise your rights.'
+        content: 'You have the right to request access to, correction of, or permanent deletion of your personal data stored on Dormiqa. Email [privacy@dormiqa.ng] to exercise your rights.'
       }
     ]
   },
@@ -171,11 +171,11 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     category: 'legal',
     categoryLabel: 'Legal',
     lastUpdated: 'August 2026',
-    summary: 'Enforceable standards governing allowable content, platform security, and user interactions on Campora.',
+    summary: 'Enforceable standards governing allowable content, platform security, and user interactions on Dormiqa.',
     sections: [
       {
         heading: '1. Purpose of Policy',
-        content: 'This Acceptable Use Policy specifies prohibited uses of Campora to maintain a safe, trusted, and respectful environment for tertiary institution students and property caretakers.'
+        content: 'This Acceptable Use Policy specifies prohibited uses of Dormiqa to maintain a safe, trusted, and respectful environment for tertiary institution students and property caretakers.'
       },
       {
         heading: '2. Strictly Prohibited Conduct',
@@ -201,12 +201,12 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     category: 'legal',
     categoryLabel: 'Legal',
     lastUpdated: 'August 2026',
-    summary: 'Binding terms for verified property agents, landlords, caretakers, and property managers operating on Campora.',
+    summary: 'Binding terms for verified property agents, landlords, caretakers, and property managers operating on Dormiqa.',
     badge: 'Property Host Agreement',
     sections: [
       {
         heading: '1. Scope of Agent Agreement',
-        content: 'These Agent Terms apply to all individuals or business entities registering as property hosts, estate agents, caretakers, or landlords on Campora.'
+        content: 'These Agent Terms apply to all individuals or business entities registering as property hosts, estate agents, caretakers, or landlords on Dormiqa.'
       },
       {
         heading: '2. Mandatory Identity & Business Verification',
@@ -228,7 +228,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
       },
       {
         heading: '5. Zero Extortion & Fraud Prohibition',
-        content: 'Campora maintains a strict zero-tolerance policy against advance extortion, double-allocation of rooms, or fake deposit demands. Offending agents face immediate banishment and legal escalation.'
+        content: 'Dormiqa maintains a strict zero-tolerance policy against advance extortion, double-allocation of rooms, or fake deposit demands. Offending agents face immediate banishment and legal escalation.'
       }
     ]
   },
@@ -243,7 +243,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     sections: [
       {
         heading: '1. Student Account Guidelines',
-        content: 'Students agree to use Campora solely for legitimate off-campus student accommodation discovery and verified inspection scheduling.'
+        content: 'Students agree to use Dormiqa solely for legitimate off-campus student accommodation discovery and verified inspection scheduling.'
       },
       {
         heading: '2. Inspection Safety & Due Diligence',
@@ -257,7 +257,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
       },
       {
         heading: '3. Direct Contract Disclaimer',
-        content: 'Students acknowledge that tenancy agreements are directly executed between the student and the property owner/agent. Campora is not a party to lease contracts and holds no liability for rent refunds or landlord-tenant disputes.'
+        content: 'Students acknowledge that tenancy agreements are directly executed between the student and the property owner/agent. Dormiqa is not a party to lease contracts and holds no liability for rent refunds or landlord-tenant disputes.'
       }
     ]
   },
@@ -272,15 +272,15 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     sections: [
       {
         heading: '1. Intermediary Status Notice',
-        content: 'Campora is an independent digital marketplace platform connecting students with third-party verified property hosts. Campora is NOT a real estate broker, landlord, property manager, or financial custodian.'
+        content: 'Dormiqa is an independent digital marketplace platform connecting students with third-party verified property hosts. Dormiqa is NOT a real estate broker, landlord, property manager, or financial custodian.'
       },
       {
         heading: '2. No Direct Guarantee of Accommodation',
-        content: 'While Campora enforces rigorous verification standards, we do not guarantee the structural condition, physical security, electrical supply stability, or water availability of listed properties.'
+        content: 'While Dormiqa enforces rigorous verification standards, we do not guarantee the structural condition, physical security, electrical supply stability, or water availability of listed properties.'
       },
       {
         heading: '3. Financial Payment Warning',
-        content: 'Campora explicitly warns all users NEVER to pay cash or electronic bank transfers to individuals claiming to represent Campora for rent holding or deposit guarantees. Campora staff will NEVER ask you to wire money for accommodation.'
+        content: 'Dormiqa explicitly warns all users NEVER to pay cash or electronic bank transfers to individuals claiming to represent Dormiqa for rent holding or deposit guarantees. Dormiqa staff will NEVER ask you to wire money for accommodation.'
       }
     ]
   },
@@ -291,15 +291,15 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     category: 'legal',
     categoryLabel: 'Legal',
     lastUpdated: 'August 2026',
-    summary: 'Protection of Campora brand marks, software design, matching algorithms, and user media content.',
+    summary: 'Protection of Dormiqa brand marks, software design, matching algorithms, and user media content.',
     sections: [
       {
         heading: '1. Ownership of Brand & Assets',
-        content: 'All trademarks, logos, brand names, web graphics, source code, UI designs, database architectures, and algorithms on Campora are the exclusive intellectual property of [Campora Technologies Limited].'
+        content: 'All trademarks, logos, brand names, web graphics, source code, UI designs, database architectures, and algorithms on Dormiqa are the exclusive intellectual property of [Dormiqa Technologies Limited].'
       },
       {
         heading: '2. User Content License',
-        content: 'By uploading property photographs, descriptions, or reviews to Campora, agents and students grant Campora a non-exclusive, worldwide, royalty-free license to display, optimize, and distribute the media solely for platform operational and promotional purposes.'
+        content: 'By uploading property photographs, descriptions, or reviews to Dormiqa, agents and students grant Dormiqa a non-exclusive, worldwide, royalty-free license to display, optimize, and distribute the media solely for platform operational and promotional purposes.'
       }
     ]
   },
@@ -314,14 +314,14 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     sections: [
       {
         heading: '1. Copyright Notice',
-        content: 'Campora respects intellectual property rights and expects users to do the same. If you believe your copyrighted photographs or listing content have been posted on Campora without permission, follow our takedown procedure.'
+        content: 'Dormiqa respects intellectual property rights and expects users to do the same. If you believe your copyrighted photographs or listing content have been posted on Dormiqa without permission, follow our takedown procedure.'
       },
       {
         heading: '2. Takedown Request Notice',
-        content: 'Send a written copyright complaint to [copyright@campora.ng] including:',
+        content: 'Send a written copyright complaint to [copyright@dormiqa.ng] including:',
         subpoints: [
           'Identification of the copyrighted work claimed to be infringed.',
-          'URL or listing ID of the infringing content on Campora.',
+          'URL or listing ID of the infringing content on Dormiqa.',
           'Your contact details (name, phone number, email address).',
           'A statement under penalty of perjury that you are the copyright owner or authorized agent.'
         ]
@@ -335,11 +335,11 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     category: 'legal',
     categoryLabel: 'Legal',
     lastUpdated: 'August 2026',
-    summary: 'Standards of respect, non-discrimination, and ethical conduct across the Campora ecosystem.',
+    summary: 'Standards of respect, non-discrimination, and ethical conduct across the Dormiqa ecosystem.',
     sections: [
       {
         heading: '1. Inclusive & Non-Discriminatory Search',
-        content: 'Campora is committed to providing safe housing access for all university students regardless of state of origin, ethnicity, gender, or religious background. Discrimination in housing listings is strictly prohibited.'
+        content: 'Dormiqa is committed to providing safe housing access for all university students regardless of state of origin, ethnicity, gender, or religious background. Discrimination in housing listings is strictly prohibited.'
       },
       {
         heading: '2. Professional Student-Agent Etiquette',
@@ -362,7 +362,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     sections: [
       {
         heading: '1. The Trust Standard',
-        content: 'To combat student accommodation scams near Nigerian campuses, Campora enforces a strict multi-layer verification framework before granting "Verified Agent" status.'
+        content: 'To combat student accommodation scams near Nigerian campuses, Dormiqa enforces a strict multi-layer verification framework before granting "Verified Agent" status.'
       },
       {
         heading: '2. Tiered Verification Levels',
@@ -408,11 +408,11 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     category: 'trust',
     categoryLabel: 'Trust & Safety',
     lastUpdated: 'August 2026',
-    summary: 'How Campora collects, moderates, and protects genuine student reviews and agent ratings.',
+    summary: 'How Dormiqa collects, moderates, and protects genuine student reviews and agent ratings.',
     sections: [
       {
         heading: '1. Authentic Student Reviews',
-        content: 'Only students who have booked an inspection or verified a completed tenancy through Campora may leave official ratings and text reviews.'
+        content: 'Only students who have booked an inspection or verified a completed tenancy through Dormiqa may leave official ratings and text reviews.'
       },
       {
         heading: '2. Zero Tolerance for Fake Reviews',
@@ -436,7 +436,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     sections: [
       {
         heading: '1. Zero-Tolerance Fraud Stance',
-        content: 'Campora operates a zero-tolerance policy regarding housing scams, advance-fee fraud, fake landlord representation, and extortion.'
+        content: 'Dormiqa operates a zero-tolerance policy regarding housing scams, advance-fee fraud, fake landlord representation, and extortion.'
       },
       {
         heading: '2. Red Flags Every Student Must Know',
@@ -465,7 +465,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     sections: [
       {
         heading: '1. Instant Reporting Mechanism',
-        content: 'Every property listing and user message on Campora includes a one-click "Report Abuse / Scam" button.'
+        content: 'Every property listing and user message on Dormiqa includes a one-click "Report Abuse / Scam" button.'
       },
       {
         heading: '2. Triage & SLA',
@@ -473,7 +473,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
       },
       {
         heading: '3. Law Enforcement Cooperation',
-        content: 'In verified criminal scam attempts, Campora cooperates fully with law enforcement authorities (e.g. Nigerian Police Force, EFCC) by providing verified audit trail logs upon valid legal subpoena.'
+        content: 'In verified criminal scam attempts, Dormiqa cooperates fully with law enforcement authorities (e.g. Nigerian Police Force, EFCC) by providing verified audit trail logs upon valid legal subpoena.'
       }
     ]
   },
@@ -495,7 +495,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
           'Step 1: Select your university campus from the top navigation bar.',
           'Step 2: Use the walking radius slider (e.g. 5-15 mins to campus gate) and price filter.',
           'Step 3: Click "Book Free Inspection" to pick a date and time with the verified agent.',
-          'Step 4: Chat securely with the caretaker through Campora In-App Messaging.'
+          'Step 4: Chat securely with the caretaker through Dormiqa In-App Messaging.'
         ]
       },
       {
@@ -518,12 +518,12 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     summary: 'Instant answers to common questions about inspections, fees, verification, and safety.',
     sections: [
       {
-        heading: 'Q1: Does Campora charge students for searching or viewing listings?',
-        content: 'No! Searching listings and scheduling physical property inspections on Campora is 100% free for students.'
+        heading: 'Q1: Does Dormiqa charge students for searching or viewing listings?',
+        content: 'No! Searching listings and scheduling physical property inspections on Dormiqa is 100% free for students.'
       },
       {
-        heading: 'Q2: Does Campora collect rent payments on behalf of landlords?',
-        content: 'No. Campora is a technology matching platform. All rent agreements and payments are made directly between you and the verified property agent or caretaker.'
+        heading: 'Q2: Does Dormiqa collect rent payments on behalf of landlords?',
+        content: 'No. Dormiqa is a technology matching platform. All rent agreements and payments are made directly between you and the verified property agent or caretaker.'
       },
       {
         heading: 'Q3: How do I know if an agent is verified?',
@@ -531,11 +531,11 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
       },
       {
         heading: 'Q4: What should I do if an agent demands money before showing me the room?',
-        content: 'DO NOT PAY. Report the agent immediately using the "Report Listing" button or email [safety@campora.ng]. Demanding upfront viewing fees is against Campora policy.'
+        content: 'DO NOT PAY. Report the agent immediately using the "Report Listing" button or email [safety@dormiqa.ng]. Demanding upfront viewing fees is against Dormiqa policy.'
       },
       {
         heading: 'Q5: Which universities are currently supported?',
-        content: 'Campora currently covers UNILAG, OAU, UI, UNIBEN, FUTA, ABU, UNN, LASU, and major higher education institutions across Nigeria, with rapid expansion to West and East Africa.'
+        content: 'Dormiqa currently covers UNILAG, OAU, UI, UNIBEN, FUTA, ABU, UNN, LASU, and major higher education institutions across Nigeria, with rapid expansion to West and East Africa.'
       }
     ]
   },
@@ -552,15 +552,15 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
         heading: '1. Support Channels & Operating Hours',
         content: 'Our team is available Monday through Saturday, 8:00 AM – 6:00 PM (WAT).',
         subpoints: [
-          'Student Support Email: [support@campora.ng]',
-          'Agent Onboarding Email: [agents@campora.ng]',
-          'Trust & Safety Escalations: [safety@campora.ng]',
-          'Official Phone / WhatsApp: [+234 (0) 800-CAMPORA / +234 800 226 7672]'
+          'Student Support Email: [support@dormiqa.ng]',
+          'Agent Onboarding Email: [agents@dormiqa.ng]',
+          'Trust & Safety Escalations: [safety@dormiqa.ng]',
+          'Official Phone / WhatsApp: [+234 (0) 800-DORMIQA / +234 800 226 7672]'
         ]
       },
       {
         heading: '2. Headquarters Office Address',
-        content: '[Campora Technologies Limited, Plot 12 Campus Way, Yaba, Lagos State, Nigeria].'
+        content: '[Dormiqa Technologies Limited, Plot 12 Campus Way, Yaba, Lagos State, Nigeria].'
       }
     ]
   },
@@ -575,11 +575,11 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     sections: [
       {
         heading: '1. Technical Bug Reporting',
-        content: 'Encountering a glitch in search, messaging, or calendar bookings? Email [tech@campora.ng] with your device type, screenshot, and description of the issue.'
+        content: 'Encountering a glitch in search, messaging, or calendar bookings? Email [tech@dormiqa.ng] with your device type, screenshot, and description of the issue.'
       },
       {
         heading: '2. Listing Discrepancy',
-        content: 'If a property you physically inspected differs significantly from its Campora listing photos or price, notify our team immediately for prompt correction or removal.'
+        content: 'If a property you physically inspected differs significantly from its Dormiqa listing photos or price, notify our team immediately for prompt correction or removal.'
       }
     ]
   },
@@ -587,9 +587,9 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
   // ==========================================
   // COMPANY & PRESS
   // ==========================================
-  'about-campora': {
-    id: 'about-campora',
-    title: 'About Campora',
+  'about-dormiqa': {
+    id: 'about-dormiqa',
+    title: 'About Dormiqa',
     category: 'company',
     categoryLabel: 'Company',
     lastUpdated: 'August 2026',
@@ -597,11 +597,11 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     sections: [
       {
         heading: '1. Our Story',
-        content: 'Campora was born out of a real problem faced by millions of university students across Nigeria and Africa: finding safe, affordable, and honest off-campus housing near university gates. For decades, students faced extortionate viewing fees, unverified middle-men, fake listings, and unsafe living conditions.'
+        content: 'Dormiqa was born out of a real problem faced by millions of university students across Nigeria and Africa: finding safe, affordable, and honest off-campus housing near university gates. For decades, students faced extortionate viewing fees, unverified middle-men, fake listings, and unsafe living conditions.'
       },
       {
         heading: '2. The Technology Platform Solution',
-        content: 'Campora transforms student accommodation hunting into a seamless, transparent experience. By combining verified agent credentials, precise campus gate walking distance calculations, and scheduled physical inspection tools, Campora empowers students to secure ideal lodges with total peace of mind.'
+        content: 'Dormiqa transforms student accommodation hunting into a seamless, transparent experience. By combining verified agent credentials, precise campus gate walking distance calculations, and scheduled physical inspection tools, Dormiqa empowers students to secure ideal lodges with total peace of mind.'
       }
     ]
   },
@@ -636,13 +636,13 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     ]
   },
 
-  'how-campora-works': {
-    id: 'how-campora-works',
-    title: 'How Campora Works',
+  'how-dormiqa-works': {
+    id: 'how-dormiqa-works',
+    title: 'How Dormiqa Works',
     category: 'company',
     categoryLabel: 'Company',
     lastUpdated: 'August 2026',
-    summary: 'Step-by-step breakdown of the Campora platform ecosystem for students and agents.',
+    summary: 'Step-by-step breakdown of the Dormiqa platform ecosystem for students and agents.',
     sections: [
       {
         heading: '1. For Students (4 Easy Steps)',
@@ -673,8 +673,8 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     summary: 'Join Nigeria’s largest verified network of student accommodation caretakers and estate managers.',
     sections: [
       {
-        heading: '1. Why Partner with Campora?',
-        content: 'As a Verified Campora Agent, you gain direct access to thousands of university students searching for off-campus hostels each academic session.',
+        heading: '1. Why Partner with Dormiqa?',
+        content: 'As a Verified Dormiqa Agent, you gain direct access to thousands of university students searching for off-campus hostels each academic session.',
         subpoints: [
           'High Conversion Leads: Connect with serious students ready for physical viewings.',
           'Verified Agent Badge: Stand out from unverified street middle-men with a trust badge.',
@@ -683,14 +683,14 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
       },
       {
         heading: '2. Registration Requirements',
-        content: 'Submit valid NIN identification, active phone number, property details, and agreement to uphold Campora’s Anti-Extortion & Quality Guidelines.'
+        content: 'Submit valid NIN identification, active phone number, property details, and agreement to uphold Dormiqa’s Anti-Extortion & Quality Guidelines.'
       }
     ]
   },
 
   'careers': {
     id: 'careers',
-    title: 'Careers at Campora',
+    title: 'Careers at Dormiqa',
     category: 'company',
     categoryLabel: 'Company',
     lastUpdated: 'August 2026',
@@ -703,7 +703,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
       },
       {
         heading: 'Talent Network Registration',
-        content: 'Interested in joining Campora as a Campus Lead, Software Engineer, or Operations Specialist? Send your CV to [careers@campora.ng].'
+        content: 'Interested in joining Dormiqa as a Campus Lead, Software Engineer, or Operations Specialist? Send your CV to [careers@dormiqa.ng].'
       }
     ]
   },
@@ -719,11 +719,11 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     sections: [
       {
         heading: 'Media Contact & Enquiries',
-        content: 'For media enquiries, interview requests with our founders, or brand asset kits, email [press@campora.ng].'
+        content: 'For media enquiries, interview requests with our founders, or brand asset kits, email [press@dormiqa.ng].'
       },
       {
         heading: 'Brand Assets Notice',
-        content: 'Campora logos, brand color palettes, and press releases may be used by accredited journalists in accordance with our Intellectual Property Policy.'
+        content: 'Dormiqa logos, brand color palettes, and press releases may be used by accredited journalists in accordance with our Intellectual Property Policy.'
       }
     ]
   }

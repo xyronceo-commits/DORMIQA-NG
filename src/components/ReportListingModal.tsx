@@ -74,14 +74,14 @@ export const ReportListingModal: React.FC<ReportListingModalProps> = ({
                   {aiReportResult?.aiReason || 'Listing confirmed as fake or duplicate uploaded across agents. AI Anti-Scam engine has automatically banned and hidden this accommodation.'}
                 </p>
                 <p className="text-[11px] text-slate-500 pt-1">
-                  Thank you for keeping Campora safe for all Nigerian students!
+                  Thank you for keeping Dormiqa safe for all Nigerian students!
                 </p>
               </div>
             ) : (
               <div className="space-y-2">
                 <h3 className="text-lg font-bold text-neutral-900">Report Submitted to Trust Desk</h3>
                 <p className="text-xs text-neutral-600">
-                  Thank you for keeping Campora safe. Our AI Safety Engine & Admin Audit team have flagged this listing for review.
+                  Thank you for keeping Dormiqa safe. Our AI Safety Engine & Admin Audit team have flagged this listing for review.
                 </p>
               </div>
             )}

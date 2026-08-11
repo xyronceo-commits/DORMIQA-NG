@@ -403,7 +403,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
         {/* Footer */}
         <div className="p-3 bg-neutral-50 border-t border-neutral-200 text-center text-[10px] text-neutral-500 font-medium">
-          Campora FCM Real-time Notification Engine • Firebase Cloud Sync
+          Dormiqa FCM Real-time Notification Engine • Firebase Cloud Sync
         </div>
       </div>
     </div>

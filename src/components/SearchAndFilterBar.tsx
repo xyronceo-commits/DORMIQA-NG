@@ -111,29 +111,28 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
   };
 
   return (
-    <div className="bg-white border-b border-neutral-200 sticky top-16 z-30 shadow-xs">
+    <div className="bg-white dark:bg-neutral-900 border-b border-neutral-200/80 dark:border-neutral-800 sticky top-16 z-30 shadow-2xs transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
         
         {/* Top Institution Type Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none mb-2 border-b border-neutral-100">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none mb-2.5 border-b border-neutral-100 dark:border-neutral-800">
           <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider shrink-0 flex items-center gap-1 mr-1">
-            <GraduationCap className="w-3.5 h-3.5 text-neutral-600" /> Type:
+            <GraduationCap className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" /> Institution:
           </span>
           {INSTITUTION_TYPES.map(type => (
             <button
               key={type.key}
               onClick={() => {
                 setFilters(prev => ({ ...prev, institutionType: type.key }));
-                // Auto reset selected university if not in the new filtered list
                 const matching = universities.filter(u => type.key === 'all' || u.type === type.key);
                 if (matching.length > 0 && !matching.some(m => m.id === filters.universityId)) {
                   setFilters(prev => ({ ...prev, universityId: matching[0].id }));
                 }
               }}
-              className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
                 (filters.institutionType || 'all') === type.key
-                  ? 'bg-neutral-900 text-white shadow-xs'
-                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  ? 'bg-slate-900 text-white dark:bg-emerald-600 dark:text-white shadow-2xs'
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
               }`}
             >
               {type.label}
@@ -149,12 +148,12 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
             
             {/* University / Institution Selector */}
             <div className="relative flex-1 min-w-[220px]">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-neutral-50 rounded-md border border-neutral-200 focus-within:border-neutral-900 transition-colors">
-                <MapPin className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+              <div className="flex items-center gap-2 px-3.5 py-2 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 focus-within:border-emerald-600 dark:focus-within:border-emerald-500 transition-colors">
+                <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <select
                   value={filters.universityId}
                   onChange={(e) => setFilters(prev => ({ ...prev, universityId: e.target.value }))}
-                  className="bg-transparent text-xs font-semibold text-neutral-900 focus:outline-none w-full cursor-pointer"
+                  className="bg-transparent text-xs font-bold text-neutral-900 dark:text-white focus:outline-none w-full cursor-pointer"
                 >
                   {Object.entries(
                     filteredUniversities.reduce((acc, u) => {
@@ -164,9 +163,9 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
                       return acc;
                     }, {} as Record<string, University[]>)
                   ).map(([stateName, unis]) => (
-                    <optgroup key={stateName} label={`📍 ${stateName}`}>
+                    <optgroup key={stateName} label={`📍 ${stateName}`} className="dark:bg-neutral-900">
                       {(unis as University[]).map(u => (
-                        <option key={u.id} value={u.id}>
+                        <option key={u.id} value={u.id} className="dark:bg-neutral-900">
                           {u.name} ({u.city})
                         </option>
                       ))}
@@ -177,7 +176,7 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
             </div>
 
             {/* Walking Distance Quick Pills */}
-            <div className="hidden sm:flex items-center gap-1 bg-neutral-50 p-1 rounded-md border border-neutral-200">
+            <div className="hidden sm:flex items-center gap-1 bg-neutral-50 dark:bg-neutral-800 p-1 rounded-xl border border-neutral-200 dark:border-neutral-700">
               <span className="text-[10px] font-bold text-neutral-400 px-2 uppercase tracking-wider flex items-center gap-1">
                 <Footprints className="w-3 h-3 text-neutral-500" /> Walk:
               </span>
@@ -185,10 +184,10 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
                 <button
                   key={mins}
                   onClick={() => setFilters(prev => ({ ...prev, maxWalkingMinutes: mins }))}
-                  className={`px-2 py-1 rounded text-xs font-semibold transition-all ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     filters.maxWalkingMinutes === mins
-                      ? 'bg-black text-white'
-                      : 'text-neutral-600 hover:text-neutral-900'
+                      ? 'bg-slate-900 text-white dark:bg-emerald-600'
+                      : 'text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white'
                   }`}
                 >
                   &lt;{mins}m
@@ -197,14 +196,14 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
             </div>
 
             {/* Max Budget Input in NGN (Naira) */}
-            <div className="flex items-center gap-1 px-3 py-1.5 bg-neutral-50 rounded-md border border-neutral-200 w-44">
-              <span className="text-xs font-medium text-neutral-500">Max ₦</span>
+            <div className="flex items-center gap-1 px-3 py-2 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 w-44">
+              <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Max ₦</span>
               <input
                 type="number"
                 placeholder="500,000"
                 value={filters.maxPrice || ''}
                 onChange={(e) => setFilters(prev => ({ ...prev, maxPrice: Number(e.target.value) || 0 }))}
-                className="w-full text-xs font-semibold text-neutral-900 bg-transparent focus:outline-none"
+                className="w-full text-xs font-bold text-neutral-900 dark:text-white bg-transparent focus:outline-none"
               />
               <span className="text-[10px] text-neutral-400 font-medium">/yr</span>
             </div>
@@ -212,16 +211,16 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
             {/* More Filters Toggle */}
             <button
               onClick={() => setExpandedDrawer(!expandedDrawer)}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 border transition-colors ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-colors cursor-pointer ${
                 expandedDrawer || filters.propertyTypes.length > 0 || filters.facilities.length > 0
-                  ? 'bg-neutral-900 text-white border-neutral-900'
-                  : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100'
+                  ? 'bg-slate-900 text-white border-slate-900 dark:bg-emerald-600 dark:border-emerald-600'
+                  : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-700'
               }`}
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               <span>Filters</span>
               {(filters.propertyTypes.length + filters.facilities.length) > 0 && (
-                <span className="bg-emerald-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                <span className="bg-emerald-600 dark:bg-white dark:text-neutral-900 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center">
                   {filters.propertyTypes.length + filters.facilities.length}
                 </span>
               )}
@@ -230,10 +229,10 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
           </div>
 
           {/* Right controls: View Toggle & Sort */}
-          <div className="flex items-center justify-between w-full lg:w-auto gap-3 pt-2 lg:pt-0 border-t lg:border-t-0 border-neutral-100">
+          <div className="flex items-center justify-between w-full lg:w-auto gap-3 pt-2 lg:pt-0 border-t lg:border-t-0 border-neutral-100 dark:border-neutral-800">
             
-            <p className="text-xs text-neutral-500">
-              <strong className="text-neutral-900 font-bold">{totalResults}</strong> properties near {selectedUni?.code || 'campus'}
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              <strong className="text-neutral-900 dark:text-white font-black">{totalResults}</strong> lodgings near {selectedUni?.code || 'campus'}
             </p>
 
             <div className="flex items-center gap-2">
@@ -241,20 +240,20 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
               <select
                 value={filters.sortBy}
                 onChange={(e) => setFilters(prev => ({ ...prev, sortBy: e.target.value as any }))}
-                className="text-xs font-medium text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-md px-2.5 py-1.5 focus:outline-none cursor-pointer"
+                className="text-xs font-bold text-neutral-700 dark:text-neutral-200 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl px-3 py-2 focus:outline-none cursor-pointer"
               >
-                <option value="distance">Sort: Closest to Gate</option>
-                <option value="price_asc">Sort: Rent Low to High</option>
-                <option value="price_desc">Sort: Rent High to Low</option>
-                <option value="rating">Sort: Highest Rated</option>
+                <option value="distance" className="dark:bg-neutral-900">Sort: Closest to Gate</option>
+                <option value="price_asc" className="dark:bg-neutral-900">Sort: Rent Low to High</option>
+                <option value="price_desc" className="dark:bg-neutral-900">Sort: Rent High to Low</option>
+                <option value="rating" className="dark:bg-neutral-900">Sort: Highest Rated</option>
               </select>
 
               {/* View Switcher: Grid vs Interactive Map */}
-              <div className="flex items-center bg-neutral-50 p-1 rounded-md border border-neutral-200">
+              <div className="flex items-center bg-neutral-50 dark:bg-neutral-800 p-1 rounded-xl border border-neutral-200 dark:border-neutral-700">
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`p-1.5 rounded text-xs font-bold flex items-center gap-1 transition-all ${
-                    viewMode === 'grid' ? 'bg-white text-neutral-900 border border-neutral-200 shadow-xs' : 'text-neutral-500 hover:text-neutral-900'
+                  className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                    viewMode === 'grid' ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 shadow-2xs' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                   }`}
                   title="Grid Cards View"
                 >
@@ -262,8 +261,8 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
                 </button>
                 <button
                   onClick={() => setViewMode('map')}
-                  className={`p-1.5 rounded text-xs font-bold flex items-center gap-1 transition-all ${
-                    viewMode === 'map' ? 'bg-black text-white shadow-xs' : 'text-neutral-500 hover:text-neutral-900'
+                  className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                    viewMode === 'map' ? 'bg-slate-900 dark:bg-emerald-600 text-white shadow-2xs' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                   }`}
                   title="Interactive Map View"
                 >
@@ -278,13 +277,13 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
 
         {/* Expanded Filters Drawer */}
         {expandedDrawer && (
-          <div className="mt-3 pt-3 border-t border-neutral-200 animate-in fade-in space-y-4">
+          <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-800 animate-in fade-in space-y-4">
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               
               {/* Property Types */}
               <div>
-                <label className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block mb-2">
+                <label className="text-[11px] font-extrabold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block mb-2">
                   Housing Type
                 </label>
                 <div className="flex flex-wrap gap-1.5">
@@ -292,10 +291,10 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
                     <button
                       key={t.key}
                       onClick={() => togglePropertyType(t.key)}
-                      className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                         filters.propertyTypes.includes(t.key)
-                          ? 'bg-black text-white border-black'
-                          : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-300'
+                          ? 'bg-slate-900 text-white border-slate-900 dark:bg-emerald-600 dark:border-emerald-600'
+                          : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-700 hover:border-neutral-300'
                       }`}
                     >
                       {t.label}
@@ -306,30 +305,30 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
 
               {/* Preferences */}
               <div>
-                <label className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block mb-2">
+                <label className="text-[11px] font-extrabold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block mb-2">
                   Lodge Features
                 </label>
                 <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-xs text-neutral-800 cursor-pointer">
+                  <label className="flex items-center gap-2 text-xs text-neutral-800 dark:text-neutral-200 cursor-pointer font-medium">
                     <input
                       type="checkbox"
                       checked={filters.billsIncludedOnly}
                       onChange={(e) => setFilters(prev => ({ ...prev, billsIncludedOnly: e.target.checked }))}
-                      className="rounded text-neutral-900 focus:ring-neutral-900 w-4 h-4"
+                      className="rounded text-emerald-600 focus:ring-emerald-600 w-4 h-4 cursor-pointer"
                     />
                     24/7 Power or Solar Inverter Guaranteed
                   </label>
                   
                   <div className="flex items-center gap-2 pt-1">
-                    <span className="text-xs text-neutral-500 font-medium">Gender Preference:</span>
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Gender Preference:</span>
                     {['all', 'female_only', 'male_only'].map(g => (
                       <button
                         key={g}
                         onClick={() => setFilters(prev => ({ ...prev, genderPreference: g }))}
-                        className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold capitalize cursor-pointer ${
                           filters.genderPreference === g
-                            ? 'bg-black text-white'
-                            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                            ? 'bg-slate-900 text-white dark:bg-emerald-600'
+                            : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
                         }`}
                       >
                         {g === 'all' ? 'Any' : g.replace('_only', ' only')}
@@ -341,7 +340,7 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
 
               {/* Facilities */}
               <div>
-                <label className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block mb-2">
+                <label className="text-[11px] font-extrabold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block mb-2">
                   Amenities & Facilities
                 </label>
                 <div className="grid grid-cols-2 gap-1.5">
@@ -349,14 +348,14 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
                     <button
                       key={fac}
                       onClick={() => toggleFacility(fac)}
-                      className={`text-left text-[11px] font-medium px-2 py-1 rounded border transition-colors flex items-center justify-between ${
+                      className={`text-left text-[11px] font-semibold px-2.5 py-1.5 rounded-xl border transition-colors flex items-center justify-between cursor-pointer ${
                         filters.facilities.includes(fac)
-                          ? 'bg-neutral-900 text-white border-neutral-900 font-semibold'
-                          : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50'
+                          ? 'bg-slate-900 text-white border-slate-900 dark:bg-emerald-600 dark:border-emerald-600'
+                          : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700'
                       }`}
                     >
                       <span className="truncate">{fac}</span>
-                      {filters.facilities.includes(fac) && <Check className="w-3 h-3 text-white shrink-0 ml-1" />}
+                      {filters.facilities.includes(fac) && <Check className="w-3.5 h-3.5 text-white shrink-0 ml-1" />}
                     </button>
                   ))}
                 </div>
@@ -365,17 +364,17 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
             </div>
 
             {/* Footer Row */}
-            <div className="flex items-center justify-between pt-3 border-t border-neutral-100 text-xs">
+            <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800 text-xs">
               <button
                 onClick={resetFilters}
-                className="text-neutral-500 hover:text-neutral-900 font-semibold flex items-center gap-1"
+                className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white font-bold flex items-center gap-1 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> Reset all filters
               </button>
 
               <button
                 onClick={() => setExpandedDrawer(false)}
-                className="px-4 py-1.5 bg-black text-white rounded-md font-semibold text-xs"
+                className="px-4 py-2 bg-slate-900 dark:bg-emerald-600 text-white rounded-xl font-bold text-xs shadow-2xs hover:bg-slate-800 dark:hover:bg-emerald-500 transition-all cursor-pointer"
               >
                 Apply Filters ({totalResults} properties)
               </button>

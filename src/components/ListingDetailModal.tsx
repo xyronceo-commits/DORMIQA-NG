@@ -103,7 +103,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
     return url.toString();
   };
 
-  const shareText = `Check out "${listing.title}" near ${listing.universityName} on Campora Nigeria - ₦${(listing.pricePerYear || (listing.pricePerWeek ? listing.pricePerWeek * 52 : 300000)).toLocaleString()}/yr!`;
+  const shareText = `Check out "${listing.title}" near ${listing.universityName} on Dormiqa Nigeria - ₦${(listing.pricePerYear || (listing.pricePerWeek ? listing.pricePerWeek * 52 : 300000)).toLocaleString()}/yr!`;
 
   const handleShareClick = async () => {
     const shareUrl = getShareUrl();
@@ -315,7 +315,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                     onOpenAskAI(listing);
                   }}
                   className="px-3.5 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
-                  title="Ask Campora AI questions about this lodge"
+                  title="Ask Dormiqa AI questions about this lodge"
                 >
                   <Sparkles className="w-4 h-4 text-emerald-600 fill-emerald-600 animate-pulse" />
                   <span>Ask AI</span>
@@ -773,7 +773,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
           <div className="pt-4 border-t border-neutral-200 flex items-center justify-between text-xs text-neutral-500">
             <span className="flex items-center gap-1">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              Campora Trust Guarantee Protected
+              Dormiqa Trust Guarantee Protected
             </span>
             <button
               onClick={() => onReportListing(listing)}

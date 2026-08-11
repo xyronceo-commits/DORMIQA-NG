@@ -54,7 +54,7 @@ export function generateGoogleCalendarUrl(event: CalendarEvent): string {
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     text: `🏠 Inspection: ${event.title}`,
-    details: `${event.description}\n\nBooked via Campora Student Housing Platform.`,
+    details: `${event.description}\n\nBooked via Dormiqa Student Housing Platform.`,
     location: event.location,
     dates: `${startGCal}/${endGCal}`
   });
@@ -71,7 +71,7 @@ export function downloadIcsFile(event: CalendarEvent): void {
   const icsContent = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Campora Student Housing//Inspection Booking//EN',
+    'PRODID:-//Dormiqa Student Housing//Inspection Booking//EN',
     'BEGIN:VEVENT',
     `SUMMARY:Inspection: ${event.title}`,
     `DESCRIPTION:${event.description.replace(/\n/g, '\\n')}`,

@@ -45,7 +45,7 @@ html.dark .leaflet-container {
 }
 
 /* Custom map marker pill styling */
-.campora-map-pin {
+.dormiqa-map-pin {
   background-color: #0f172a;
   color: #ffffff;
   padding: 4px 10px;
@@ -59,13 +59,13 @@ html.dark .leaflet-container {
   cursor: pointer;
 }
 
-.campora-map-pin:hover, .campora-map-pin.active {
+.dormiqa-map-pin:hover, .dormiqa-map-pin.active {
   background-color: #059669;
   transform: scale(1.1);
   box-shadow: 0 6px 16px rgba(5, 150, 105, 0.4);
 }
 
-.campora-uni-pin {
+.dormiqa-uni-pin {
   background-color: #2563eb;
   color: #ffffff;
   padding: 5px 12px;

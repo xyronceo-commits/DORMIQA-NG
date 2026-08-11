@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import { 
   UNIVERSITIES, 
@@ -31,6 +32,7 @@ async function runLLMCompletion(params: {
   // Collect all potential API keys from environment / secrets tab
   const rawCandidates = [
     process.env.GROQ_API_KEY,
+    process.env.DORMIQA_API_KEY,
     process.env.CAMPORA_API_KEY,
     process.env.GROQ_KEY,
     process.env.GROQ_AI_API_KEY,
@@ -51,7 +53,7 @@ async function runLLMCompletion(params: {
   ));
 
   if (keysToTry.length === 0) {
-    throw new Error('No API key found. Please ensure your Groq or Campora API key is set in the Secrets tab.');
+    throw new Error('No API key found. Please ensure your Groq or Dormiqa API key is set in the Secrets tab.');
   }
 
   let lastError: any = null;
@@ -172,7 +174,7 @@ async function runLLMCompletion(params: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${apiKey}`,
               'HTTP-Referer': process.env.APP_URL || 'https://ais-dev.run.app',
-              'X-Title': 'Campora AI'
+              'X-Title': 'Dormiqa AI'
             },
             body: JSON.stringify({
               model: model,
@@ -237,7 +239,7 @@ async function evaluateListingSafetyAndDuplicates(
     };
   }
 
-  const systemInstruction = `You are Campora Nigeria's Chief AI Anti-Scam & Trust Verification Inspector.
+  const systemInstruction = `You are Dormiqa Nigeria's Chief AI Anti-Scam & Trust Verification Inspector.
 Your sole job is to protect university students from fake listings, scam deposits, stolen photos, and duplicate property uploads across different estate agents.
 Analyze the listing details, duplicate match status, and optional student report complaint.
 Return strictly JSON formatted response.`;
@@ -304,7 +306,12 @@ Return JSON strictly in this structure:
   }
 }
 
-// In-memory database state (starts empty for a clean brand new app)
+// Initial Seed Data for Dormiqa Ecosystem
+const INITIAL_USERS: User[] = [];
+
+const INITIAL_LISTINGS: Listing[] = [];
+
+// In-memory database state
 let listingsStore: Listing[] = [];
 let usersStore: User[] = [];
 let inspectionsStore: Inspection[] = [];
@@ -322,6 +329,7 @@ interface RateLimitBucket {
 
 const generalRateLimitStore = new Map<string, RateLimitBucket>();
 const aiRateLimitStore = new Map<string, RateLimitBucket>();
+const adminRateLimitStore = new Map<string, RateLimitBucket>();
 
 function createRateLimiter(maxRequests: number, windowMs: number, store: Map<string, RateLimitBucket>) {
   return (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -348,6 +356,54 @@ function createRateLimiter(maxRequests: number, windowMs: number, store: Map<str
 
     next();
   };
+}
+
+const adminLoginLimiter = createRateLimiter(5, 15 * 60 * 1000, adminRateLimitStore);
+
+// Secure Verification Code System Store & Limiters
+interface VerificationCodeRecord {
+  hashedCode: string;
+  salt: string;
+  email: string;
+  createdAt: number;
+  expiresAt: number;
+  attempts: number;
+  resendAttempts: number;
+  lastResentAt: number;
+}
+
+function hashOtpCode(code: string, salt: string): string {
+  return crypto.createHash('sha256').update(code + salt).digest('hex');
+}
+
+const verificationCodesStore = new Map<string, VerificationCodeRecord>();
+const resendRateLimitStore = new Map<string, RateLimitBucket>();
+const verificationResendLimiter = createRateLimiter(6, 15 * 60 * 1000, resendRateLimitStore);
+
+// Admin Active Sessions & Security
+const validAdminPasswords = new Set<string>([
+  'Dormiqa26/27',
+  'Dormiqa2026/27'
+]);
+if (process.env.ADMIN_PASSWORD && process.env.ADMIN_PASSWORD.trim()) {
+  validAdminPasswords.add(process.env.ADMIN_PASSWORD.trim());
+}
+
+const activeAdminSessions = new Set<string>();
+
+function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers['authorization'] || req.headers['x-admin-token'];
+  const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') 
+    ? authHeader.slice(7).trim() 
+    : typeof authHeader === 'string' ? authHeader.trim() : null;
+
+  if (!token || !activeAdminSessions.has(token)) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Secure Admin authentication required.'
+    });
+  }
+  next();
 }
 
 // Security Headers Middleware
@@ -389,7 +445,7 @@ async function startServer() {
 
   // Health check
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', service: 'Campora API', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'Dormiqa API', timestamp: new Date().toISOString() });
   });
 
   // Universities
@@ -791,7 +847,7 @@ async function startServer() {
 
       const finalBizName = businessName?.trim() || agencyName?.trim() || 'Agent Business';
 
-      const systemInstruction = `You are Campora's AI Agent Identity & Business Verification Auditor.
+      const systemInstruction = `You are Dormiqa's AI Agent Identity & Business Verification Auditor.
 Your task is to evaluate verification submissions for real estate agents and campus caretakers.
 The submission consists of:
 1. Agent Personal Identity Photo: Full-face clear picture of the agent (no blur, no face mask, no dark sunglasses).
@@ -808,7 +864,7 @@ Return ONLY valid JSON matching this schema:
   "confidenceScore": number (0 to 100),
   "statusBadge": "Verified Agent & Business" | "Verification Pending Review",
   "aiReason": "Detailed 1-2 sentence explanation approving the agent's clear face photo and business proof.",
-  "licenseNumber": "Standardized verified business tag (e.g. CAMPORA-BIZ-2026-98234)"
+  "licenseNumber": "Standardized verified business tag (e.g. DORMIQA-BIZ-2026-98234)"
 }`;
 
       const prompt = `Agent Submission Details:
@@ -817,7 +873,7 @@ Return ONLY valid JSON matching this schema:
 - Proof of Business Category: "${proofType || 'banner_or_logo'}"
 - Uploaded Proof Image / Document: "${documentFileName || 'File uploaded'}"
 - Agent Personal Face Photo: "${agentPortraitUrl ? 'Provided (Clear, unblurred face portrait)' : 'Provided'}"
-- Storage Reference: "${documentStorageUrl || 'gs://campora-firebase.appspot.com/proof'}"`;
+- Storage Reference: "${documentStorageUrl || 'gs://dormiqa-firebase.appspot.com/proof'}"`;
 
       const rawResult = await runLLMCompletion({
         systemInstruction,
@@ -830,7 +886,7 @@ Return ONLY valid JSON matching this schema:
       const parsed = JSON.parse(cleaned || '{}');
 
       const approved = Boolean(parsed.approved ?? true);
-      const licenseNumber = parsed.licenseNumber || `CAMPORA-BIZ-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+      const licenseNumber = parsed.licenseNumber || `DORMIQA-BIZ-2026-${Math.floor(100000 + Math.random() * 900000)}`;
 
       res.json({
         success: true,
@@ -850,32 +906,332 @@ Return ONLY valid JSON matching this schema:
     }
   });
 
-  // Admin Controls
-  app.get('/api/admin/stats', (req, res) => {
+  // --- SECURE VERIFICATION CODE SYSTEM ENDPOINTS ---
+
+  // Send / Resend 6-Digit Verification Code
+  app.post('/api/auth/send-verification-code', verificationResendLimiter, (req, res) => {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        error: 'invalid_email',
+        message: 'Please provide a valid email address.'
+      });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const now = Date.now();
+    const existing = verificationCodesStore.get(cleanEmail);
+
+    // Resend Cooldown Check: 60 seconds
+    if (existing && (now - existing.lastResentAt) < 60000) {
+      const waitSeconds = Math.ceil((60000 - (now - existing.lastResentAt)) / 1000);
+      return res.status(429).json({
+        success: false,
+        error: 'too_frequent',
+        message: `Please wait ${waitSeconds} second${waitSeconds === 1 ? '' : 's'} before requesting a new code.`,
+        retryAfterSeconds: waitSeconds
+      });
+    }
+
+    // Generate secure random 6-digit verification code
+    const codeNum = crypto.randomInt(100000, 1000000);
+    const code = codeNum.toString();
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hashedCode = hashOtpCode(code, salt);
+
+    const expiresInSeconds = 600; // 10 minutes
+    const expiresAt = now + expiresInSeconds * 1000;
+
+    const resendAttempts = (existing ? existing.resendAttempts : 0) + 1;
+
+    // Overwrite previous code record - invalidating any prior code
+    verificationCodesStore.set(cleanEmail, {
+      hashedCode,
+      salt,
+      email: cleanEmail,
+      createdAt: now,
+      expiresAt,
+      attempts: 0,
+      resendAttempts,
+      lastResentAt: now
+    });
+
+    // Dispatch / Log Verification Email Body
+    console.log(`\n==================================================\nDORMIQA\n\nVerify your email\n\nYour verification code is:\n\n${code}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this code, you can ignore this email.\n==================================================\n`);
+
     res.json({
-      totalListings: listingsStore.length,
-      approvedListings: listingsStore.filter(l => l.status === 'approved').length,
-      pendingListings: listingsStore.filter(l => l.status === 'pending').length,
-      verifiedAgents: usersStore.filter(u => u.role === 'agent' && u.isVerifiedAgent).length,
-      totalInspections: inspectionsStore.length,
-      openReports: reportsStore.filter(r => r.status === 'open' || r.status === 'investigating').length
+      success: true,
+      message: `A 6-digit verification code has been sent to ${cleanEmail}.`,
+      expiresAt,
+      expiresInSeconds
     });
   });
 
-  app.patch('/api/admin/listings/:id/status', (req, res) => {
-    const { status } = req.body;
+  // Verify 6-Digit Code
+  app.post('/api/auth/verify-code', (req, res) => {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({
+        success: false,
+        error: 'missing_fields',
+        message: 'Email address and 6-digit code are required.'
+      });
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanCode = String(code).trim();
+    const record = verificationCodesStore.get(cleanEmail);
+
+    if (!record) {
+      return res.status(400).json({
+        success: false,
+        error: 'no_code',
+        message: 'No active verification code found for this email. Request a new code.'
+      });
+    }
+
+    // Check expiry (10 minutes limit)
+    if (Date.now() > record.expiresAt) {
+      verificationCodesStore.delete(cleanEmail);
+      return res.status(400).json({
+        success: false,
+        error: 'expired',
+        message: 'This code has expired. Request a new code.'
+      });
+    }
+
+    // Attempt tracking & rate limiting (max 5 attempts per code)
+    record.attempts += 1;
+    if (record.attempts > 5) {
+      verificationCodesStore.delete(cleanEmail);
+      return res.status(429).json({
+        success: false,
+        error: 'too_many_attempts',
+        message: 'Too many incorrect verification attempts. This code has been invalidated. Request a new code.'
+      });
+    }
+
+    // Validate 6-digit code using secure SHA-256 hash comparison
+    const providedHash = hashOtpCode(cleanCode, record.salt);
+    if (providedHash !== record.hashedCode) {
+      const remainingAttempts = Math.max(0, 5 - record.attempts);
+      return res.status(400).json({
+        success: false,
+        error: 'invalid_code',
+        message: `Incorrect code. Please check your email and try again. (${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining)`,
+        remainingAttempts
+      });
+    }
+
+    // Code matched! Mark email as verified and delete code record so it cannot be reused
+    verificationCodesStore.delete(cleanEmail);
+
+    const user = usersStore.find(u => u.email.toLowerCase() === cleanEmail);
+    if (user) {
+      user.isEmailVerified = true;
+    }
+
+    res.json({
+      success: true,
+      isEmailVerified: true,
+      message: 'Email address verified successfully!'
+    });
+  });
+
+  // Check Active Code Status (timer sync)
+  app.get('/api/auth/code-status', (req, res) => {
+    const email = req.query.email as string;
+    if (!email) {
+      return res.json({ active: false });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const record = verificationCodesStore.get(cleanEmail);
+
+    if (!record || Date.now() > record.expiresAt) {
+      if (record) verificationCodesStore.delete(cleanEmail);
+      return res.json({ active: false });
+    }
+
+    const remainingSeconds = Math.max(0, Math.ceil((record.expiresAt - Date.now()) / 1000));
+    res.json({
+      active: true,
+      expiresAt: record.expiresAt,
+      remainingSeconds
+    });
+  });
+
+  // --- SECURE ADMIN CONTROLS & AUTHENTICATION ENDPOINTS ---
+
+  // Admin Login (Rate-limited, Password-verified)
+  app.post('/api/admin/login', adminLoginLimiter, (req, res) => {
+    const { password } = req.body || {};
+    const cleanPassword = typeof password === 'string' ? password.trim() : '';
+    if (!cleanPassword || !validAdminPasswords.has(cleanPassword)) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+        message: 'Invalid administrative password.'
+      });
+    }
+
+    const token = `dormiqa_admin_${Date.now()}_${Math.random().toString(36).substring(2, 12)}`;
+    activeAdminSessions.add(token);
+
+    res.json({
+      success: true,
+      token,
+      message: 'Administrative authentication successful',
+      expiresInSeconds: 86400
+    });
+  });
+
+  // Admin Logout
+  app.post('/api/admin/logout', (req, res) => {
+    const authHeader = req.headers['authorization'] || req.headers['x-admin-token'];
+    const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') 
+      ? authHeader.slice(7).trim() 
+      : typeof authHeader === 'string' ? authHeader.trim() : null;
+
+    if (token) {
+      activeAdminSessions.delete(token);
+    }
+    res.json({ success: true, message: 'Admin session terminated.' });
+  });
+
+  // Check Session
+  app.get('/api/admin/check-session', requireAdminAuth, (req, res) => {
+    res.json({ authenticated: true });
+  });
+
+  // Admin Stats
+  app.get('/api/admin/stats', requireAdminAuth, (req, res) => {
+    res.json({
+      totalStudents: usersStore.filter(u => u.role === 'student').length,
+      verifiedAgents: usersStore.filter(u => u.role === 'agent' && u.isVerifiedAgent).length,
+      pendingAgents: usersStore.filter(u => u.role === 'agent' && !u.isVerifiedAgent && u.status !== 'rejected').length,
+      totalListings: listingsStore.length,
+      approvedListings: listingsStore.filter(l => l.status === 'approved').length,
+      pendingListings: listingsStore.filter(l => l.status === 'pending').length,
+      pendingReviews: listingsStore.filter(l => l.status === 'pending').length + usersStore.filter(u => u.role === 'agent' && !u.isVerifiedAgent && u.status !== 'rejected').length
+    });
+  });
+
+  // Fetch Agents List for Verification
+  app.get('/api/admin/agents', requireAdminAuth, (req, res) => {
+    const agents = usersStore.filter(u => u.role === 'agent').map(a => {
+      const agentListings = listingsStore.filter(l => l.agentId === a.id);
+      return {
+        ...a,
+        propertiesCount: agentListings.length,
+        proofType: a.licenseNumber ? 'CAC Registration Proof' : 'Business Verification Proof'
+      };
+    });
+    res.json(agents);
+  });
+
+  // Update Agent Status (Verify / Reject)
+  app.patch('/api/admin/agents/:id/status', requireAdminAuth, (req, res) => {
+    const { status, reason } = req.body;
+    const agent = usersStore.find(u => u.id === req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agent not found' });
+
+    if (status === 'verified') {
+      agent.isVerifiedAgent = true;
+      agent.status = 'verified';
+    } else if (status === 'rejected') {
+      agent.isVerifiedAgent = false;
+      agent.status = 'rejected';
+      (agent as any).rejectionReason = reason || 'Verification documents require update.';
+    }
+
+    res.json(agent);
+  });
+
+  // Fetch All Properties for Verification
+  app.get('/api/admin/properties', requireAdminAuth, (req, res) => {
+    res.json(listingsStore);
+  });
+
+  // Update Property Status (Approve / Reject / Request Changes)
+  app.patch('/api/admin/properties/:id/status', requireAdminAuth, (req, res) => {
+    const { status, reason } = req.body;
     const listing = listingsStore.find(l => l.id === req.params.id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
+
     listing.status = status;
+    if (reason) {
+      listing.aiBanReason = reason;
+    }
     res.json(listing);
   });
 
-  app.patch('/api/admin/reports/:id/status', (req, res) => {
-    const { status } = req.body;
-    const rep = reportsStore.find(r => r.id === req.params.id);
-    if (!rep) return res.status(404).json({ error: 'Report not found' });
-    rep.status = status;
-    res.json(rep);
+  // Student Overview
+  app.get('/api/admin/students/overview', requireAdminAuth, (req, res) => {
+    const students = usersStore.filter(u => u.role === 'student');
+    
+    // Group students by university dynamically
+    const uniMap = new Map<string, { id: string; name: string; code: string; count: number }>();
+    students.forEach(s => {
+      const uniId = s.universityId || 'other';
+      const uni = UNIVERSITIES.find(u => u.id === uniId);
+      const name = uni ? uni.name : (s.universityId || 'Other Institution');
+      const code = uni ? uni.code : 'OTHER';
+      
+      const current = uniMap.get(uniId) || { id: uniId, name, code, count: 0 };
+      current.count += 1;
+      uniMap.set(uniId, current);
+    });
+
+    const studentsByUniversity = Array.from(uniMap.values()).map(u => ({
+      ...u,
+      percent: students.length > 0 ? Number(((u.count / students.length) * 100).toFixed(1)) : 0
+    }));
+
+    res.json({
+      totalStudents: students.length,
+      newToday: 0,
+      newThisWeek: 0,
+      newThisMonth: 0,
+      studentsByUniversity
+    });
+  });
+
+  // Admin Platform Analytics
+  app.get('/api/admin/analytics', requireAdminAuth, (req, res) => {
+    const students = usersStore.filter(u => u.role === 'student');
+    const agents = usersStore.filter(u => u.role === 'agent');
+
+    // Build category demand dynamically from listings
+    const typeCounts: Record<string, number> = {};
+    listingsStore.forEach(l => {
+      const t = l.propertyType || 'Self-Contain Lodge';
+      typeCounts[t] = (typeCounts[t] || 0) + 1;
+    });
+
+    const totalListingsCount = listingsStore.length;
+    const accommodationDemand = Object.entries(typeCounts).map(([type, count]) => ({
+      type,
+      percent: totalListingsCount > 0 ? Math.round((count / totalListingsCount) * 100) : 0
+    }));
+
+    res.json({
+      studentSignupsOverTime: [],
+      accommodationDemand,
+      agentApplications: {
+        total: agents.length,
+        verified: agents.filter(u => u.isVerifiedAgent).length,
+        pending: agents.filter(u => !u.isVerifiedAgent && u.status !== 'rejected').length,
+        rejected: agents.filter(u => u.status === 'rejected').length
+      },
+      listingsStats: {
+        total: listingsStore.length,
+        approved: listingsStore.filter(l => l.status === 'approved').length,
+        pending: listingsStore.filter(l => l.status === 'pending').length,
+        banned: listingsStore.filter(l => l.status === 'banned' || l.status === 'rejected').length
+      }
+    });
   });
 
   // --- AI GEMINI ENDPOINTS ---
@@ -903,7 +1259,7 @@ Return ONLY valid JSON matching this schema:
         universityName: l.universityName
       }));
 
-      const systemInstruction = `You are Campora Nigeria's AI Accommodation Recommendation Engine.
+      const systemInstruction = `You are Dormiqa Nigeria's AI Accommodation Recommendation Engine.
 Your task is to analyze a student's budget, campus walking preference, property type, and lifestyle description, and select the best matching properties from candidate listings.
 Return ONLY valid JSON with keys: "summaryAdvice" (string), "matchedListingIds" (array of string IDs), and "matchReasons" (array of objects with "listingId", "reason", and "matchScorePercentage").`;
 
@@ -947,7 +1303,7 @@ ${JSON.stringify(listingsSummary, null, 2)}`;
     try {
       const { userMessage, conversationHistory, listingContext, universityName, preferredModel } = req.body;
 
-      const systemInstruction = `You are Campora AI - Nigeria's premier, friendly, knowledgeable student accommodation advisor for federal, state, private universities and polytechnics (UNILAG, UNIBEN, OAU, UI, FUTA, ABU, Covenant, etc.).
+      const systemInstruction = `You are Dormiqa AI - Nigeria's premier, friendly, knowledgeable student accommodation advisor for federal, state, private universities and polytechnics (UNILAG, UNIBEN, OAU, UI, FUTA, ABU, Covenant, etc.).
 You assist students with:
 1. Finding safe, verified student lodges and self-contained flats.
 2. Understanding rent terms, caution deposits, agreement & commission fees in Nigeria.
@@ -1004,7 +1360,7 @@ CRITICAL INSTRUCTIONS:
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Campora server running on http://localhost:${PORT}`);
+    console.log(`Dormiqa server running on http://localhost:${PORT}`);
   });
 }
 

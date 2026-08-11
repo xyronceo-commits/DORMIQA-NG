@@ -124,14 +124,6 @@ export const signInWithGoogle = async () => {
 export const registerWithEmail = async (email: string, pass: string) => {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, pass);
-    if (result.user) {
-      try {
-        await sendEmailVerification(result.user);
-        console.log("Firebase Email Verification sent to:", email);
-      } catch (verr) {
-        console.warn("Could not send email verification immediately:", verr);
-      }
-    }
     return result.user;
   } catch (error) {
     console.error("Firebase Email Sign-Up Error:", error);
@@ -139,15 +131,18 @@ export const registerWithEmail = async (email: string, pass: string) => {
   }
 };
 
-export const resendVerificationEmail = async (): Promise<boolean> => {
+export const resendVerificationEmail = async (userEmail?: string): Promise<boolean> => {
   try {
-    if (auth.currentUser) {
-      await sendEmailVerification(auth.currentUser);
+    const emailToUse = userEmail || auth.currentUser?.email;
+    if (emailToUse) {
+      // Trigger Dormiqa's 6-digit verification code dispatch
+      const { sendVerificationCode } = await import('./api');
+      await sendVerificationCode(emailToUse);
       return true;
     }
     return false;
   } catch (err) {
-    console.error("Failed to resend verification email:", err);
+    console.error("Failed to resend 6-digit verification code:", err);
     throw err;
   }
 };

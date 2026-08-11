@@ -20,6 +20,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { UserRole, University } from '../types';
+import { EmailVerificationCard } from './EmailVerificationCard';
 import { 
   signInWithGoogle, 
   registerWithEmail, 
@@ -209,80 +210,19 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
   if (showEmailVerificationScreen) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-neutral-50 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
-        <div className="bg-white rounded-3xl border border-neutral-200 p-8 shadow-xl max-w-lg w-full space-y-6 text-center animate-in zoom-in-95 duration-200">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto border border-emerald-200">
-            <Mail className="w-8 h-8" />
-          </div>
-
-          <div className="space-y-2">
-            <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full uppercase border border-emerald-200">
-              Firebase Email Verification Required
-            </span>
-            <h2 className="text-2xl font-black text-neutral-900 tracking-tight">Verify Your Email Address</h2>
-            <p className="text-xs text-neutral-600 leading-relaxed max-w-md mx-auto">
-              We have dispatched a verification email link to <strong className="text-neutral-900 font-bold">{pendingUserOnboardingData?.email}</strong>. 
-              Please check your inbox (or spam folder) and click the link to confirm your account legitimacy.
-            </p>
-          </div>
-
-          {resendStatusMessage && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold animate-in fade-in">
-              {resendStatusMessage}
-            </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <button
-              type="button"
-              disabled={isResending}
-              onClick={async () => {
-                setIsResending(true);
-                try {
-                  await resendVerificationEmail();
-                  setResendStatusMessage('✓ Verification email link resent successfully!');
-                } catch {
-                  setResendStatusMessage('✓ Verification link sent! Please check your inbox.');
-                } finally {
-                  setIsResending(false);
-                }
-              }}
-              className="flex-1 py-3 px-4 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2"
-            >
-              {isResending ? <Loader2 className="w-4 h-4 animate-spin text-neutral-600" /> : <Mail className="w-4 h-4 text-emerald-600" />}
-              Resend Link
-            </button>
-
-            <button
-              type="button"
-              onClick={async () => {
-                setIsLoading(true);
-                const isVerified = await checkEmailVerified();
-                setIsLoading(false);
-                if (pendingUserOnboardingData) {
-                  onCompleteOnboarding({
-                    ...pendingUserOnboardingData,
-                    isEmailVerified: isVerified
-                  });
-                }
-              }}
-              className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2"
-            >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-              I've Verified / Continue
-            </button>
-          </div>
-
-          <div className="pt-2 border-t border-neutral-100">
-            <button
-              type="button"
-              onClick={() => setShowEmailVerificationScreen(false)}
-              className="text-xs text-neutral-500 hover:text-neutral-900 font-semibold"
-            >
-              ← Back to role selection
-            </button>
-          </div>
-        </div>
+      <div className="min-h-[calc(100vh-4rem)] bg-neutral-50 dark:bg-neutral-950 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+        <EmailVerificationCard
+          email={pendingUserOnboardingData?.email || studentEmail || agentEmail || 'student@dormiqa.ng'}
+          onBack={() => setShowEmailVerificationScreen(false)}
+          onVerified={() => {
+            if (pendingUserOnboardingData) {
+              onCompleteOnboarding({
+                ...pendingUserOnboardingData,
+                isEmailVerified: true
+              });
+            }
+          }}
+        />
       </div>
     );
   }
@@ -303,7 +243,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           
           <div className="text-right">
             <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-              CAMPORA ONBOARDING GATEWAY
+              DORMIQA ONBOARDING GATEWAY
             </span>
           </div>
         </div>
@@ -311,7 +251,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
         {/* Title & Description */}
         <div className="text-center space-y-2">
           <h1 className="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight">
-            Select Your Role & Join Campora
+            Select Your Role & Join Dormiqa
           </h1>
           <p className="text-xs sm:text-sm text-neutral-600 max-w-xl mx-auto">
             Connecting Nigerian university & polytechnic students directly with 100% verified caretakers, property managers, and official housing hosts.

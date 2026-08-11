@@ -68,7 +68,7 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({
   const [chatMessages, setChatMessages] = useState<Array<{ sender: 'user' | 'ai'; text: string; time: string }>>([
     {
       sender: 'ai',
-      text: 'Hello! I am your Campora AI Housing Assistant. Ask me anything about finding student lodges, lease contracts, caution deposits, or campus neighborhood safety!',
+      text: 'Hello! I am your Dormiqa AI Housing Assistant. Ask me anything about finding student lodges, lease contracts, caution deposits, or campus neighborhood safety!',
       time: 'Just now'
     }
   ]);
@@ -120,7 +120,7 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({
     setChatError(null);
 
     try {
-      const history = chatMessages.map(m => ({ sender: m.sender === 'user' ? 'Student' : 'Campora AI', text: m.text }));
+      const history = chatMessages.map(m => ({ sender: m.sender === 'user' ? 'Student' : 'Dormiqa AI', text: m.text }));
       const res = await sendAIChat({
         userMessage: userText,
         universityName: currentUni?.name,
@@ -155,7 +155,7 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-base sm:text-lg font-black tracking-tight">Campora AI Assistant</h3>
+                <h3 className="text-base sm:text-lg font-black tracking-tight">Dormiqa AI Assistant</h3>
                 <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   Multi-Model Engine
                 </span>

@@ -14,7 +14,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
     try {
-      const saved = localStorage.getItem('campora_theme');
+      const saved = localStorage.getItem('dormiqa_theme') || localStorage.getItem('campora_theme');
       if (saved === 'light' || saved === 'dark' || saved === 'system') {
         return saved;
       }
@@ -79,6 +79,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setTheme = (newTheme: ThemeMode) => {
     setThemeState(newTheme);
     try {
+      localStorage.setItem('dormiqa_theme', newTheme);
       localStorage.setItem('campora_theme', newTheme);
     } catch {
       // ignore

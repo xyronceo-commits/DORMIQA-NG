@@ -59,7 +59,7 @@ export const InteractiveMapView: React.FC<InteractiveMapViewProps> = ({
     // Add University Marker
     const uniIcon = L.divIcon({
       className: 'custom-uni-marker-wrapper',
-      html: `<div class="campora-uni-pin">🎓 ${selectedUniversity.code} Campus</div>`,
+      html: `<div class="dormiqa-uni-pin">🎓 ${selectedUniversity.code} Campus</div>`,
       iconSize: [120, 32],
       iconAnchor: [60, 16]
     });
@@ -79,7 +79,7 @@ export const InteractiveMapView: React.FC<InteractiveMapViewProps> = ({
 
       const markerIcon = L.divIcon({
         className: 'custom-property-marker-wrapper',
-        html: `<div class="campora-map-pin ${isSelected ? 'active' : ''}">₦${Math.round((listing.pricePerYear || (listing.pricePerWeek ? listing.pricePerWeek * 52 : 300000)) / 1000)}k/yr</div>`,
+        html: `<div class="dormiqa-map-pin ${isSelected ? 'active' : ''}">₦${Math.round((listing.pricePerYear || (listing.pricePerWeek ? listing.pricePerWeek * 52 : 300000)) / 1000)}k/yr</div>`,
         iconSize: [80, 26],
         iconAnchor: [40, 13]
       });

@@ -6,6 +6,7 @@ import {
   Heart, 
   MessageSquare, 
   ShieldCheck, 
+  Shield,
   User as UserIcon, 
   Menu, 
   X, 
@@ -35,6 +36,7 @@ interface NavbarProps {
   onOpenAddModal?: () => void;
   onNavigateStudentTab?: (tab: 'inspections' | 'saved' | 'chats' | 'profile') => void;
   onNavigateAgentTab?: (tab: 'schedule' | 'availability' | 'requests' | 'profile') => void;
+  onOpenAdminLoginModal?: () => void;
   studentTab?: 'inspections' | 'saved' | 'chats' | 'profile';
   agentTab?: 'schedule' | 'availability' | 'requests' | 'profile';
 }
@@ -55,6 +57,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAddModal,
   onNavigateStudentTab,
   onNavigateAgentTab,
+  onOpenAdminLoginModal,
   studentTab,
   agentTab
 }) => {
@@ -70,15 +73,15 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         
         {/* Left Brand Logo & University Quick Picker */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4 sm:gap-6">
           <button 
             onClick={() => setActiveView('landing')}
-            className="flex items-center gap-2 group text-left focus:outline-none"
+            className="flex items-center gap-2 group text-left focus:outline-none cursor-pointer"
           >
-            <img src="/favicon.svg" alt="Campora Map Pin" className="h-8 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform" />
+            <img src="/favicon.svg" alt="Dormiqa Map Pin" className="h-7 sm:h-8 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform" />
             <div>
-              <span className="font-black text-xl tracking-tight text-neutral-900 dark:text-white flex items-center gap-1.5">
-                CAMPORA
+              <span className="font-black text-lg sm:text-xl tracking-tight text-neutral-900 dark:text-white flex items-center gap-1.5">
+                DORMIQA
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600" title="100% Verified Platform"></span>
               </span>
             </div>
@@ -89,19 +92,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="relative hidden md:block">
               <button
                 onClick={() => setUniDropdownOpen(!uniDropdownOpen)}
-                className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 transition-colors"
+                className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 transition-colors cursor-pointer"
               >
-                <MapPin className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
+                <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>{selectedUni ? selectedUni.code : 'Select University'}</span>
                 <ChevronDown className="w-3 h-3 text-neutral-400" />
               </button>
 
               {uniDropdownOpen && (
-                <div className="absolute top-full left-0 mt-1.5 w-64 bg-white dark:bg-neutral-900 rounded-md shadow-md border border-neutral-200 dark:border-neutral-700 py-1.5 z-50 animate-in fade-in">
+                <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-neutral-900 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-700 py-2 z-50 animate-in fade-in">
                   <div className="px-3 py-1 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
-                    Popular Universities
+                    Select Institution
                   </div>
-                  <div className="max-h-64 overflow-y-auto">
+                  <div className="max-h-60 overflow-y-auto">
                     {universities.map((uni) => (
                       <button
                         key={uni.id}
@@ -109,12 +112,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                           onSelectUniversity(uni.id);
                           setUniDropdownOpen(false);
                         }}
-                        className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between hover:bg-neutral-50 transition-colors ${
-                          selectedUniversityId === uni.id ? 'font-bold text-neutral-900 bg-neutral-100' : 'text-neutral-700'
+                        className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors cursor-pointer ${
+                          selectedUniversityId === uni.id ? 'font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30' : 'text-neutral-700 dark:text-neutral-300'
                         }`}
                       >
                         <span className="truncate">{uni.name}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500 font-medium">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-500 font-medium">
                           {uni.city}
                         </span>
                       </button>
@@ -126,18 +129,99 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
 
+        {/* Desktop Direct Header Nav Tabs (When authenticated) */}
+        {!isPublicView && (
+          <nav className="hidden lg:flex items-center gap-1 bg-neutral-100/70 dark:bg-neutral-800/60 p-1 rounded-2xl border border-neutral-200/60 dark:border-neutral-700/60">
+            <button
+              onClick={() => setActiveView('search')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeView === 'search'
+                  ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+              }`}
+            >
+              <Search className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Discover</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveView('saved');
+                if (onNavigateStudentTab) onNavigateStudentTab('saved');
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeView === 'saved'
+                  ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+              }`}
+            >
+              <Heart className="w-3.5 h-3.5 text-rose-500" />
+              <span>Saved</span>
+              {savedCount > 0 && (
+                <span className="px-1.5 py-0.2 text-[10px] font-black rounded-full bg-rose-500 text-white">
+                  {savedCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveView('student-dash');
+                if (onNavigateStudentTab) onNavigateStudentTab('chats');
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeView === 'messages'
+                  ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+              }`}
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-blue-500" />
+              <span>Messages</span>
+              {unreadCount > 0 && (
+                <span className="px-1.5 py-0.2 text-[10px] font-black rounded-full bg-blue-600 text-white">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveView(currentRole === 'agent' ? 'agent-dash' : currentRole === 'admin' ? 'admin-dash' : 'student-dash')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeView.includes('dash')
+                  ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+              }`}
+            >
+              <UserIcon className="w-3.5 h-3.5 text-neutral-700 dark:text-neutral-300" />
+              <span>Dashboard</span>
+            </button>
+          </nav>
+        )}
+
         {/* Center / Right Nav Items */}
         {isPublicView ? (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Device / Dark / Light Theme Toggle in Public View */}
             <ThemeToggle variant="dropdown" />
             
             <button
               onClick={() => setActiveView('onboarding')}
-              className="px-4 py-2 rounded-xl bg-neutral-900 dark:bg-white dark:text-neutral-900 text-white font-bold text-xs hover:bg-neutral-800 transition-all shadow-2xs"
+              className="px-4 py-2 rounded-xl bg-neutral-900 dark:bg-white dark:text-neutral-900 text-white font-bold text-xs hover:bg-neutral-800 transition-all shadow-2xs cursor-pointer"
             >
               Sign In / Get Started
             </button>
+
+            {/* Discreet Secure Access Shield Icon */}
+            {onOpenAdminLoginModal && (
+              <button
+                onClick={onOpenAdminLoginModal}
+                className="p-1.5 sm:p-2 rounded-xl text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors cursor-pointer focus:outline-none"
+                title="Secure access"
+                aria-label="Secure access"
+              >
+                <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+            )}
           </div>
         ) : (
           /* Post-Onboarding Navigation: Clean Header with Theme Toggle + Bell + Role Badge + Hamburger Menu */
@@ -149,7 +233,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {onOpenAISearch && (
               <button
                 onClick={onOpenAISearch}
-                className="px-3 py-2 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 transition-all active:scale-95 shadow-2xs flex items-center gap-1.5 font-bold text-xs"
+                className="px-3 py-2 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 transition-all active:scale-95 shadow-2xs flex items-center gap-1.5 font-bold text-xs cursor-pointer"
                 title="AI Housing Search & Chatbot Advisor"
               >
                 <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 fill-emerald-600 dark:fill-emerald-400 animate-pulse" />
@@ -160,7 +244,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Real-Time Notification Bell Button */}
             <button
               onClick={onOpenNotifications}
-              className="relative p-2 sm:px-3 sm:py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:border-emerald-600 dark:hover:border-emerald-500 bg-neutral-50 dark:bg-neutral-800 hover:bg-emerald-50/50 text-neutral-900 dark:text-neutral-100 transition-all active:scale-95 shadow-xs flex items-center gap-1.5"
+              className="relative p-2 sm:px-3 sm:py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:border-emerald-600 dark:hover:border-emerald-500 bg-neutral-50 dark:bg-neutral-800 hover:bg-emerald-50/50 text-neutral-900 dark:text-neutral-100 transition-all active:scale-95 shadow-xs flex items-center gap-1.5 cursor-pointer"
               title="View Real-Time Notifications"
             >
               <Bell className="w-4 h-4 text-neutral-800 dark:text-neutral-200" />
@@ -180,7 +264,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Three-line Menu Toggle Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:border-slate-900 dark:hover:border-white bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-extrabold text-xs transition-all active:scale-95 shadow-xs"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:border-slate-900 dark:hover:border-white bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-extrabold text-xs transition-all active:scale-95 shadow-xs cursor-pointer"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? (
@@ -190,6 +274,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
               <span className="hidden sm:inline">Menu</span>
             </button>
+
+            {/* Discreet Secure Access Shield Icon */}
+            {onOpenAdminLoginModal && (
+              <button
+                onClick={onOpenAdminLoginModal}
+                className="p-1.5 sm:p-2 rounded-xl text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors cursor-pointer focus:outline-none"
+                title="Secure access"
+                aria-label="Secure access"
+              >
+                <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+            )}
           </div>
         )}
       </div>

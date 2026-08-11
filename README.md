@@ -1,10 +1,10 @@
-# Campora — Verified Off-Campus Student Accommodation Platform
+# Dormiqa — Verified Off-Campus Student Accommodation Platform
 
 <p align="center">
-  <img src="/public/campora-logo.svg" alt="Campora Logo" width="180" />
+  <img src="/public/dormiqa-logo.svg" alt="Dormiqa Logo" width="180" />
 </p>
 
-**Campora** is Africa’s leading digital marketplace technology platform connecting tertiary institution students directly with verified property hosts, estate caretakers, and landlords near university campus gates.
+**Dormiqa** is Africa’s leading digital marketplace technology platform connecting tertiary institution students directly with verified property hosts, estate caretakers, and landlords near university campus gates.
 
 ---
 
@@ -12,9 +12,9 @@
 
 Finding safe, affordable, and honest off-campus housing near African university gates has historically been fraught with fake listings, unverified middle-men, extortionate viewing fees, and lack of transparency.
 
-**Campora transforms student accommodation hunting into a seamless, transparent experience.** By combining verified agent credentials, precise campus gate walking distance calculations, and scheduled physical inspection tools, Campora empowers students to secure ideal lodges with total peace of mind.
+**Dormiqa transforms student accommodation hunting into a seamless, transparent experience.** By combining verified agent credentials, precise campus gate walking distance calculations, and scheduled physical inspection tools, Dormiqa empowers students to secure ideal lodges with total peace of mind.
 
-> **CRITICAL LEGAL NOTICE:** Campora operates strictly as a technology intermediary platform and venue. Campora does **not** own, rent, manage, or process payments for accommodation. All tenancy agreements, house inspections, and rent payments are executed directly between the student and the verified agent or landlord.
+> **CRITICAL LEGAL NOTICE:** Dormiqa operates strictly as a technology intermediary platform and venue. Dormiqa does **not** own, rent, manage, or process payments for accommodation. All tenancy agreements, house inspections, and rent payments are executed directly between the student and the verified agent or landlord.
 
 ---
 
@@ -58,8 +58,8 @@ Finding safe, affordable, and honest off-campus housing near African university 
 
 ```
 ├── public/
-│   ├── favicon.svg             # Official Campora map pin roof logo
-│   └── campora-logo.svg        # Campora logo with brand typography
+│   ├── favicon.svg             # Official Dormiqa map pin roof logo
+│   └── dormiqa-logo.svg        # Dormiqa logo with brand typography
 ├── src/
 │   ├── App.tsx                 # Core App component & layout router
 │   ├── main.tsx                # React DOM entrypoint
@@ -95,8 +95,8 @@ Finding safe, affordable, and honest off-campus housing near African university 
 ### Local Installation
 1. **Clone repository:**
    ```bash
-   git clone https://github.com/campora/campora-applet.git
-   cd campora-applet
+   git clone https://github.com/dormiqa/dormiqa-applet.git
+   cd dormiqa-applet
    ```
 
 2. **Install dependencies:**
@@ -130,5 +130,6 @@ Finding safe, affordable, and honest off-campus housing near African university 
 
 ## 🛡️ License & Legal
 
-© 2026 Campora Technologies Limited. All rights reserved.
-Campora is a registered trademark under the Federal Republic of Nigeria.
+© 2026 Dormiqa Technologies Limited. All rights reserved.
+Dormiqa is a registered trademark under the Federal Republic of Nigeria.
+

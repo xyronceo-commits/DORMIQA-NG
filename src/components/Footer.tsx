@@ -30,9 +30,9 @@ export const Footer: React.FC<FooterProps> = ({
           {/* Col 1: Brand & Logo */}
           <div className="md:col-span-1 space-y-3">
             <div className="flex items-center gap-2">
-              <img src="/favicon.svg" alt="Campora Map Pin Logo" className="h-7 w-auto object-contain shrink-0" />
+              <img src="/favicon.svg" alt="Dormiqa Map Pin Logo" className="h-7 w-auto object-contain shrink-0" />
               <span className="font-black text-xl tracking-tight text-neutral-900">
-                CAMPORA
+                DORMIQA
               </span>
             </div>
             <p className="text-neutral-500 text-xs leading-relaxed max-w-xs">
@@ -153,13 +153,13 @@ export const Footer: React.FC<FooterProps> = ({
             </h4>
             <ul className="space-y-2 text-xs text-neutral-600 font-medium">
               <li>
-                <a href="#about-campora" onClick={(e) => handleDocClick('about-campora', e)} className="hover:text-black transition-colors">
-                  About Campora
+                <a href="#about-dormiqa" onClick={(e) => handleDocClick('about-dormiqa', e)} className="hover:text-black transition-colors">
+                  About Dormiqa
                 </a>
               </li>
               <li>
-                <a href="#how-campora-works" onClick={(e) => handleDocClick('how-campora-works', e)} className="hover:text-black transition-colors">
-                  How Campora Works
+                <a href="#how-dormiqa-works" onClick={(e) => handleDocClick('how-dormiqa-works', e)} className="hover:text-black transition-colors">
+                  How Dormiqa Works
                 </a>
               </li>
               <li>
@@ -190,7 +190,7 @@ export const Footer: React.FC<FooterProps> = ({
 
         {/* Bottom Legal & Copyright Bar */}
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-neutral-500 gap-4">
-          <p>© 2026 Campora Technologies Limited. All rights reserved.</p>
+          <p>© 2026 Dormiqa Technologies Limited. All rights reserved.</p>
           <div className="flex flex-wrap items-center gap-4 sm:gap-6 font-medium">
             <a href="#privacy-policy" onClick={(e) => handleDocClick('privacy-policy', e)} className="hover:text-neutral-800 transition-colors">Privacy Policy</a>
             <a href="#terms-and-conditions" onClick={(e) => handleDocClick('terms-and-conditions', e)} className="hover:text-neutral-800 transition-colors">Terms of Service</a>

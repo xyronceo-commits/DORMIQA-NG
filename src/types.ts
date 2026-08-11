@@ -15,6 +15,10 @@ export interface User {
   isEmailVerified?: boolean;
   agencyName?: string;
   licenseNumber?: string;
+  status?: 'verified' | 'pending' | 'rejected';
+  rejectionReason?: string;
+  propertiesCount?: number;
+  proofType?: string;
   bio?: string;
   createdAt: string;
 }

@@ -22,13 +22,6 @@ interface BusinessVerificationPageProps {
   onSkip: () => void;
 }
 
-const PRESET_PORTRAITS = [
-  { id: 'p1', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80', label: 'Verified Photo A' },
-  { id: 'p2', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80', label: 'Verified Photo B' },
-  { id: 'p3', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80', label: 'Verified Photo C' },
-  { id: 'p4', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80', label: 'Verified Photo D' },
-];
-
 export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> = ({
   agentData,
   onCompleteVerification,
@@ -39,7 +32,7 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   
   // Agent Face Verification Portrait State
-  const [portraitPhoto, setPortraitPhoto] = useState<string | null>(agentData?.avatarUrl || PRESET_PORTRAITS[0].url);
+  const [portraitPhoto, setPortraitPhoto] = useState<string | null>(agentData?.avatarUrl || null);
   const [portraitFileName, setPortraitFileName] = useState<string | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -86,7 +79,7 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
     setIsSubmitting(true);
     try {
       // Simulate Firebase Storage document upload path
-      const storageUrl = uploadedFile ? `gs://campora-firebase.appspot.com/proof_of_business/${Date.now()}_${uploadedFile.name}` : null;
+      const storageUrl = uploadedFile ? `gs://dormiqa-firebase.appspot.com/proof_of_business/${Date.now()}_${uploadedFile.name}` : null;
 
       const res = await verifyAgentBusiness({
         businessName: businessName.trim(),
@@ -244,32 +237,6 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
                       ✓ Uploaded: {portraitFileName}
                     </p>
                   )}
-                  <p className="text-[10px] text-slate-400 font-medium">
-                    Or select a verified sample photo below for quick test verification:
-                  </p>
-
-                  {/* Preset Sample Photos */}
-                  <div className="flex items-center gap-2 pt-1 justify-center sm:justify-start">
-                    {PRESET_PORTRAITS.map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => {
-                          setPortraitPhoto(preset.url);
-                          setPortraitFileName(null);
-                          setErrorMessage(null);
-                        }}
-                        className={`p-0.5 rounded-full transition-all ${
-                          portraitPhoto === preset.url
-                            ? 'ring-2 ring-emerald-400 scale-105'
-                            : 'opacity-60 hover:opacity-100'
-                        }`}
-                        title={preset.label}
-                      >
-                        <img src={preset.url} alt="" className="w-8 h-8 rounded-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </div>
             </div>

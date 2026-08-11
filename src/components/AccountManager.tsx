@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 import { resendVerificationEmail, checkEmailVerified } from '../services/firebase';
+import { EmailVerificationCard } from './EmailVerificationCard';
 
 interface AccountManagerProps {
   accounts: User[];
@@ -34,6 +35,8 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
   currentRole
 }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isVerifyingModalOpen, setIsVerifyingModalOpen] = useState(false);
+  const [resendStatus, setResendStatus] = useState<string | null>(null);
 
   const activeAccount = accounts.find(a => a.id === activeAccountId) || accounts[0];
 
@@ -43,8 +46,6 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
       setShowDeleteConfirm(false);
     }
   };
-
-  const [resendStatus, setResendStatus] = useState<string | null>(null);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -135,33 +136,42 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
             )}
             <div>
               <p className="font-extrabold text-slate-900">
-                {activeAccount?.isEmailVerified ? 'Firebase Email Verified' : 'Email Verification Status'}
+                {activeAccount?.isEmailVerified ? 'Email Verified' : 'Email Verification Pending'}
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5">
                 {activeAccount?.isEmailVerified 
-                  ? 'Your email address is fully verified on Firebase Auth.' 
-                  : 'Check your email inbox to verify your account or send a new link.'}
+                  ? 'Your email address is fully verified and secure.' 
+                  : 'Enter the 6-digit verification code sent to your registered email.'}
               </p>
             </div>
           </div>
 
           {!activeAccount?.isEmailVerified && (
             <button
-              onClick={async () => {
-                try {
-                  await resendVerificationEmail();
-                  setResendStatus('✓ Email verification link sent!');
-                } catch {
-                  setResendStatus('Verification link dispatched to inbox.');
-                }
-                setTimeout(() => setResendStatus(null), 5000);
-              }}
-              className="px-3.5 py-1.5 bg-neutral-900 hover:bg-black text-white font-bold text-xs rounded-xl shadow-xs transition-all whitespace-nowrap"
+              onClick={() => setIsVerifyingModalOpen(true)}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer"
             >
-              Resend Link
+              <ShieldCheck className="w-4 h-4" />
+              Verify Email Code
             </button>
           )}
         </div>
+
+        {/* 6-Digit Code Verification Modal */}
+        {isVerifyingModalOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+            <EmailVerificationCard
+              email={activeAccount?.email || 'user@dormiqa.ng'}
+              onBack={() => setIsVerifyingModalOpen(false)}
+              onVerified={() => {
+                if (activeAccount) {
+                  activeAccount.isEmailVerified = true;
+                }
+                setIsVerifyingModalOpen(false);
+              }}
+            />
+          </div>
+        )}
 
         {resendStatus && (
           <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl text-center">
@@ -177,7 +187,7 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
             </label>
             <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl font-semibold text-neutral-800 flex items-center gap-2">
               {activeAccount?.role === 'student' ? <GraduationCap className="w-4 h-4 text-emerald-600" /> : <Building2 className="w-4 h-4 text-neutral-400" />}
-              <span>{activeAccount?.universityName || activeAccount?.agencyName || 'Campora Operations Desk'}</span>
+              <span>{activeAccount?.universityName || activeAccount?.agencyName || 'Dormiqa Operations Desk'}</span>
             </div>
           </div>
 
@@ -205,7 +215,7 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
         <div className="pt-4 border-t border-neutral-100 flex items-center justify-between">
           <div className="text-xs">
             <h5 className="font-bold text-neutral-800">Delete My Account</h5>
-            <p className="text-[11px] text-neutral-500">Permanently remove your account profile from Campora.</p>
+            <p className="text-[11px] text-neutral-500">Permanently remove your account profile from Dormiqa.</p>
           </div>
           <button
             onClick={() => setShowDeleteConfirm(true)}

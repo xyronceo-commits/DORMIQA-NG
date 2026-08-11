@@ -38,21 +38,39 @@ import { BusinessVerificationPage } from './components/BusinessVerificationPage'
 import { StudentDashboard } from './components/StudentDashboard';
 import { AgentDashboard } from './components/AgentDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
+import { AdminLoginModal } from './components/AdminLoginModal';
 import { AISearchModal } from './components/AISearchModal';
 import { AIChatbotWidget } from './components/AIChatbotWidget';
 import { InfoPagesModal } from './components/InfoPagesModal';
+import { checkAdminSession, clearAdminToken } from './services/api';
 
 export default function App() {
   const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash'>('landing');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('campora_is_logged_in') === 'true';
+      return (localStorage.getItem('dormiqa_is_logged_in') || localStorage.getItem('campora_is_logged_in')) === 'true';
     } catch {
       return false;
     }
   });
 
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
+  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    checkAdminSession().then(isAuth => {
+      setIsAdminAuthenticated(isAuth);
+      if (isAuth) {
+        setCurrentRole('admin');
+      }
+    });
+  }, []);
+
   const navigateView = (view: 'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash') => {
+    if (view === 'admin-dash' && !isAdminAuthenticated) {
+      setIsAdminLoginModalOpen(true);
+      return;
+    }
     if (!isLoggedIn && view !== 'landing' && view !== 'onboarding' && view !== 'business-verification') {
       setActiveView('onboarding');
       setToastNotice('Please sign up or sign in to access verified accommodation.');
@@ -74,7 +92,7 @@ export default function App() {
   // Accounts Management State
   const [accounts, setAccounts] = useState<User[]>(() => {
     try {
-      const stored = localStorage.getItem('campora_user_accounts');
+      const stored = localStorage.getItem('dormiqa_user_accounts') || localStorage.getItem('campora_user_accounts');
       return stored ? JSON.parse(stored) : defaultInitialAccounts;
     } catch {
       return defaultInitialAccounts;
@@ -83,7 +101,7 @@ export default function App() {
 
   const [activeAccountId, setActiveAccountId] = useState<string>(() => {
     try {
-      const stored = localStorage.getItem('campora_active_account_id');
+      const stored = localStorage.getItem('dormiqa_active_account_id') || localStorage.getItem('campora_active_account_id');
       return stored || 'usr_student_1';
     } catch {
       return 'usr_student_1';
@@ -201,11 +219,11 @@ export default function App() {
   };
 
   useEffect(() => {
-    localStorage.setItem('campora_user_accounts', JSON.stringify(accounts));
+    localStorage.setItem('dormiqa_user_accounts', JSON.stringify(accounts));
   }, [accounts]);
 
   useEffect(() => {
-    localStorage.setItem('campora_active_account_id', activeAccountId);
+    localStorage.setItem('dormiqa_active_account_id', activeAccountId);
     const activeAcc = accounts.find(a => a.id === activeAccountId);
     if (activeAcc) {
       setCurrentRole(activeAcc.role);
@@ -215,6 +233,7 @@ export default function App() {
   const handleSignOut = () => {
     const currentAcc = accounts.find(a => a.id === activeAccountId);
     setIsLoggedIn(false);
+    localStorage.removeItem('dormiqa_is_logged_in');
     localStorage.removeItem('campora_is_logged_in');
     setToastNotice(`Successfully signed out of ${currentAcc?.name || 'account'}`);
     setTimeout(() => setToastNotice(null), 4000);
@@ -226,6 +245,7 @@ export default function App() {
     const remaining = accounts.filter(a => a.id !== accountId);
 
     setIsLoggedIn(false);
+    localStorage.removeItem('dormiqa_is_logged_in');
     localStorage.removeItem('campora_is_logged_in');
 
     if (remaining.length === 0) {
@@ -248,7 +268,7 @@ export default function App() {
 
   const [savedIds, setSavedIds] = useState<string[]>(() => {
     try {
-      const stored = localStorage.getItem('campora_saved_ids');
+      const stored = localStorage.getItem('dormiqa_saved_ids') || localStorage.getItem('campora_saved_ids');
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -275,7 +295,7 @@ export default function App() {
   }, [filters]);
 
   useEffect(() => {
-    localStorage.setItem('campora_saved_ids', JSON.stringify(savedIds));
+    localStorage.setItem('dormiqa_saved_ids', JSON.stringify(savedIds));
   }, [savedIds]);
 
   const loadUniversitiesData = async () => {
@@ -372,6 +392,7 @@ export default function App() {
         onOpenAddModal={() => setAddModalOpen(true)}
         onNavigateStudentTab={(t) => setStudentTab(t)}
         onNavigateAgentTab={(t) => setAgentTab(t)}
+        onOpenAdminLoginModal={() => setIsAdminLoginModalOpen(true)}
         studentTab={studentTab}
         agentTab={agentTab}
       />
@@ -432,7 +453,7 @@ export default function App() {
             universities={universities}
             onCompleteOnboarding={(userData) => {
               setIsLoggedIn(true);
-              localStorage.setItem('campora_is_logged_in', 'true');
+              localStorage.setItem('dormiqa_is_logged_in', 'true');
               setCurrentRole(userData.role);
 
               // Create new user account object
@@ -678,12 +699,15 @@ export default function App() {
         {/* 7. Admin Dashboard */}
         {activeView === 'admin-dash' && (
           <AdminDashboard
-            listings={listings}
             onRefresh={loadListingsData}
-            accounts={accounts}
-            activeAccountId={activeAccountId}
-            onSignOut={handleSignOut}
-            onDeleteAccount={handleDeleteAccount}
+            onAdminLogout={() => {
+              setIsAdminAuthenticated(false);
+              clearAdminToken();
+              setCurrentRole('student');
+              setActiveView('landing');
+              setToastNotice('Admin session logged out.');
+              setTimeout(() => setToastNotice(null), 3000);
+            }}
           />
         )}
 
@@ -834,6 +858,19 @@ export default function App() {
         onNavigateToOnboarding={() => {
           setIsInfoModalOpen(false);
           setActiveView('onboarding');
+        }}
+      />
+
+      {/* Discreet Secure Admin Access Login Modal */}
+      <AdminLoginModal
+        isOpen={isAdminLoginModalOpen}
+        onClose={() => setIsAdminLoginModalOpen(false)}
+        onSuccess={() => {
+          setIsAdminAuthenticated(true);
+          setCurrentRole('admin');
+          setActiveView('admin-dash');
+          setToastNotice('Authenticated successfully as Dormiqa Administrator.');
+          setTimeout(() => setToastNotice(null), 3000);
         }}
       />
 

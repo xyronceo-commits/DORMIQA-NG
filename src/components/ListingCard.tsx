@@ -4,13 +4,10 @@ import {
   MapPin, 
   Footprints, 
   ShieldCheck, 
-  Star, 
   ChevronLeft, 
   ChevronRight, 
-  Check, 
-  Eye, 
   Calendar,
-  Sparkles
+  Building2
 } from 'lucide-react';
 import { Listing } from '../types';
 
@@ -43,9 +40,9 @@ export const ListingCard: React.FC<ListingCardProps> = ({
 
   // Property type badge label
   const typeLabel = {
-    self_contain: 'Self-Contain Studio',
+    self_contain: 'Self-Contain',
     single_room: 'Single Room',
-    one_bedroom: '1 Bedroom Flat',
+    one_bedroom: '1 Bed Flat',
     shared_flat: 'Shared Flat',
     bedspace: 'Bedspace',
     studio: 'Private Lodge',
@@ -56,14 +53,14 @@ export const ListingCard: React.FC<ListingCardProps> = ({
   return (
     <div 
       onClick={() => onOpenDetail(listing)}
-      className="group bg-white rounded-md border border-neutral-200 hover:border-neutral-300 hover:shadow-xs transition-all duration-150 overflow-hidden flex flex-col cursor-pointer"
+      className="group bg-white dark:bg-slate-900 rounded-2xl border border-neutral-200/80 dark:border-slate-800 hover:border-neutral-300 dark:hover:border-slate-700 shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col cursor-pointer"
     >
       {/* Photo carousel container */}
-      <div className="relative aspect-[4/3] w-full bg-neutral-100 overflow-hidden">
+      <div className="relative aspect-[4/3] w-full bg-neutral-100 dark:bg-slate-800 overflow-hidden">
         <img
           src={listing.photos[currentPhotoIdx] || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80'}
           alt={listing.title}
-          className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300 ease-out"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
         />
 
         {/* Carousel controls */}
@@ -71,24 +68,24 @@ export const ListingCard: React.FC<ListingCardProps> = ({
           <>
             <button
               onClick={prevPhoto}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded bg-white/90 hover:bg-white text-neutral-800 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-neutral-200 shadow-xs"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 hover:bg-white dark:bg-slate-900/90 dark:hover:bg-slate-900 text-neutral-800 dark:text-neutral-100 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-neutral-200 dark:border-slate-700 shadow-xs cursor-pointer"
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
+              <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={nextPhoto}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded bg-white/90 hover:bg-white text-neutral-800 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-neutral-200 shadow-xs"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 hover:bg-white dark:bg-slate-900/90 dark:hover:bg-slate-900 text-neutral-800 dark:text-neutral-100 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-neutral-200 dark:border-slate-700 shadow-xs cursor-pointer"
             >
-              <ChevronRight className="w-3.5 h-3.5" />
+              <ChevronRight className="w-4 h-4" />
             </button>
 
             {/* Dots */}
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10">
+            <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10">
               {listing.photos.slice(0, 5).map((_, idx) => (
                 <span
                   key={idx}
-                  className={`w-1.5 h-1.5 rounded-full transition-all ${
-                    idx === currentPhotoIdx ? 'bg-white w-2.5' : 'bg-white/60'
+                  className={`h-1.5 rounded-full transition-all ${
+                    idx === currentPhotoIdx ? 'bg-white w-3' : 'bg-white/60 w-1.5'
                   }`}
                 />
               ))}
@@ -97,10 +94,10 @@ export const ListingCard: React.FC<ListingCardProps> = ({
         )}
 
         {/* Top Badges */}
-        <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
           {/* Walking Distance Badge */}
-          <div className="pointer-events-auto bg-neutral-900/90 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-xs">
-            <Footprints className="w-3 h-3 text-emerald-400" />
+          <div className="pointer-events-auto bg-slate-900/90 dark:bg-slate-950/90 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-xs border border-white/10">
+            <Footprints className="w-3.5 h-3.5 text-emerald-400" />
             <span>{listing.walkingDistanceMinutes} min walk</span>
           </div>
 
@@ -110,126 +107,111 @@ export const ListingCard: React.FC<ListingCardProps> = ({
               e.stopPropagation();
               onToggleSave(listing.id);
             }}
-            className={`pointer-events-auto p-1.5 rounded-md backdrop-blur-sm transition-transform active:scale-95 border ${
+            className={`pointer-events-auto p-2 rounded-full backdrop-blur-md transition-all active:scale-90 border cursor-pointer ${
               isSaved
-                ? 'bg-rose-500 border-rose-500 text-white'
-                : 'bg-white/90 border-neutral-200 hover:bg-white text-neutral-700'
+                ? 'bg-rose-500 border-rose-500 text-white shadow-xs'
+                : 'bg-white/90 dark:bg-slate-900/80 border-neutral-200 dark:border-slate-700 hover:bg-white text-neutral-700 dark:text-neutral-200'
             }`}
+            title={isSaved ? "Remove from saved" : "Save accommodation"}
           >
-            <Heart className={`w-3.5 h-3.5 ${isSaved ? 'fill-white' : ''}`} />
+            <Heart className={`w-4 h-4 ${isSaved ? 'fill-white' : ''}`} />
           </button>
         </div>
 
-        {/* Bottom Property Type Pill & Unit Status Badge */}
-        <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none gap-1">
-          <span className="bg-white/95 text-neutral-900 text-[10px] font-bold px-2 py-0.5 rounded border border-neutral-200 shadow-xs uppercase tracking-wider">
+        {/* Bottom Status Tags */}
+        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none gap-2">
+          <span className="bg-white/95 dark:bg-slate-900/95 text-neutral-900 dark:text-neutral-100 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-slate-700 shadow-xs uppercase tracking-wider">
             {typeLabel}
           </span>
           {listing.unitStatus === 'occupied' ? (
-            <span className="bg-rose-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow-xs">
-              🔴 Fully Rented
-            </span>
-          ) : listing.unitStatus === 'under_renovation' ? (
-            <span className="bg-orange-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow-xs">
-              🟠 Under Renovation
+            <span className="bg-rose-600/95 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-lg shadow-xs">
+              Fully Rented
             </span>
           ) : listing.unitStatus === 'remaining' || listing.vacanciesCount ? (
-            <span className="bg-amber-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow-xs">
-              🟡 {listing.vacanciesCount || 1} Rooms Left
+            <span className="bg-amber-600/95 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-lg shadow-xs">
+              {listing.vacanciesCount || 1} Rooms Left
             </span>
           ) : (
-            <span className="bg-emerald-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded shadow-xs">
-              🟢 Vacant & Available
+            <span className="bg-emerald-600/95 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-lg shadow-xs">
+              Available
             </span>
           )}
         </div>
       </div>
 
       {/* Content body */}
-      <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2.5">
+      <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
         
-        <div>
-          {listing.hotelName && (
-            <span className="text-[10px] font-bold text-purple-800 bg-purple-50 border border-purple-200 px-1.5 py-0.2 rounded mb-1 inline-block">
-              🏨 {listing.hotelName}
-            </span>
-          )}
-
-          {/* Header Row: Title & Agent Shield */}
+        <div className="space-y-1.5">
+          {/* Title & Verified Shield */}
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-bold text-neutral-900 text-sm leading-snug line-clamp-1 group-hover:text-black transition-colors">
+            <h3 className="font-bold text-neutral-900 dark:text-white text-sm sm:text-base leading-snug line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
               {listing.title}
             </h3>
             {listing.agent.isVerified && (
-              <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200" title="Verified Agent Listing">
-                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+              <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800" title="Verified Caretaker/Agent">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 Verified
               </span>
             )}
           </div>
 
-          {/* Campus Distance & Address */}
-          <p className="text-xs text-neutral-500 flex items-center gap-1 mt-1 truncate">
-            <MapPin className="w-3.5 h-3.5 shrink-0 text-neutral-400" />
+          {/* Location */}
+          <p className="text-xs text-neutral-500 dark:text-slate-400 flex items-center gap-1 truncate">
+            <MapPin className="w-3.5 h-3.5 shrink-0 text-neutral-400 dark:text-slate-500" />
             <span className="truncate">{listing.address}</span>
           </p>
 
-          {/* Facilities pills snippet */}
-          <div className="flex flex-wrap gap-1 mt-2">
+          {/* Key Facilities snippet */}
+          <div className="flex flex-wrap gap-1.5 pt-1">
             {listing.facilities.slice(0, 3).map((facility, i) => (
               <span 
                 key={i}
-                className="text-[10px] font-medium bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded border border-neutral-200/60"
+                className="text-[10px] font-medium bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-300 px-2 py-0.5 rounded-md border border-neutral-200/70 dark:border-slate-700"
               >
                 {facility}
               </span>
             ))}
             {listing.facilities.length > 3 && (
-              <span className="text-[10px] text-neutral-400 font-semibold px-1 py-0.5">
-                +{listing.facilities.length - 3} more
+              <span className="text-[10px] text-neutral-400 dark:text-slate-500 font-semibold px-1 py-0.5">
+                +{listing.facilities.length - 3}
               </span>
             )}
           </div>
         </div>
 
         {/* Pricing & Inspection CTA Row */}
-        <div className="pt-2.5 border-t border-neutral-100 flex items-center justify-between mt-auto">
+        <div className="pt-3 border-t border-neutral-100 dark:border-slate-800 flex items-center justify-between mt-auto">
           <div>
             <div className="flex items-baseline gap-1">
-              <span className="font-extrabold text-neutral-900 text-base">
+              <span className="font-black text-neutral-900 dark:text-white text-base sm:text-lg">
                 ₦{(listing.pricePerYear || (listing.pricePerWeek ? listing.pricePerWeek * 52 : 300000)).toLocaleString()}
               </span>
-              <span className="text-xs text-neutral-500 font-normal">/ yr</span>
+              <span className="text-xs text-neutral-500 dark:text-slate-400 font-medium">/ yr</span>
             </div>
-            <div className="text-[10px] text-neutral-400 flex items-center gap-1 flex-wrap">
+            <div className="text-[11px] text-neutral-400 dark:text-slate-500 font-medium flex items-center gap-1.5">
               <span>₦{(listing.pricePerMonth || Math.round((listing.pricePerYear || 300000) / 12)).toLocaleString()}/mo</span>
               {listing.billsIncluded && (
-                <span className="text-emerald-700 font-bold">• Power Inc.</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold">• Light Inc.</span>
               )}
             </div>
-            {listing.promoDiscount && (
-              <span className="text-[9px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1 py-0.2 rounded mt-1 inline-block">
-                🎉 {listing.promoDiscount}
-              </span>
-            )}
           </div>
 
-          {/* Quick Action Buttons */}
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onBookInspection(listing);
-              }}
-              className="px-3 py-1.5 text-xs font-semibold text-white bg-black hover:bg-neutral-800 transition-colors rounded-md flex items-center gap-1 shadow-xs"
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              Book Tour
-            </button>
-          </div>
+          {/* Action CTA */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onBookInspection(listing);
+            }}
+            className="px-3.5 py-2 text-xs font-bold text-white bg-slate-900 dark:bg-emerald-600 hover:bg-emerald-600 dark:hover:bg-emerald-500 transition-colors rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            Book Tour
+          </button>
         </div>
 
       </div>
     </div>
   );
 };
+

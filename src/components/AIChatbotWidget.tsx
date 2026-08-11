@@ -123,7 +123,7 @@ const SUGGESTED_QUESTIONS = [
   "What caution deposits and agreement fees are standard for student lodges?",
   "How do I verify prepaid electricity meters and solar power before paying?",
   "What are the safest areas for night studies near UNILAG / UNIBEN / UI campuses?",
-  "How do I negotiate rent and find a compatible flatmate on Campora?"
+  "How do I negotiate rent and find a compatible flatmate on Dormiqa?"
 ];
 
 export const AIChatbotWidget: React.FC<AIChatbotWidgetProps> = ({
@@ -139,7 +139,7 @@ export const AIChatbotWidget: React.FC<AIChatbotWidgetProps> = ({
   const [chatHistory, setChatHistory] = useState<Array<{ sender: 'user' | 'ai'; text: string; time: string }>>([
     {
       sender: 'ai',
-      text: 'Hello! I am your Campora AI Student Housing Advisor. How can I help you find safe, verified campus accommodation or answer questions about lease terms, deposits, and inspections today?',
+      text: 'Hello! I am your Dormiqa AI Student Housing Advisor. How can I help you find safe, verified campus accommodation or answer questions about lease terms, deposits, and inspections today?',
       time: 'Just now'
     }
   ]);
@@ -197,7 +197,7 @@ export const AIChatbotWidget: React.FC<AIChatbotWidgetProps> = ({
 
     try {
       const historyPayload = chatHistory.map(m => ({
-        sender: m.sender === 'user' ? 'Student' : 'Campora AI',
+        sender: m.sender === 'user' ? 'Student' : 'Dormiqa AI',
         text: m.text
       }));
 
@@ -249,14 +249,14 @@ export const AIChatbotWidget: React.FC<AIChatbotWidgetProps> = ({
         <button
           onClick={() => setIsOpen(true)}
           className="group relative px-4 py-3 bg-slate-900 hover:bg-black text-white rounded-full shadow-2xl border-2 border-emerald-400 flex items-center gap-3 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
-          title="Open Campora AI Student Housing Assistant"
+          title="Open Dormiqa AI Student Housing Assistant"
         >
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-300 text-slate-950 flex items-center justify-center font-black shadow-md shrink-0">
             <Sparkles className="w-4 h-4 fill-slate-950 text-slate-950 animate-spin-slow" />
           </div>
           <div className="text-left hidden sm:block pr-1">
             <p className="text-xs font-black tracking-tight text-white flex items-center gap-1">
-              Campora AI
+              Dormiqa AI
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             </p>
             <p className="text-[10px] text-emerald-300 font-semibold">Campus Housing Chatbot</p>
@@ -280,7 +280,7 @@ export const AIChatbotWidget: React.FC<AIChatbotWidgetProps> = ({
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h3 className="font-black text-sm tracking-tight text-white">Campora AI Assistant</h3>
+                  <h3 className="font-black text-sm tracking-tight text-white">Dormiqa AI Assistant</h3>
                   <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                     Online
                   </span>
@@ -361,7 +361,7 @@ export const AIChatbotWidget: React.FC<AIChatbotWidgetProps> = ({
             {isTyping && (
               <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-slate-400 p-1">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-emerald-400" />
-                <span className="italic text-[11px]">Campora AI is thinking...</span>
+                <span className="italic text-[11px]">Dormiqa AI is thinking...</span>
               </div>
             )}
 

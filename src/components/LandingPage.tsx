@@ -75,7 +75,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const faqs = [
     {
-      q: "How does Campora verify caretakers and property agents?",
+      q: "How does Dormiqa verify caretakers and property agents?",
       a: "Every caretaker or agent provides business details, proof of business (banner, logo, office photo, or CAC), confirms agency or property management authority, and submits verifiable property location details before listings go live."
     },
     {
@@ -83,11 +83,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       a: "Yes. Walking distances are measured directly from the lodge gate to the university main gate or central library using pedestrian routing, preventing fake claims."
     },
     {
-      q: "Does Campora charge agency or inspection search fees?",
+      q: "Does Dormiqa charge agency or inspection search fees?",
       a: "No search fees. You can browse all verified listings and book inspection appointments directly for free. Agent fees, legal agreements, and rent terms are transparently listed upfront."
     },
     {
-      q: "How does roommate matching work on Campora?",
+      q: "How does roommate matching work on Dormiqa?",
       a: "Verified students can post roommate requests specifying budget split, preferred department, and house rules. All roommate profiles undergo student ID verification."
     }
   ];
@@ -202,7 +202,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-600" /> Physical Property Verification
                   </span>
-                  <span className="text-[10px] font-semibold text-neutral-400">Campora NG</span>
+                  <span className="text-[10px] font-semibold text-neutral-400">Dormiqa NG</span>
                 </div>
 
                 <div className="space-y-3 text-xs text-neutral-600">
@@ -299,7 +299,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* 3. SPLIT FEATURE HIGHLIGHT - "Why Campora Works for Students" */}
+      {/* 3. SPLIT FEATURE HIGHLIGHT - "Why Dormiqa Works for Students" */}
       <section className="bg-neutral-900 text-white py-14">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
           

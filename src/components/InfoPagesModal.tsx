@@ -92,10 +92,10 @@ export const InfoPagesModal: React.FC<InfoPagesModalProps> = ({
         {/* Top Header Bar */}
         <div className="bg-neutral-900 text-white px-4 sm:px-6 py-4 flex items-center justify-between border-b border-neutral-800 shrink-0">
           <div className="flex items-center gap-2.5">
-            <img src="/favicon-white.svg" alt="Campora White Logo" className="h-7 w-auto object-contain shrink-0" />
+            <img src="/favicon-white.svg" alt="Dormiqa White Logo" className="h-7 w-auto object-contain shrink-0" />
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-black tracking-tight text-base sm:text-lg text-white">CAMPORA</span>
+                <span className="font-black tracking-tight text-base sm:text-lg text-white">DORMIQA</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-neutral-800 text-emerald-400 px-2 py-0.5 rounded-full border border-neutral-700">
                   Documentation & Legal
                 </span>
@@ -245,7 +245,7 @@ export const InfoPagesModal: React.FC<InfoPagesModalProps> = ({
             {/* Breadcrumb & Meta Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 pb-4">
               <div className="flex items-center gap-2 text-xs text-neutral-500 font-medium">
-                <span>Campora</span>
+                <span>Dormiqa</span>
                 <ChevronRight className="w-3 h-3 text-neutral-400" />
                 <span className="text-neutral-700">{activeDoc.categoryLabel}</span>
                 <ChevronRight className="w-3 h-3 text-neutral-400" />
@@ -291,7 +291,7 @@ export const InfoPagesModal: React.FC<InfoPagesModalProps> = ({
                 <span>Intermediary Platform Notice</span>
               </div>
               <p className="text-amber-800 leading-relaxed">
-                Campora is an independent technology venue connecting tertiary institution students directly with verified property hosts and caretakers. Campora does not own, rent, manage, or process payments for accommodation. All rental agreements and payments are made directly between the student and the agent/landlord.
+                Dormiqa is an independent technology venue connecting tertiary institution students directly with verified property hosts and caretakers. Dormiqa does not own, rent, manage, or process payments for accommodation. All rental agreements and payments are made directly between the student and the agent/landlord.
               </p>
             </div>
 
