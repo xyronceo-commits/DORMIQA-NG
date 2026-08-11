@@ -31,6 +31,7 @@ import { Listing, ListingReview } from '../types';
 import { submitListingReview } from '../services/api';
 import { sendNotification } from '../services/notificationService';
 import { updateListingSeo, updateDocumentSeo } from '../utils/seo';
+import { auth } from '../services/firebase';
 
 interface ListingDetailModalProps {
   listing: Listing | null;
@@ -66,8 +67,8 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [rating, setRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
-  const [authorName, setAuthorName] = useState('Alex Chen (Student)');
-  const [universityCourse, setUniversityCourse] = useState('UNILAG Computer Science 300L');
+  const [authorName, setAuthorName] = useState(() => auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Verified Student');
+  const [universityCourse, setUniversityCourse] = useState('Student Resident');
   const [reviewTag, setReviewTag] = useState<'Verified Tour Visitor' | 'Current Resident Student' | 'Inspection Completed'>('Inspection Completed');
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);

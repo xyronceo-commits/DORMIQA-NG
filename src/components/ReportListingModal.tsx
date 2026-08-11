@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, ShieldAlert, Flag, CheckCircle2 } from 'lucide-react';
 import { Listing, Report } from '../types';
 import { submitReport } from '../services/api';
+import { auth } from '../services/firebase';
 
 interface ReportListingModalProps {
   listing: Listing;
@@ -23,11 +24,12 @@ export const ReportListingModal: React.FC<ReportListingModalProps> = ({
     e.preventDefault();
     setSubmitting(true);
     try {
+      const user = auth.currentUser;
       const res = await submitReport({
         listingId: listing.id,
         listingTitle: listing.title,
-        reporterId: 'usr_student_1',
-        reporterName: 'Alex Chen',
+        reporterId: user?.uid || 'anonymous_student',
+        reporterName: user?.displayName || user?.email?.split('@')[0] || 'Verified Student',
         reason,
         details
       });

@@ -14,7 +14,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { User, UserRole } from '../types';
-import { resendVerificationEmail, checkEmailVerified, saveUserToFirestore } from '../services/firebase';
+import { resendVerificationEmail, checkEmailVerified, saveUserToFirestore, auth } from '../services/firebase';
 import { EmailVerificationCard } from './EmailVerificationCard';
 
 interface AccountManagerProps {
@@ -161,7 +161,7 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
         {isVerifyingModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
             <EmailVerificationCard
-              email={activeAccount?.email || 'user@dormiqa.ng'}
+              email={activeAccount?.email || auth.currentUser?.email || ''}
               onBack={() => setIsVerifyingModalOpen(false)}
               onVerified={() => {
                 if (activeAccount) {
@@ -188,7 +188,7 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
             </label>
             <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl font-semibold text-neutral-800 flex items-center gap-2">
               {activeAccount?.role === 'student' ? <GraduationCap className="w-4 h-4 text-emerald-600" /> : <Building2 className="w-4 h-4 text-neutral-400" />}
-              <span>{activeAccount?.universityName || activeAccount?.agencyName || 'Dormiqa Operations Desk'}</span>
+              <span>{activeAccount?.universityName || activeAccount?.agencyName || 'Not specified'}</span>
             </div>
           </div>
 

@@ -365,7 +365,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     return (
       <div className="min-h-[calc(100vh-4rem)] bg-neutral-50 dark:bg-neutral-950 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
         <EmailVerificationCard
-          email={pendingUserOnboardingData?.email || studentEmail || agentEmail || 'student@dormiqa.ng'}
+          email={pendingUserOnboardingData?.email || studentEmail || agentEmail || auth.currentUser?.email || ''}
           onBack={() => setShowEmailVerificationScreen(false)}
           onVerified={async () => {
             if (auth.currentUser) {

@@ -19,6 +19,7 @@ import {
 import { Listing, Inspection, Conversation, User } from '../types';
 import { updateInspectionStatus, fetchInspections, fetchConversations, updateListingStatusAndSales } from '../services/api';
 import { sendNotification } from '../services/notificationService';
+import { auth } from '../services/firebase';
 import { generateGoogleCalendarUrl, downloadIcsFile } from '../utils/calendar';
 import { AccountManager } from './AccountManager';
 import { EditUnitStatusAndSalesModal } from './EditUnitStatusAndSalesModal';
@@ -108,9 +109,9 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
       if (updatedInsp) {
         // Send real-time notification alert to student
         sendNotification({
-          userId: updatedInsp.studentId || 'usr_student_1',
+          userId: updatedInsp.studentId,
           title: `📅 Tour Status: ${status.toUpperCase()}`,
-          body: `Agent Tunde marked your inspection for "${updatedInsp.listingTitle}" as ${status.toUpperCase()}.`,
+          body: `Agent marked your inspection for "${updatedInsp.listingTitle}" as ${status.toUpperCase()}.`,
           type: 'inspection',
           metadata: {
             inspectionId: inspId,
@@ -148,19 +149,19 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
       <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <img
-            src={activeUser?.avatarUrl || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80"}
+            src={activeUser?.avatarUrl || auth.currentUser?.photoURL || "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80"}
             alt=""
             className="w-16 h-16 rounded-full object-cover border-2 border-emerald-400"
           />
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-extrabold text-white">{activeUser?.name || 'Chief Tunde Adebayo'}</h1>
+              <h1 className="text-2xl font-extrabold text-white">{activeUser?.name || auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Property Agent'}</h1>
               <span className="bg-emerald-500 text-slate-950 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1">
                 <ShieldCheck className="w-3 h-3" /> VERIFIED CARETAKER & AGENT
               </span>
             </div>
             <p className="text-xs text-slate-400 font-medium">
-              {activeUser?.agencyName || 'Yaba & Akoka Student Housing Ltd'} • {activeUser?.email || 'tunde.adebayo@yabahousing.ng'}
+              {activeUser?.agencyName ? `${activeUser.agencyName} • ` : ''}{activeUser?.email || auth.currentUser?.email || ''}
             </p>
           </div>
         </div>

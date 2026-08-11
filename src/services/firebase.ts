@@ -211,23 +211,47 @@ export const saveUserToFirestore = async (userObj: {
   avatarUrl?: string;
 }) => {
   try {
-    if (!userObj.email) return;
-    const cleanEmail = userObj.email.trim().toLowerCase();
-    const userRef = doc(db, 'users', cleanEmail);
+    const user = auth.currentUser;
+    const uid = userObj.id || user?.uid;
+    const cleanEmail = (userObj.email || user?.email || '').trim().toLowerCase();
+    
+    if (!uid && !cleanEmail) return;
+
+    const docId = uid || cleanEmail;
+    const userRef = doc(db, 'users', docId);
+
+    const isVerified = user ? (user.emailVerified || user.providerData.some(p => p.providerId === 'google.com')) : !!userObj.isEmailVerified;
+
     await setDoc(userRef, {
-      id: userObj.id || auth.currentUser?.uid || `usr_${Date.now()}`,
-      name: userObj.name || cleanEmail.split('@')[0],
+      id: docId,
+      uid: docId,
+      name: userObj.name || user?.displayName || cleanEmail.split('@')[0] || 'User',
       email: cleanEmail,
       role: userObj.role || 'student',
       phone: userObj.phone || '',
       universityName: userObj.universityName || '',
       agencyName: userObj.agencyName || '',
-      isEmailVerified: !!userObj.isEmailVerified,
-      avatarUrl: userObj.avatarUrl || '',
+      isEmailVerified: isVerified,
+      avatarUrl: userObj.avatarUrl || user?.photoURL || '',
       updatedAt: new Date().toISOString()
     }, { merge: true });
   } catch (err) {
     console.warn("Failed to sync user to Firestore users collection:", err);
+  }
+};
+
+export const fetchUserProfileFromFirestore = async (uidOrEmail: string): Promise<any | null> => {
+  try {
+    if (!uidOrEmail) return null;
+    const userRef = doc(db, 'users', uidOrEmail);
+    const snap = await getDoc(userRef);
+    if (snap.exists()) {
+      return snap.data();
+    }
+    return null;
+  } catch (err) {
+    console.warn("Failed to fetch user profile from Firestore:", err);
+    return null;
   }
 };
 

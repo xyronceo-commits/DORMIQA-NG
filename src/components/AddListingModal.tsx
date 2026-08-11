@@ -3,6 +3,7 @@ import { X, Building2, Upload, Plus, CheckCircle2, Footprints, Video, AlertCircl
 import { University, PropertyType, Listing } from '../types';
 import { createListing } from '../services/api';
 import { sendNotification, notifyAgentListingReviewComplete } from '../services/notificationService';
+import { auth } from '../services/firebase';
 
 interface AddListingModalProps {
   universities: University[];
@@ -146,16 +147,16 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         agentId,
         agent: {
           id: agentId,
-          name: 'Chief Tunde Adebayo',
-          agencyName: 'Yaba Verified Student Housing',
-          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
-          phone: '+234 803 456 7890',
-          email: 'tunde@yabahomes.ng',
-          responseRate: '99%',
+          name: auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Verified Agent',
+          agencyName: 'Verified Student Housing Agency',
+          avatarUrl: auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
+          phone: '',
+          email: auth.currentUser?.email || '',
+          responseRate: '100%',
           responseTime: 'Under 15 mins',
           isVerified: true,
-          rating: 4.9,
-          totalReviews: 84
+          rating: 5.0,
+          totalReviews: 1
         },
         rules: ['Hotel Security Clearance Required', 'Student ID Verified at Check-in', 'No Smoking in Rooms'],
         description: description || `${title} at ${hotelName}. A premium student accommodation situated just ${walkingDistanceMinutes} minutes walk to ${selectedUni?.name || 'campus'}. Features ${vacanciesCount} available rooms, full 24/7 solar backup light, and verified 360° video walkthrough.`

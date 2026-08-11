@@ -43,18 +43,12 @@ import { AISearchModal } from './components/AISearchModal';
 import { AIChatbotWidget } from './components/AIChatbotWidget';
 import { InfoPagesModal } from './components/InfoPagesModal';
 import { checkAdminSession, clearAdminToken } from './services/api';
-import { auth, saveUserToFirestore, logoutFirebase } from './services/firebase';
+import { auth, saveUserToFirestore, logoutFirebase, fetchUserProfileFromFirestore } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 export default function App() {
   const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash'>('landing');
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    try {
-      return (localStorage.getItem('dormiqa_is_logged_in') || localStorage.getItem('campora_is_logged_in')) === 'true';
-    } catch {
-      return false;
-    }
-  });
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState<boolean>(false);
@@ -97,24 +91,9 @@ export default function App() {
   const [studentTab, setStudentTab] = useState<'inspections' | 'saved' | 'chats' | 'profile'>('inspections');
   const [agentTab, setAgentTab] = useState<'schedule' | 'availability' | 'requests' | 'profile'>('schedule');
 
-  // Accounts Management State
-  const [accounts, setAccounts] = useState<User[]>(() => {
-    try {
-      const stored = localStorage.getItem('dormiqa_user_accounts') || localStorage.getItem('campora_user_accounts');
-      return stored ? JSON.parse(stored) : defaultInitialAccounts;
-    } catch {
-      return defaultInitialAccounts;
-    }
-  });
-
-  const [activeAccountId, setActiveAccountId] = useState<string>(() => {
-    try {
-      const stored = localStorage.getItem('dormiqa_active_account_id') || localStorage.getItem('campora_active_account_id');
-      return stored || 'usr_student_1';
-    } catch {
-      return 'usr_student_1';
-    }
-  });
+  // Accounts Management State (populated exclusively from active Firebase Auth session)
+  const [accounts, setAccounts] = useState<User[]>([]);
+  const [activeAccountId, setActiveAccountId] = useState<string>('');
 
   const [toastNotice, setToastNotice] = useState<string | null>(null);
 
@@ -151,35 +130,70 @@ export default function App() {
     setIsInfoModalOpen(true);
   };
 
-  // Firebase Auth Verification State Sync
+  // Firebase Auth State Listener & User Profile Sync
   useEffect(() => {
-    const syncUser = async (user: any) => {
-      if (!user) return;
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      if (!fbUser) {
+        setIsLoggedIn(false);
+        setAccounts([]);
+        setActiveAccountId('');
+        localStorage.removeItem('dormiqa_is_logged_in');
+        localStorage.removeItem('campora_is_logged_in');
+        localStorage.removeItem('dormiqa_user_accounts');
+        localStorage.removeItem('dormiqa_active_account_id');
+        return;
+      }
+
       try {
-        await user.reload();
+        await fbUser.reload();
       } catch (e) {
         // ignore reload errors
       }
-      if (user.emailVerified) {
-        setAccounts(prev => prev.map(acc => {
-          if (acc.email.toLowerCase() === user.email?.toLowerCase()) {
-            return { ...acc, isEmailVerified: true };
-          }
-          return acc;
-        }));
-      }
-    };
 
-    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
-      if (fbUser) {
-        syncUser(fbUser);
+      const uid = fbUser.uid;
+      const email = fbUser.email?.toLowerCase() || '';
+
+      let profile = await fetchUserProfileFromFirestore(uid);
+      if (!profile && email) {
+        profile = await fetchUserProfileFromFirestore(email);
       }
+
+      const isVerified = fbUser.emailVerified || fbUser.providerData.some(p => p.providerId === 'google.com');
+
+      const userAccount: User = {
+        id: uid,
+        name: profile?.name || fbUser.displayName || email.split('@')[0] || 'User',
+        email: email,
+        role: profile?.role || 'student',
+        phone: profile?.phone || '',
+        universityName: profile?.universityName || '',
+        agencyName: profile?.agencyName || '',
+        isVerifiedAgent: profile?.isVerifiedAgent || false,
+        isEmailVerified: isVerified,
+        avatarUrl: profile?.avatarUrl || fbUser.photoURL || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
+        createdAt: profile?.createdAt || new Date().toISOString().split('T')[0]
+      };
+
+      setAccounts([userAccount]);
+      setActiveAccountId(uid);
+      setCurrentRole(userAccount.role);
+      setIsLoggedIn(true);
+      localStorage.setItem('dormiqa_is_logged_in', 'true');
     });
 
-    // Also re-check when the user refocuses the tab
-    const handleFocus = () => {
+    const handleFocus = async () => {
       if (auth.currentUser) {
-        syncUser(auth.currentUser);
+        try {
+          await auth.currentUser.reload();
+        } catch (e) {}
+        if (auth.currentUser.emailVerified) {
+          setAccounts(prev => prev.map(acc => {
+            if (acc.id === auth.currentUser?.uid || acc.email.toLowerCase() === auth.currentUser?.email?.toLowerCase()) {
+              return { ...acc, isEmailVerified: true };
+            }
+            return acc;
+          }));
+        }
       }
     };
     window.addEventListener('focus', handleFocus);
@@ -382,12 +396,16 @@ export default function App() {
   };
 
   const loadInspectionsData = async () => {
-    const data = await fetchInspections({ studentId: 'usr_student_1' });
+    const currentUserId = auth.currentUser?.uid || activeAccountId;
+    if (!currentUserId) return;
+    const data = await fetchInspections({ studentId: currentUserId });
     setInspections(data);
   };
 
   const loadConversationsData = async () => {
-    const data = await fetchConversations('usr_student_1');
+    const currentUserId = auth.currentUser?.uid || activeAccountId;
+    if (!currentUserId) return;
+    const data = await fetchConversations(currentUserId);
     setConversations(data);
   };
 
@@ -411,8 +429,9 @@ export default function App() {
 
   const handleStartChatWithAgent = async (agentId: string, listingId: string) => {
     try {
+      const currentUserId = auth.currentUser?.uid || activeAccountId;
       const conv = await startConversation({
-        studentId: 'usr_student_1',
+        studentId: currentUserId,
         agentId,
         listingId
       });
@@ -519,13 +538,16 @@ export default function App() {
               localStorage.setItem('dormiqa_is_logged_in', 'true');
               setCurrentRole(userData.role);
 
-              const isVerified = userData.isEmailVerified === true;
+              const currentUid = auth.currentUser?.uid || `usr_${Date.now()}`;
+              const currentEmail = auth.currentUser?.email || userData.email || '';
+              const isVerified = auth.currentUser ? (auth.currentUser.emailVerified || auth.currentUser.providerData.some(p => p.providerId === 'google.com')) : (userData.isEmailVerified === true);
+
               const newAccount: User = {
-                id: `usr_${Date.now()}`,
-                name: userData.name || 'User',
-                email: userData.email || 'user@example.com',
+                id: currentUid,
+                name: userData.name || currentEmail.split('@')[0] || 'User',
+                email: currentEmail,
                 role: userData.role,
-                avatarUrl: userData.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
+                avatarUrl: userData.avatarUrl || auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
                 phone: userData.phone,
                 universityName: userData.universityName,
                 agencyName: userData.agencyName,
@@ -536,7 +558,7 @@ export default function App() {
 
               saveUserToFirestore(newAccount);
 
-              setAccounts(prev => [...prev, newAccount]);
+              setAccounts([newAccount]);
               setActiveAccountId(newAccount.id);
 
               if (userData.role === 'agent' && userData.isSignup) {
@@ -863,7 +885,7 @@ export default function App() {
             setAddModalOpen(false);
             loadListingsData();
           }}
-          agentId="agent_1"
+          agentId={auth.currentUser?.uid || activeAccountId}
         />
       )}
 
@@ -873,7 +895,7 @@ export default function App() {
           conversation={activeConversation}
           onClose={() => setActiveConversation(null)}
           currentRole={currentRole}
-          currentUserId={currentRole === 'student' ? 'usr_student_1' : activeConversation.agentId}
+          currentUserId={auth.currentUser?.uid || activeAccountId}
         />
       )}
 

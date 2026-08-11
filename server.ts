@@ -709,8 +709,8 @@ async function startServer() {
 
     const newConv: Conversation = {
       id: `conv_${Date.now()}`,
-      studentId: studentId || 'usr_student_1',
-      studentName: studentName || 'Alex Chen',
+      studentId: studentId || 'usr_anonymous',
+      studentName: studentName || 'Verified Student',
       studentAvatar: studentAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
       agentId: agentId || listing?.agentId || 'agent_1',
       agentName: listing?.agent.name || agent?.name || 'Sarah Jenkins',

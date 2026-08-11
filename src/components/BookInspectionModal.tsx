@@ -4,6 +4,7 @@ import { Listing } from '../types';
 import { bookInspection } from '../services/api';
 import { sendNotification } from '../services/notificationService';
 import { generateGoogleCalendarUrl, downloadIcsFile } from '../utils/calendar';
+import { auth } from '../services/firebase';
 
 interface BookInspectionModalProps {
   listing: Listing;
@@ -44,7 +45,7 @@ export const BookInspectionModal: React.FC<BookInspectionModalProps> = ({
         listingAddress: listing.address,
         listingPhoto: listing.photos[0],
         pricePerWeek: listing.pricePerWeek,
-        studentId: 'usr_student_1',
+        studentId: auth.currentUser?.uid || 'guest_user',
         studentName,
         studentEmail,
         studentPhone,
@@ -71,7 +72,7 @@ export const BookInspectionModal: React.FC<BookInspectionModalProps> = ({
 
       // Send confirmation notification to Student
       sendNotification({
-        userId: 'usr_student_1',
+        userId: auth.currentUser?.uid || 'guest_user',
         title: `✅ Inspection Requested Successfully`,
         body: `Your request to view "${listing.title}" with Agent ${listing.agent.name} on ${selectedDate} (${selectedTime}) has been sent.`,
         type: 'inspection',

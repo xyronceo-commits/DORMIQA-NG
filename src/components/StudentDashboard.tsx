@@ -16,6 +16,7 @@ import { Listing, Inspection, Conversation, User } from '../types';
 import { fetchInspections, fetchConversations } from '../services/api';
 import { generateGoogleCalendarUrl, downloadIcsFile } from '../utils/calendar';
 import { AccountManager } from './AccountManager';
+import { auth } from '../services/firebase';
 
 interface StudentDashboardProps {
   savedListings: Listing[];
@@ -94,19 +95,19 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <img
-            src={activeUser?.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"}
+            src={activeUser?.avatarUrl || auth.currentUser?.photoURL || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"}
             alt=""
             className="w-16 h-16 rounded-full object-cover border-2 border-emerald-400"
           />
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-extrabold text-white">{activeUser?.name || 'Student Account'}</h1>
+              <h1 className="text-2xl font-extrabold text-white">{activeUser?.name || auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Student Account'}</h1>
               <span className="bg-emerald-500 text-slate-950 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
                 VERIFIED STUDENT
               </span>
             </div>
             <p className="text-xs text-slate-400 font-medium">
-              {activeUser?.universityName || 'University of Lagos (UNILAG)'} • Student Account
+              {activeUser?.universityName ? `${activeUser.universityName} • ` : ''}{activeUser?.email || auth.currentUser?.email || 'Student Account'}
             </p>
           </div>
         </div>
