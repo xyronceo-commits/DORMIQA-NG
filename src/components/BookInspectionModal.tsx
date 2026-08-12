@@ -99,14 +99,14 @@ export const BookInspectionModal: React.FC<BookInspectionModalProps> = ({
         
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full border border-neutral-200 text-neutral-400 hover:text-neutral-900 transition-colors"
+          className="absolute top-4 right-4 p-2 rounded-lg border border-neutral-200 text-neutral-400 hover:text-neutral-900 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
 
         {bookedSuccess ? (
           <div className="text-center py-8 space-y-5 animate-in zoom-in-95">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-10 h-10" />
             </div>
             <div>

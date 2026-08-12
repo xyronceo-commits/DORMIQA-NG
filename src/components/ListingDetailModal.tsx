@@ -209,7 +209,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={handleShareClick}
-              className="px-3 py-1.5 rounded-full border border-neutral-300 hover:border-emerald-500 hover:bg-emerald-50 text-neutral-800 text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-neutral-300 hover:border-emerald-500 hover:bg-emerald-50 text-neutral-800 text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer"
               title="Share Property Link"
             >
               <Share2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -218,7 +218,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
 
             <button
               onClick={() => onToggleSave(listing.id)}
-              className={`p-2 rounded-full border transition-colors cursor-pointer ${
+              className={`p-2 rounded-lg border transition-colors cursor-pointer ${
                 isSaved ? 'bg-rose-50 border-rose-200 text-rose-600' : 'border-neutral-200 hover:bg-neutral-100 text-neutral-600'
               }`}
               title="Save Property"
@@ -227,7 +227,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-full border border-neutral-200 text-neutral-500 hover:bg-neutral-100 transition-colors cursor-pointer"
+              className="p-2 rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-100 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -250,13 +250,13 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                 <>
                   <button
                     onClick={() => setActivePhotoIdx(prev => (prev - 1 + listing.photos.length) % listing.photos.length)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-neutral-800 flex items-center justify-center shadow-md transition-transform active:scale-90"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-md bg-white/90 hover:bg-white text-neutral-800 flex items-center justify-center shadow-md transition-transform active:scale-90"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => setActivePhotoIdx(prev => (prev + 1) % listing.photos.length)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-neutral-800 flex items-center justify-center shadow-md transition-transform active:scale-90"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-md bg-white/90 hover:bg-white text-neutral-800 flex items-center justify-center shadow-md transition-transform active:scale-90"
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
@@ -264,7 +264,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
               )}
 
               {/* Photo Counter */}
-              <div className="absolute bottom-3 right-3 bg-slate-900/80 text-white text-xs font-bold px-3 py-1 rounded-full backdrop-blur-md">
+              <div className="absolute bottom-3 right-3 bg-slate-900/80 text-white text-xs font-bold px-3 py-1 rounded-md backdrop-blur-md">
                 {activePhotoIdx + 1} / {listing.photos.length}
               </div>
             </div>
@@ -353,32 +353,32 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               {listing.hotelName && (
-                <span className="text-xs font-extrabold text-purple-900 bg-purple-100 px-3 py-1 rounded-full border border-purple-200 uppercase tracking-wider">
+                <span className="text-xs font-extrabold text-purple-900 bg-purple-100 px-3 py-1 rounded-md border border-purple-200 uppercase tracking-wider">
                   Hotel / Building: {listing.hotelName}
                 </span>
               )}
 
               {/* Unit Posted Status Badge */}
               {listing.unitStatus === 'occupied' ? (
-                <span className="text-xs font-extrabold text-rose-900 bg-rose-100 px-3 py-1 rounded-full border border-rose-200">
+                <span className="text-xs font-extrabold text-rose-900 bg-rose-100 px-3 py-1 rounded-md border border-rose-200">
                   🔴 FULLY OCCUPIED / RENTED
                 </span>
               ) : listing.unitStatus === 'under_renovation' ? (
-                <span className="text-xs font-extrabold text-orange-900 bg-orange-100 px-3 py-1 rounded-full border border-orange-200">
+                <span className="text-xs font-extrabold text-orange-900 bg-orange-100 px-3 py-1 rounded-md border border-orange-200">
                   🟠 UNDER RENOVATION / WORK IN PROGRESS
                 </span>
               ) : listing.unitStatus === 'remaining' || listing.vacanciesCount ? (
-                <span className="text-xs font-extrabold text-amber-900 bg-amber-100 px-3 py-1 rounded-full border border-amber-200">
+                <span className="text-xs font-extrabold text-amber-900 bg-amber-100 px-3 py-1 rounded-md border border-amber-200">
                   🟡 FEW UNITS REMAINING ({listing.vacanciesCount || 1} Rooms Left)
                 </span>
               ) : (
-                <span className="text-xs font-extrabold text-emerald-900 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-200">
+                <span className="text-xs font-extrabold text-emerald-900 bg-emerald-100 px-3 py-1 rounded-md border border-emerald-200">
                   🟢 VACANT & AVAILABLE FOR MOVE-IN
                 </span>
               )}
 
               {listing.promoDiscount && (
-                <span className="text-xs font-extrabold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-300">
+                <span className="text-xs font-extrabold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-md border border-emerald-300">
                   🎉 {listing.promoDiscount}
                 </span>
               )}
@@ -454,7 +454,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                   <Video className="w-4 h-4 text-purple-400 animate-pulse" />
                   360-Degree Video Walkthrough & Virtual Tour
                 </h3>
-                <span className="text-[10px] font-extrabold text-emerald-400 bg-emerald-950 px-2.5 py-0.5 rounded-full border border-emerald-800">
+                <span className="text-[10px] font-extrabold text-emerald-400 bg-emerald-950 px-2.5 py-0.5 rounded-md border border-emerald-800">
                   Verified 360° Inspection
                 </span>
               </div>
@@ -577,7 +577,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2">
                   <span>Student Ratings & Reviews</span>
-                  <span className="flex items-center gap-1 text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full text-xs font-black border border-amber-200">
+                  <span className="flex items-center gap-1 text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md text-xs font-black border border-amber-200">
                     <Star className="w-3.5 h-3.5 fill-amber-400" /> {listing.rating} ({listing.reviewCount})
                   </span>
                 </h3>

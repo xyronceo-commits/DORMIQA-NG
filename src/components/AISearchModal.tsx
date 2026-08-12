@@ -156,7 +156,7 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-base sm:text-lg font-black tracking-tight">Dormiqa AI Assistant</h3>
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   Multi-Model Engine
                 </span>
               </div>
@@ -183,7 +183,7 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({
 
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-all shrink-0 cursor-pointer"
+              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-all shrink-0 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -386,7 +386,7 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({
                               />
                               <div className="space-y-1">
                                 <div className="flex items-center gap-2">
-                                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-200">
+                                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-md border border-emerald-200">
                                     {reasonObj?.matchScorePercentage || 92}% Match Score
                                   </span>
                                   {listing.isVerified && (

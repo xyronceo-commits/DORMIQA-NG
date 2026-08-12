@@ -194,7 +194,7 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
               <SlidersHorizontal className="w-3.5 h-3.5" />
               <span>Filters</span>
               {(filters.propertyTypes.length + filters.facilities.length) > 0 && (
-                <span className="bg-emerald-600 dark:bg-white dark:text-neutral-900 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                <span className="bg-emerald-600 dark:bg-white dark:text-neutral-900 text-white text-[10px] font-black w-4 h-4 rounded-md flex items-center justify-center">
                   {filters.propertyTypes.length + filters.facilities.length}
                 </span>
               )}

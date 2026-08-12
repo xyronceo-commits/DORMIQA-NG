@@ -47,7 +47,7 @@ export const ReportListingModal: React.FC<ReportListingModalProps> = ({
       <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-neutral-200 p-6 relative">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full border border-neutral-200 text-neutral-400 hover:text-neutral-900 transition-colors"
+          className="absolute top-4 right-4 p-2 rounded-lg border border-neutral-200 text-neutral-400 hover:text-neutral-900 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -68,7 +68,7 @@ export const ReportListingModal: React.FC<ReportListingModalProps> = ({
 
             {aiReportResult?.aiActionTaken === 'listing_banned' ? (
               <div className="space-y-2">
-                <span className="inline-block px-3 py-1 rounded-full bg-rose-600 text-white font-black text-[10px] uppercase tracking-wider">
+                <span className="inline-block px-3 py-1 rounded-md bg-rose-600 text-white font-black text-[10px] uppercase tracking-wider">
                   AI Auto-Banned & Delisted
                 </span>
                 <h3 className="text-lg font-black text-slate-900">Fake Listing Removed</h3>

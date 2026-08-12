@@ -238,7 +238,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <h1 className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">
                   Dormiqa Admin
                 </h1>
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                   Internal Ops
                 </span>
               </div>
@@ -320,7 +320,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <ShieldCheck className="w-4 h-4" />
             <span>Agent Verification</span>
             {stats.pendingAgents > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-white font-black">
+              <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-amber-500 text-white font-black">
                 {stats.pendingAgents}
               </span>
             )}
@@ -337,7 +337,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <FileCheck className="w-4 h-4" />
             <span>Business & Property Verification</span>
             {stats.pendingListings > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-white font-black">
+              <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-amber-500 text-white font-black">
                 {stats.pendingListings}
               </span>
             )}

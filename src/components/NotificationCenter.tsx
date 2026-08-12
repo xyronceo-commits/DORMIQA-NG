@@ -139,12 +139,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-extrabold tracking-tight">Notifications</h3>
                 {unreadCount > 0 && (
-                  <span className="bg-emerald-500 text-neutral-950 font-black text-[10px] px-2 py-0.5 rounded-full">
+                  <span className="bg-emerald-500 text-neutral-950 font-black text-[10px] px-2 py-0.5 rounded-md">
                     {unreadCount} UNREAD
                   </span>
                 )}
                 {pinnedCount > 0 && (
-                  <span className="bg-amber-400 text-neutral-950 font-black text-[10px] px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                  <span className="bg-amber-400 text-neutral-950 font-black text-[10px] px-2 py-0.5 rounded-md flex items-center gap-0.5">
                     <Pin className="w-2.5 h-2.5 fill-neutral-950" /> {pinnedCount} PINNED
                   </span>
                 )}
@@ -338,12 +338,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-1.5">
                     {notif.isPinned && (
-                      <span className="bg-amber-400 text-neutral-950 font-black text-[9px] px-2 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-wider">
+                      <span className="bg-amber-400 text-neutral-950 font-black text-[9px] px-2 py-0.5 rounded-md flex items-center gap-1 uppercase tracking-wider">
                         <Pin className="w-2.5 h-2.5 fill-neutral-950" /> Pinned
                       </span>
                     )}
                     {!notif.read && (
-                      <span className="flex items-center gap-1 text-[9px] font-extrabold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
+                      <span className="flex items-center gap-1 text-[9px] font-extrabold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md">
                         <CircleDot className="w-2.5 h-2.5 text-emerald-600 fill-emerald-600" /> Unread
                       </span>
                     )}

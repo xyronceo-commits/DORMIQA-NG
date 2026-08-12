@@ -194,7 +194,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <h3 className="font-bold text-neutral-900 text-sm">{insp.listingTitle}</h3>
-                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full capitalize ${
+                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md capitalize ${
                         insp.status === 'confirmed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                       }`}>
                         {insp.status}

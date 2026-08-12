@@ -199,7 +199,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="lg:col-span-5">
               <div className="bg-white rounded-2xl border border-neutral-300 p-6 shadow-sm space-y-4">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-                  <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
+                  <span className="text-xs font-extrabold text-neutral-900 flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-600" /> Physical Property Verification
                   </span>
                   <span className="text-[10px] font-semibold text-neutral-400">Dormiqa NG</span>

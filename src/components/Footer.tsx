@@ -38,7 +38,7 @@ export const Footer: React.FC<FooterProps> = ({
             <p className="text-neutral-500 text-xs leading-relaxed max-w-xs">
               Verified student accommodation technology platform connecting university students directly with verified caretakers near campus.
             </p>
-            <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md w-fit border border-emerald-100">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-600">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>Verified Campus Accommodation</span>
             </div>

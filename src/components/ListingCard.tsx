@@ -68,13 +68,13 @@ export const ListingCard: React.FC<ListingCardProps> = ({
           <>
             <button
               onClick={prevPhoto}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 hover:bg-white dark:bg-slate-900/90 dark:hover:bg-slate-900 text-neutral-800 dark:text-neutral-100 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-neutral-200 dark:border-slate-700 shadow-xs cursor-pointer"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-md bg-white/90 hover:bg-white dark:bg-slate-900/90 dark:hover:bg-slate-900 text-neutral-800 dark:text-neutral-100 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-neutral-200 dark:border-slate-700 shadow-xs cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={nextPhoto}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 hover:bg-white dark:bg-slate-900/90 dark:hover:bg-slate-900 text-neutral-800 dark:text-neutral-100 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-neutral-200 dark:border-slate-700 shadow-xs cursor-pointer"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-md bg-white/90 hover:bg-white dark:bg-slate-900/90 dark:hover:bg-slate-900 text-neutral-800 dark:text-neutral-100 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-neutral-200 dark:border-slate-700 shadow-xs cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -84,7 +84,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({
               {listing.photos.slice(0, 5).map((_, idx) => (
                 <span
                   key={idx}
-                  className={`h-1.5 rounded-full transition-all ${
+                  className={`h-1.5 rounded-xs transition-all ${
                     idx === currentPhotoIdx ? 'bg-white w-3' : 'bg-white/60 w-1.5'
                   }`}
                 />
@@ -94,20 +94,14 @@ export const ListingCard: React.FC<ListingCardProps> = ({
         )}
 
         {/* Top Badges */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
-          {/* Walking Distance Badge */}
-          <div className="pointer-events-auto bg-slate-900/90 dark:bg-slate-950/90 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-xs border border-white/10">
-            <Footprints className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{listing.walkingDistanceMinutes} min walk</span>
-          </div>
-
+        <div className="absolute top-3 right-3 flex justify-end pointer-events-none">
           {/* Save Heart Button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               onToggleSave(listing.id);
             }}
-            className={`pointer-events-auto p-2 rounded-full backdrop-blur-md transition-all active:scale-90 border cursor-pointer ${
+            className={`pointer-events-auto p-2 rounded-lg backdrop-blur-md transition-all active:scale-90 border cursor-pointer ${
               isSaved
                 ? 'bg-rose-500 border-rose-500 text-white shadow-xs'
                 : 'bg-white/90 dark:bg-slate-900/80 border-neutral-200 dark:border-slate-700 hover:bg-white text-neutral-700 dark:text-neutral-200'
@@ -118,31 +112,35 @@ export const ListingCard: React.FC<ListingCardProps> = ({
           </button>
         </div>
 
-        {/* Bottom Status Tags */}
-        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none gap-2">
-          <span className="bg-white/95 dark:bg-slate-900/95 text-neutral-900 dark:text-neutral-100 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-slate-700 shadow-xs uppercase tracking-wider">
-            {typeLabel}
-          </span>
-          {listing.unitStatus === 'occupied' ? (
-            <span className="bg-rose-600/95 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-lg shadow-xs">
-              Fully Rented
-            </span>
-          ) : listing.unitStatus === 'remaining' || listing.vacanciesCount ? (
-            <span className="bg-amber-600/95 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-lg shadow-xs">
-              {listing.vacanciesCount || 1} Rooms Left
-            </span>
-          ) : (
-            <span className="bg-emerald-600/95 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-lg shadow-xs">
-              Available
-            </span>
-          )}
-        </div>
       </div>
 
       {/* Content body */}
       <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
         
         <div className="space-y-1.5">
+          {/* Property Type & Availability Metadata */}
+          <div className="flex items-center justify-between text-[11px] font-bold">
+            <span className="uppercase tracking-wider text-[10px] text-neutral-500 dark:text-slate-400 font-extrabold">
+              {typeLabel}
+            </span>
+            {listing.unitStatus === 'occupied' ? (
+              <span className="text-rose-600 dark:text-rose-400 text-[10px] font-extrabold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-600 dark:bg-rose-400 inline-block"></span>
+                Fully Rented
+              </span>
+            ) : listing.unitStatus === 'remaining' || listing.vacanciesCount ? (
+              <span className="text-amber-600 dark:text-amber-400 text-[10px] font-extrabold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>
+                {listing.vacanciesCount || 1} Rooms Left
+              </span>
+            ) : (
+              <span className="text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                Available
+              </span>
+            )}
+          </div>
+
           {/* Title & Verified Shield */}
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-bold text-neutral-900 dark:text-white text-sm sm:text-base leading-snug line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
@@ -156,11 +154,17 @@ export const ListingCard: React.FC<ListingCardProps> = ({
             )}
           </div>
 
-          {/* Location */}
-          <p className="text-xs text-neutral-500 dark:text-slate-400 flex items-center gap-1 truncate">
-            <MapPin className="w-3.5 h-3.5 shrink-0 text-neutral-400 dark:text-slate-500" />
-            <span className="truncate">{listing.address}</span>
-          </p>
+          {/* Location & Walking Distance */}
+          <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-slate-400 gap-2">
+            <p className="flex items-center gap-1 truncate min-w-0">
+              <MapPin className="w-3.5 h-3.5 shrink-0 text-neutral-400 dark:text-slate-500" />
+              <span className="truncate">{listing.address}</span>
+            </p>
+            <span className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+              <Footprints className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+              <span>{listing.walkingDistanceMinutes} min walk</span>
+            </span>
+          </div>
 
           {/* Key Facilities snippet */}
           <div className="flex flex-wrap gap-1.5 pt-1">

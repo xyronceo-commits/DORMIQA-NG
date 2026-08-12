@@ -215,7 +215,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
       <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-neutral-200 p-6 relative my-auto max-h-[92vh] overflow-y-auto">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full border border-neutral-200 text-neutral-400 hover:text-neutral-900 transition-colors"
+          className="absolute top-4 right-4 p-2 rounded-lg border border-neutral-200 text-neutral-400 hover:text-neutral-900 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -415,7 +415,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                 <Camera className="w-4 h-4 text-emerald-600" />
                 Hotel Photos (Required Minimum: 5 Photos) <span className="text-rose-500">*</span>
               </label>
-              <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full ${
+              <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-md ${
                 photos.length >= 5 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
               }`}>
                 {photos.length} / 5 Photos Uploaded
@@ -472,7 +472,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                   <button
                     type="button"
                     onClick={() => handleRemovePhoto(i)}
-                    className="absolute top-1 right-1 bg-rose-600 text-white w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center opacity-80 hover:opacity-100"
+                    className="absolute top-1 right-1 bg-rose-600 text-white w-4 h-4 rounded-md text-[10px] font-bold flex items-center justify-center opacity-80 hover:opacity-100"
                   >
                     ×
                   </button>

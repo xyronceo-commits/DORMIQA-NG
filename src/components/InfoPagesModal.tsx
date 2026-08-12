@@ -96,7 +96,7 @@ export const InfoPagesModal: React.FC<InfoPagesModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-black tracking-tight text-base sm:text-lg text-white">DORMIQA</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-neutral-800 text-emerald-400 px-2 py-0.5 rounded-full border border-neutral-700">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-neutral-800 text-emerald-400 px-2 py-0.5 rounded-md border border-neutral-700">
                   Documentation & Legal
                 </span>
               </div>
@@ -193,7 +193,7 @@ export const InfoPagesModal: React.FC<InfoPagesModalProps> = ({
                       {getCategoryIcon(category.id)}
                       <span>{category.label}</span>
                     </div>
-                    <span className="bg-neutral-200 text-neutral-600 px-1.5 py-0.2 rounded-full text-[10px]">
+                    <span className="bg-neutral-200 text-neutral-600 px-1.5 py-0.2 rounded-md text-[10px]">
                       {categoryDocs.length}
                     </span>
                   </div>
@@ -273,7 +273,7 @@ export const InfoPagesModal: React.FC<InfoPagesModalProps> = ({
                   {activeDoc.title}
                 </h1>
                 {activeDoc.badge && (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  <span className="px-2.5 py-0.5 rounded-md text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                     {activeDoc.badge}
                   </span>
                 )}

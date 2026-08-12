@@ -69,7 +69,7 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-xl font-extrabold text-neutral-900">{activeAccount?.name || 'Account Holder'}</h3>
-                <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase ${
+                <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-md uppercase ${
                   activeAccount?.role === 'student'
                     ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                     : activeAccount?.role === 'agent'

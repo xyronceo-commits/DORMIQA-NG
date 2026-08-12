@@ -410,7 +410,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600 shadow-xs">
               <ShieldCheck className="w-6 h-6" />
             </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-[11px] font-bold">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-[11px] font-bold">
               <GoogleIcon />
               <span>Google OAuth Verified</span>
             </div>
@@ -591,12 +591,6 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
             <ArrowLeft className="w-3.5 h-3.5" />
             Back to Home
           </button>
-          
-          <div className="text-right">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-              DORMIQA ONBOARDING GATEWAY
-            </span>
-          </div>
         </div>
 
         {/* Title & Description */}
@@ -701,9 +695,6 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-neutral-100 text-neutral-800 uppercase tracking-wider">
                   {selectedRole === 'student' ? 'Student Portal' : 'Agent Portal'}
-                </span>
-                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  Firebase Authenticated
                 </span>
               </div>
               <h2 className="text-xl font-bold text-neutral-900 mt-1">

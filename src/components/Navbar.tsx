@@ -158,7 +158,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Heart className="w-3.5 h-3.5 text-rose-500" />
               <span>Saved</span>
               {savedCount > 0 && (
-                <span className="px-1.5 py-0.2 text-[10px] font-black rounded-full bg-rose-500 text-white">
+                <span className="px-1.5 py-0.2 text-[10px] font-black rounded-md bg-rose-500 text-white">
                   {savedCount}
                 </span>
               )}
@@ -178,7 +178,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <MessageSquare className="w-3.5 h-3.5 text-blue-500" />
               <span>Messages</span>
               {unreadCount > 0 && (
-                <span className="px-1.5 py-0.2 text-[10px] font-black rounded-full bg-blue-600 text-white">
+                <span className="px-1.5 py-0.2 text-[10px] font-black rounded-md bg-blue-600 text-white">
                   {unreadCount}
                 </span>
               )}
@@ -249,7 +249,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Bell className="w-4 h-4 text-neutral-800 dark:text-neutral-200" />
               {notificationUnreadCount > 0 && (
-                <span className="bg-rose-600 text-white font-black text-[10px] px-1.5 py-0.2 rounded-full min-w-[18px] text-center shadow-2xs">
+                <span className="bg-rose-600 text-white font-black text-[10px] px-1.5 py-0.2 rounded-md min-w-[18px] text-center shadow-2xs">
                   {notificationUnreadCount}
                 </span>
               )}
@@ -339,7 +339,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </div>
                     </div>
                     {savedCount > 0 && (
-                      <span className="bg-rose-600 text-white text-xs font-black px-2.5 py-0.5 rounded-full">
+                      <span className="bg-rose-600 text-white text-xs font-black px-2.5 py-0.5 rounded-md">
                         {savedCount}
                       </span>
                     )}
@@ -448,7 +448,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </div>
                     </div>
                     {unreadCount > 0 && (
-                      <span className="bg-rose-600 text-white text-xs font-black px-2.5 py-0.5 rounded-full">
+                      <span className="bg-rose-600 text-white text-xs font-black px-2.5 py-0.5 rounded-md">
                         {unreadCount}
                       </span>
                     )}

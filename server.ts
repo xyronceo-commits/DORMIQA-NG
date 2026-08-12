@@ -309,17 +309,17 @@ Return JSON strictly in this structure:
 // Initial Seed Data for Dormiqa Ecosystem
 const INITIAL_USERS: User[] = [];
 
-const INITIAL_LISTINGS: Listing[] = [];
+const INITIAL_LISTINGS: Listing[] = [...MOCK_LISTINGS];
 
 // In-memory database state
-let listingsStore: Listing[] = [];
+let listingsStore: Listing[] = [...INITIAL_LISTINGS];
 let usersStore: User[] = [];
 let inspectionsStore: Inspection[] = [];
 let conversationsStore: Conversation[] = [];
 let messagesStore: ChatMessage[] = [];
 let reportsStore: Report[] = [];
 
-const CLEAN_UNIVERSITIES = UNIVERSITIES.map(u => ({ ...u, totalListings: 0 }));
+const CLEAN_UNIVERSITIES = UNIVERSITIES.map(u => ({ ...u, totalListings: 5 }));
 
 // In-memory Rate Limiter Store
 interface RateLimitBucket {
@@ -469,12 +469,12 @@ async function startServer() {
 
     if (minPrice) {
       const min = Number(minPrice);
-      if (!isNaN(min)) result = result.filter(l => l.pricePerWeek >= min);
+      if (!isNaN(min)) result = result.filter(l => (l.pricePerYear || l.pricePerWeek! * 52) >= min);
     }
 
     if (maxPrice) {
       const max = Number(maxPrice);
-      if (!isNaN(max)) result = result.filter(l => l.pricePerWeek <= max);
+      if (!isNaN(max)) result = result.filter(l => (l.pricePerYear || l.pricePerWeek! * 52) <= max);
     }
 
     if (propertyType) {

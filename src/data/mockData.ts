@@ -1029,7 +1029,101 @@ export const UNIVERSITIES: University[] = [
 
 export const MOCK_USERS: User[] = [];
 
-export const MOCK_LISTINGS: Listing[] = [];
+const PHOTO_SETS = [
+  [
+    'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'
+  ],
+  [
+    'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80'
+  ],
+  [
+    'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1507089947368-19c1da9775ae?auto=format&fit=crop&w=800&q=80'
+  ],
+  [
+    'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=800&q=80'
+  ],
+  [
+    'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=800&q=80'
+  ]
+];
+
+const TEMPLATES = [
+  { titleSuffix: 'Royal Palms Self-Contain Lodge', propertyType: 'self_contain' as const, pricePerYear: 350000, walkMin: 5, featured: true },
+  { titleSuffix: 'Executive 1-Bedroom Student Flat', propertyType: 'one_bedroom' as const, pricePerYear: 550000, walkMin: 8, featured: false },
+  { titleSuffix: 'Crown Villa Ensuite Studio', propertyType: 'ensuite' as const, pricePerYear: 420000, walkMin: 4, featured: true },
+  { titleSuffix: 'Greenfield Shared Student Apartment', propertyType: 'shared_flat' as const, pricePerYear: 280000, walkMin: 12, featured: false },
+  { titleSuffix: 'Campus Gate View Serviced Lodge', propertyType: 'studio' as const, pricePerYear: 380000, walkMin: 6, featured: false }
+];
+
+export const MOCK_LISTINGS: Listing[] = UNIVERSITIES.flatMap((uni) => {
+  return TEMPLATES.map((tmpl, idx) => {
+    const area = uni.popularAreas[idx % uni.popularAreas.length] || 'Campus Gate Axis';
+    const photos = PHOTO_SETS[idx % PHOTO_SETS.length];
+    const pricePerYear = tmpl.pricePerYear;
+    return {
+      id: `${uni.id}-demo-${idx + 1}`,
+      title: `${uni.code} ${tmpl.titleSuffix}`,
+      description: `Newly built and verified off-campus student accommodation near ${uni.name}. Situated around ${area}, within ${tmpl.walkMin} minutes walking distance to campus gate. Equipped with reliable water supply, gated security, and prepaid meter.`,
+      pricePerYear,
+      pricePerMonth: Math.round(pricePerYear / 12),
+      pricePerWeek: Math.round(pricePerYear / 52),
+      currency: 'NGN',
+      billsIncluded: idx % 2 === 0,
+      deposit: Math.round(pricePerYear * 0.1),
+      propertyType: tmpl.propertyType,
+      universityId: uni.id,
+      universityName: uni.name,
+      walkingDistanceMinutes: tmpl.walkMin,
+      walkingDistanceMeters: tmpl.walkMin * 80,
+      address: `${10 + idx * 4} ${area}, ${uni.city}`,
+      city: uni.city,
+      state: uni.state,
+      lat: Number((uni.lat + (idx * 0.0015 - 0.003)).toFixed(5)),
+      lng: Number((uni.lng + (idx * 0.0015 - 0.003)).toFixed(5)),
+      photos,
+      vacanciesCount: 3 - (idx % 3),
+      unitStatus: idx === 3 ? 'remaining' : 'vacant',
+      facilities: ['24/7 Water Supply', 'Security Guard', 'Prepaid Meter', 'Tiled Floor', 'Pop Ceiling', 'Fenced Gate'],
+      genderPreference: 'any',
+      availableFrom: '2026-09-01',
+      minLeaseMonths: 12,
+      totalBedrooms: 1,
+      totalBathrooms: 1,
+      isVerified: true,
+      status: 'approved',
+      agentId: 'agent-1',
+      agent: {
+        id: 'agent-1',
+        name: 'Chief Tunde Adebayo',
+        agencyName: 'Dormiqa Campus Rentals Ltd',
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+        phone: '+234 803 123 4567',
+        email: 'verified.agent@dormiqa.ng',
+        responseRate: '99%',
+        responseTime: '< 10 mins',
+        isVerified: true,
+        rating: 4.9,
+        totalReviews: 42
+      },
+      reviews: [],
+      rules: ['No loud music late at night', 'Keep common areas clean', 'Prompt payment of PHCN tokens'],
+      rating: 4.8,
+      reviewCount: 12,
+      featured: tmpl.featured,
+      createdAt: new Date().toISOString()
+    };
+  });
+});
 
 export const MOCK_INSPECTIONS: Inspection[] = [];
 
