@@ -155,8 +155,8 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
           responseRate: '100%',
           responseTime: 'Under 15 mins',
           isVerified: true,
-          rating: 5.0,
-          totalReviews: 1
+          rating: 0,
+          totalReviews: 0
         },
         rules: ['Hotel Security Clearance Required', 'Student ID Verified at Check-in', 'No Smoking in Rooms'],
         description: description || `${title} at ${hotelName}. A premium student accommodation situated just ${walkingDistanceMinutes} minutes walk to ${selectedUni?.name || 'campus'}. Features ${vacanciesCount} available rooms, full 24/7 solar backup light, and verified 360° video walkthrough.`

@@ -34,13 +34,13 @@ import { ChatDrawer } from './components/ChatDrawer';
 import { ReportListingModal } from './components/ReportListingModal';
 import { AddListingModal } from './components/AddListingModal';
 import { OnboardingPage } from './components/OnboardingPage';
+import { OnboardingShowcaseModal } from './components/OnboardingShowcaseModal';
+import { AppGuidedTour } from './components/AppGuidedTour';
 import { BusinessVerificationPage } from './components/BusinessVerificationPage';
 import { StudentDashboard } from './components/StudentDashboard';
 import { AgentDashboard } from './components/AgentDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AdminLoginModal } from './components/AdminLoginModal';
-import { AISearchModal } from './components/AISearchModal';
-import { AIChatbotWidget } from './components/AIChatbotWidget';
 import { InfoPagesModal } from './components/InfoPagesModal';
 import { checkAdminSession, clearAdminToken } from './services/api';
 import { auth, saveUserToFirestore, logoutFirebase, fetchUserProfileFromFirestore } from './services/firebase';
@@ -116,10 +116,9 @@ export default function App() {
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
   const [activeToastNotification, setActiveToastNotification] = useState<AppNotification | null>(null);
 
-  // Gemini AI Search & Chatbot Modal State
-  const [isAISearchOpen, setIsAISearchOpen] = useState(false);
-  const [isAIChatbotWidgetOpen, setIsAIChatbotWidgetOpen] = useState(false);
-  const [aiWidgetListingContext, setAiWidgetListingContext] = useState<Listing | null>(null);
+  // First-Time User Onboarding Showcase & Guided App Tour State
+  const [showOnboardingShowcase, setShowOnboardingShowcase] = useState<boolean>(false);
+  const [showGuidedTour, setShowGuidedTour] = useState<boolean>(false);
 
   // Documentation & Legal Info Modal State
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
@@ -459,15 +458,6 @@ export default function App() {
         unreadCount={conversations.length}
         notificationUnreadCount={notifications.filter(n => !n.read).length}
         onOpenNotifications={() => setIsNotificationCenterOpen(true)}
-        onOpenAISearch={() => {
-          if (!isLoggedIn) {
-            setActiveView('onboarding');
-            setToastNotice('Please sign up or sign in to use AI housing search.');
-            setTimeout(() => setToastNotice(null), 4000);
-          } else {
-            setIsAISearchOpen(true);
-          }
-        }}
         universities={universities}
         selectedUniversityId={filters.universityId}
         onSelectUniversity={handleSelectUniversity}
@@ -477,6 +467,11 @@ export default function App() {
         onOpenAdminLoginModal={() => setIsAdminLoginModalOpen(true)}
         studentTab={studentTab}
         agentTab={agentTab}
+        onReplayTour={() => {
+          setActiveView('search');
+          setShowGuidedTour(true);
+        }}
+        onReplayOnboarding={() => setShowOnboardingShowcase(true)}
       />
 
       {/* Main Content View Switcher */}
@@ -561,17 +556,26 @@ export default function App() {
               setAccounts([newAccount]);
               setActiveAccountId(newAccount.id);
 
+              const isNewUser = userData.isSignup || !localStorage.getItem('dormiqa_has_seen_onboarding');
+
               if (userData.role === 'agent' && userData.isSignup) {
                 setPendingAgentRegistration(newAccount);
                 setActiveView('business-verification');
+                if (isNewUser) setShowOnboardingShowcase(true);
                 setToastNotice(`Account registered! Redirecting to business verification...`);
                 setTimeout(() => setToastNotice(null), 4000);
               } else if (userData.role === 'student') {
                 setActiveView('search');
+                if (isNewUser) {
+                  setShowOnboardingShowcase(true);
+                } else if (!localStorage.getItem('dormiqa_guided_tour_completed')) {
+                  setShowGuidedTour(true);
+                }
                 setToastNotice(`Welcome, ${newAccount.name}!`);
                 setTimeout(() => setToastNotice(null), 4000);
               } else if (userData.role === 'agent') {
                 setActiveView('agent-dash');
+                if (isNewUser) setShowOnboardingShowcase(true);
                 setToastNotice(`Signed in as ${newAccount.name}`);
                 setTimeout(() => setToastNotice(null), 4000);
               } else {
@@ -848,10 +852,6 @@ export default function App() {
             setListings(prev => prev.map(l => l.id === updated.id ? updated : l));
             setDetailListing(updated);
           }}
-          onOpenAskAI={(listing) => {
-            setAiWidgetListingContext(listing);
-            setIsAIChatbotWidgetOpen(true);
-          }}
         />
       )}
 
@@ -918,26 +918,6 @@ export default function App() {
         onClick={handleSelectNotification}
       />
 
-      {/* Gemini AI Smart Search & Chatbot Modal */}
-      <AISearchModal
-        isOpen={isAISearchOpen}
-        onClose={() => setIsAISearchOpen(false)}
-        universities={universities}
-        selectedUniversityId={filters.universityId}
-        allListings={listings}
-        onSelectListing={(listing) => {
-          setDetailListing(listing);
-        }}
-      />
-
-      {/* Persistent Floating AI Student Housing Chatbot Widget */}
-      <AIChatbotWidget
-        initialListingContext={aiWidgetListingContext}
-        onClearListingContext={() => setAiWidgetListingContext(null)}
-        isOpenExternal={isAIChatbotWidgetOpen}
-        onCloseExternal={() => setIsAIChatbotWidgetOpen(false)}
-      />
-
       {/* Comprehensive Legal & Informational Center Modal */}
       <InfoPagesModal
         isOpen={isInfoModalOpen}
@@ -959,6 +939,35 @@ export default function App() {
           setActiveView('admin-dash');
           setToastNotice('Authenticated successfully as Dormiqa Administrator.');
           setTimeout(() => setToastNotice(null), 3000);
+        }}
+      />
+
+      {/* 5-Screen First-Time Feature Onboarding Showcase Modal */}
+      <OnboardingShowcaseModal
+        isOpen={showOnboardingShowcase}
+        userName={accounts[0]?.name || auth.currentUser?.displayName || 'Student'}
+        onClose={(startGuidedTour) => {
+          setShowOnboardingShowcase(false);
+          localStorage.setItem('dormiqa_has_seen_onboarding', 'true');
+          if (startGuidedTour || !localStorage.getItem('dormiqa_guided_tour_completed')) {
+            setActiveView('search');
+            setShowGuidedTour(true);
+          }
+        }}
+      />
+
+      {/* Interactive Guided App Tour Overlay */}
+      <AppGuidedTour
+        isActive={showGuidedTour && activeView === 'search'}
+        onComplete={() => {
+          setShowGuidedTour(false);
+          localStorage.setItem('dormiqa_guided_tour_completed', 'true');
+          setToastNotice('Guided tour completed! Enjoy searching verified lodgings.');
+          setTimeout(() => setToastNotice(null), 3000);
+        }}
+        onSkip={() => {
+          setShowGuidedTour(false);
+          localStorage.setItem('dormiqa_guided_tour_completed', 'true');
         }}
       />
 

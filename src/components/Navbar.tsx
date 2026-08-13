@@ -29,7 +29,6 @@ interface NavbarProps {
   unreadCount: number;
   notificationUnreadCount?: number;
   onOpenNotifications?: () => void;
-  onOpenAISearch?: () => void;
   universities: University[];
   selectedUniversityId: string;
   onSelectUniversity: (uniId: string) => void;
@@ -39,6 +38,8 @@ interface NavbarProps {
   onOpenAdminLoginModal?: () => void;
   studentTab?: 'inspections' | 'saved' | 'chats' | 'profile';
   agentTab?: 'schedule' | 'availability' | 'requests' | 'profile';
+  onReplayTour?: () => void;
+  onReplayOnboarding?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -50,7 +51,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   unreadCount,
   notificationUnreadCount = 0,
   onOpenNotifications,
-  onOpenAISearch,
   universities,
   selectedUniversityId,
   onSelectUniversity,
@@ -59,7 +59,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigateAgentTab,
   onOpenAdminLoginModal,
   studentTab,
-  agentTab
+  agentTab,
+  onReplayTour,
+  onReplayOnboarding
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [uniDropdownOpen, setUniDropdownOpen] = useState(false);
@@ -229,15 +231,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Device / Dark / Light Theme Toggle */}
             <ThemeToggle variant="dropdown" />
 
-            {/* Gemini AI Assistant Button */}
-            {onOpenAISearch && (
+            {/* Guided Tour Trigger Button */}
+            {onReplayTour && (
               <button
-                onClick={onOpenAISearch}
-                className="px-3 py-2 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 transition-all active:scale-95 shadow-2xs flex items-center gap-1.5 font-bold text-xs cursor-pointer"
-                title="AI Housing Search & Chatbot Advisor"
+                onClick={onReplayTour}
+                className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 transition-colors text-xs font-bold cursor-pointer"
+                title="Launch Guided Feature Tour"
               >
-                <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 fill-emerald-600 dark:fill-emerald-400 animate-pulse" />
-                <span className="hidden sm:inline">AI Search & Chat</span>
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Guided Tour</span>
               </button>
             )}
 

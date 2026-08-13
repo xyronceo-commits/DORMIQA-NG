@@ -44,7 +44,6 @@ interface ListingDetailModalProps {
   relatedListings: Listing[];
   onSelectRelated: (listing: Listing) => void;
   onListingUpdated?: (updatedListing: Listing) => void;
-  onOpenAskAI?: (listing: Listing) => void;
 }
 
 export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
@@ -57,8 +56,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   onReportListing,
   relatedListings,
   onSelectRelated,
-  onListingUpdated,
-  onOpenAskAI
+  onListingUpdated
 }) => {
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const [currentListing, setCurrentListing] = useState<Listing | null>(initialListing);
@@ -309,20 +307,6 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
 
             {/* CTAs */}
             <div className="flex items-center gap-2 flex-wrap">
-              {onOpenAskAI && (
-                <button
-                  onClick={() => {
-                    onClose();
-                    onOpenAskAI(listing);
-                  }}
-                  className="px-3.5 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
-                  title="Ask Dormiqa AI questions about this lodge"
-                >
-                  <Sparkles className="w-4 h-4 text-emerald-600 fill-emerald-600 animate-pulse" />
-                  <span>Ask AI</span>
-                </button>
-              )}
-
               <button
                 onClick={handleShareClick}
                 className="px-3.5 py-3 bg-white hover:bg-neutral-100 text-neutral-900 border border-neutral-300 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
@@ -578,7 +562,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                 <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2">
                   <span>Student Ratings & Reviews</span>
                   <span className="flex items-center gap-1 text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md text-xs font-black border border-amber-200">
-                    <Star className="w-3.5 h-3.5 fill-amber-400" /> {listing.rating} ({listing.reviewCount})
+                    <Star className="w-3.5 h-3.5 fill-amber-400" /> {listing.reviewCount > 0 ? `${listing.rating} (${listing.reviewCount})` : '0 Reviews'}
                   </span>
                 </h3>
               </div>

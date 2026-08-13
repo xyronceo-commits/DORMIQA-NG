@@ -343,46 +343,6 @@ export async function updateListingStatus(id: string, status: string): Promise<L
   return await res.json();
 }
 
-export async function fetchAIRecommendations(payload: {
-  universityId?: string;
-  universityName?: string;
-  budget?: number;
-  maxWalkingMinutes?: number;
-  propertyType?: string;
-  preferenceText?: string;
-  preferredModel?: string;
-}) {
-  const res = await fetch(`${API_BASE}/ai/recommend`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to fetch AI recommendations');
-  }
-  return await res.json();
-}
-
-export async function sendAIChat(payload: {
-  userMessage: string;
-  universityName?: string;
-  conversationHistory?: Array<{ sender: string; text: string }>;
-  listingContext?: any;
-  preferredModel?: string;
-}) {
-  const res = await fetch(`${API_BASE}/ai/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to get AI advisor response');
-  }
-  return await res.json();
-}
-
 export async function verifyAgentBusiness(payload: {
   businessName?: string;
   proofType?: 'banner' | 'logo' | 'office' | 'cac' | 'business_card';

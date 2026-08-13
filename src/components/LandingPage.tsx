@@ -35,7 +35,6 @@ interface LandingPageProps {
   onToggleSave: (id: string) => void;
   onOpenAgentPortal: () => void;
   onOpenOnboarding?: () => void;
-  onOpenAISearch?: () => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
@@ -48,8 +47,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   savedIds,
   onToggleSave,
   onOpenAgentPortal,
-  onOpenOnboarding,
-  onOpenAISearch
+  onOpenOnboarding
 }) => {
   const [heroUniId, setHeroUniId] = useState(universities[0]?.id || 'unilag');
   const [heroPropType, setHeroPropType] = useState<string>('all');
@@ -167,21 +165,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
 
                 {/* Search CTA Buttons */}
-                <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                <div className="pt-1">
                   <button
                     onClick={() => onOpenOnboarding ? onOpenOnboarding() : onSearchUniversity(heroUniId)}
-                    className="w-full sm:flex-1 py-3 bg-neutral-900 hover:bg-black text-white font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 transition-all shadow-xs"
+                    className="w-full py-3.5 bg-neutral-900 hover:bg-black text-white font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
                   >
                     <Search className="w-4 h-4 text-emerald-400" />
                     <span>Search Verified Accommodation</span>
-                  </button>
-
-                  <button
-                    onClick={() => onOpenOnboarding ? onOpenOnboarding() : (onOpenAISearch && onOpenAISearch())}
-                    className="w-full sm:w-auto px-4 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
-                  >
-                    <Sparkles className="w-4 h-4 text-emerald-600" />
-                    <span>AI Matcher</span>
                   </button>
                 </div>
               </div>
@@ -501,63 +491,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* 6. REAL STUDENT TESTIMONIALS */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-6">
-        <div className="text-center max-w-xl mx-auto space-y-1">
-          <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">Student Experiences</span>
-          <h2 className="text-2xl font-extrabold text-neutral-900">What Students Say</h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-5 rounded-2xl border border-neutral-200 space-y-3 shadow-xs">
-            <div className="flex items-center gap-1 text-amber-500">
-              {[...Array(5)].map((_, i) => <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />)}
-            </div>
-            <p className="text-xs text-neutral-700 leading-relaxed italic">
-              "Finding an executive self-contain in Abule Oja, 4 minutes from UNILAG main gate, was quick. The 24/7 solar backup detail was accurate."
-            </p>
-            <div className="flex items-center gap-3 pt-1">
-              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" alt="" className="w-8 h-8 rounded-full object-cover" />
-              <div>
-                <h4 className="text-xs font-bold text-neutral-900">Chinedu Okonkwo</h4>
-                <p className="text-[10px] text-neutral-500">BSc Computer Science, UNILAG</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-neutral-200 space-y-3 shadow-xs">
-            <div className="flex items-center gap-1 text-amber-500">
-              {[...Array(5)].map((_, i) => <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />)}
-            </div>
-            <p className="text-xs text-neutral-700 leading-relaxed italic">
-              "As a medical student at UI, staying in Agbowo right opposite the gate saves me hours. Inspected and booked online directly."
-            </p>
-            <div className="flex items-center gap-3 pt-1">
-              <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=120&q=80" alt="" className="w-8 h-8 rounded-full object-cover" />
-              <div>
-                <h4 className="text-xs font-bold text-neutral-900">Yetunde Bakare</h4>
-                <p className="text-[10px] text-neutral-500">MBBS Medicine, University of Ibadan</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-neutral-200 space-y-3 shadow-xs">
-            <div className="flex items-center gap-1 text-amber-500">
-              {[...Array(5)].map((_, i) => <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />)}
-            </div>
-            <p className="text-xs text-neutral-700 leading-relaxed italic">
-              "Every listing shows exact walking distance to FUTA South Gate with verified borehole water tap status. No surprise agent fees."
-            </p>
-            <div className="flex items-center gap-3 pt-1">
-              <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80" alt="" className="w-8 h-8 rounded-full object-cover" />
-              <div>
-                <h4 className="text-xs font-bold text-neutral-900">Damilola Adeyemi</h4>
-                <p className="text-[10px] text-neutral-500">BEng Electrical Engineering, FUTA</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* 7. AGENT & CARETAKER PARTNERSHIP CTA */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

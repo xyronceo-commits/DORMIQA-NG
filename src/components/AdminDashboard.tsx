@@ -974,7 +974,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">
                 <p className="font-extrabold uppercase text-[10px] text-neutral-400">Email</p>
-                <p className="font-bold text-neutral-900 dark:text-white">{selectedAgent.email || 'agent@dormiqa.ng'}</p>
+                <p className="font-bold text-neutral-900 dark:text-white">{selectedAgent.email || 'dormiqa@gmail.com'}</p>
               </div>
 
               <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">

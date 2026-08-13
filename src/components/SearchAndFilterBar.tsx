@@ -121,7 +121,7 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
           <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
             
             {/* University / Institution Selector */}
-            <div className="relative flex-1 min-w-[220px]">
+            <div className="relative flex-1 min-w-[220px]" data-tour="university-filter">
               <div className="flex items-center gap-2 px-3.5 py-2 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 focus-within:border-emerald-600 dark:focus-within:border-emerald-500 transition-colors">
                 <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <select
@@ -149,28 +149,8 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
               </div>
             </div>
 
-            {/* Walking Distance Quick Pills */}
-            <div className="hidden sm:flex items-center gap-1 bg-neutral-50 dark:bg-neutral-800 p-1 rounded-xl border border-neutral-200 dark:border-neutral-700">
-              <span className="text-[10px] font-bold text-neutral-400 px-2 uppercase tracking-wider flex items-center gap-1">
-                <Footprints className="w-3 h-3 text-neutral-500" /> Walk:
-              </span>
-              {[3, 5, 10, 15].map((mins) => (
-                <button
-                  key={mins}
-                  onClick={() => setFilters(prev => ({ ...prev, maxWalkingMinutes: mins }))}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    filters.maxWalkingMinutes === mins
-                      ? 'bg-slate-900 text-white dark:bg-emerald-600'
-                      : 'text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white'
-                  }`}
-                >
-                  &lt;{mins}m
-                </button>
-              ))}
-            </div>
-
-            {/* Max Budget Input in NGN (Naira) */}
-            <div className="flex items-center gap-1 px-3 py-2 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 w-44">
+            {/* Budget Filter */}
+            <div className="flex items-center gap-1 px-3 py-2 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 w-44" data-tour="budget-distance-filters">
               <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Max ₦</span>
               <input
                 type="number"
@@ -184,6 +164,7 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
 
             {/* More Filters Toggle */}
             <button
+              data-tour="property-filters"
               onClick={() => setExpandedDrawer(!expandedDrawer)}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-colors cursor-pointer ${
                 expandedDrawer || filters.propertyTypes.length > 0 || filters.facilities.length > 0

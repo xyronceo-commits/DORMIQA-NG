@@ -52,6 +52,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({
 
   return (
     <div 
+      data-tour="listing-card"
       onClick={() => onOpenDetail(listing)}
       className="group bg-white dark:bg-slate-900 rounded-2xl border border-neutral-200/80 dark:border-slate-800 hover:border-neutral-300 dark:hover:border-slate-700 shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col cursor-pointer"
     >
@@ -203,6 +204,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({
 
           {/* Action CTA */}
           <button
+            data-tour="book-inspection-btn"
             onClick={(e) => {
               e.stopPropagation();
               onBookInspection(listing);
