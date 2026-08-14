@@ -33,13 +33,38 @@ export async function fetchListings(params: Record<string, any> = {}): Promise<L
 }
 
 export async function fetchListingById(id: string): Promise<Listing | null> {
+  if (!id || !id.trim()) return null;
+  const cleanId = id.trim();
+
+  // 1. Try Backend API
+  let apiFailed = false;
   try {
-    const res = await fetch(`${API_BASE}/listings/${id}`);
-    if (!res.ok) return null;
-    return await res.json();
+    const res = await fetch(`${API_BASE}/listings/${encodeURIComponent(cleanId)}`);
+    if (res.ok) {
+      return await res.json();
+    }
+    if (res.status === 404) {
+      apiFailed = true;
+    }
   } catch (err) {
-    const { MOCK_LISTINGS } = await import('../data/mockData');
-    return MOCK_LISTINGS.find(l => l.id === id) || null;
+    apiFailed = true;
+  }
+
+  // 2. Query Firestore directly as authoritative lookup
+  try {
+    const { doc, getDoc } = await import('firebase/firestore');
+    const { db } = await import('./firebase');
+    const docRef = doc(db, 'listings', cleanId);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return { id: snap.id, ...snap.data() } as Listing;
+    }
+    return null; // Genuinely not found in Firestore
+  } catch (firestoreErr: any) {
+    if (apiFailed) {
+      throw new Error("Unable to connect to property database. Please check your network connection.");
+    }
+    return null;
   }
 }
 
@@ -134,7 +159,13 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
   }
 }
 
-export async function startConversation(data: { studentId?: string; agentId?: string; listingId: string }): Promise<Conversation> {
+export async function startConversation(data: { 
+  studentId?: string; 
+  studentName?: string;
+  studentAvatar?: string;
+  agentId?: string; 
+  listingId: string;
+}): Promise<Conversation> {
   const res = await fetch(`${API_BASE}/conversations/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

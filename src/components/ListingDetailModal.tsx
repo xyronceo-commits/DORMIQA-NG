@@ -31,6 +31,7 @@ import { Listing, ListingReview } from '../types';
 import { submitListingReview } from '../services/api';
 import { sendNotification } from '../services/notificationService';
 import { updateListingSeo, updateDocumentSeo } from '../utils/seo';
+import { getCanonicalPropertyUrl, sharePropertyListing } from '../utils/routing';
 import { auth } from '../services/firebase';
 
 interface ListingDetailModalProps {
@@ -97,47 +98,30 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   const listing = currentListing;
 
   const getShareUrl = () => {
-    const url = new URL(window.location.href);
-    url.searchParams.set('listing', listing.id);
-    return url.toString();
+    return getCanonicalPropertyUrl(listing.id);
   };
 
-  const shareText = `Check out "${listing.title}" near ${listing.universityName} on Dormiqa Nigeria - ₦${(listing.pricePerYear || (listing.pricePerWeek ? listing.pricePerWeek * 52 : 300000)).toLocaleString()}/yr!`;
-
   const handleShareClick = async () => {
-    const shareUrl = getShareUrl();
+    const success = await sharePropertyListing(listing, (msg) => {
+      setShareNotice(msg);
+      setTimeout(() => setShareNotice(null), 3000);
+    });
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: listing.title,
-          text: shareText,
-          url: shareUrl
-        });
-        setShareNotice('Property shared successfully!');
-        setTimeout(() => setShareNotice(null), 3000);
-        return;
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
-      }
-    }
-
-    // Fallback: copy link and open share modal
-    try {
-      await navigator.clipboard.writeText(shareUrl);
+    if (success) {
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 3000);
-    } catch {
-      // ignore
+    } else {
+      setShowShareModal(true);
     }
-    setShowShareModal(true);
   };
 
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(getShareUrl());
       setCopySuccess(true);
+      setShareNotice('Property link copied!');
       setTimeout(() => setCopySuccess(false), 3000);
+      setTimeout(() => setShareNotice(null), 3000);
     } catch (err) {
       console.error(err);
     }
@@ -803,45 +787,51 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
             </div>
 
             {/* Direct Social Share Quick Actions */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
-              <a
-                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + ' ' + getShareUrl())}`}
-                target="_blank"
-                rel="noreferrer"
-                className="p-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 rounded-2xl font-bold flex flex-col items-center gap-1.5 transition-colors"
-              >
-                <span className="text-lg">💬</span>
-                <span>WhatsApp</span>
-              </a>
+            {(() => {
+              const shareMessage = `Check out this verified student accommodation on DORMIQA: ${listing.title} (₦${(listing.pricePerYear || (listing.pricePerWeek ? listing.pricePerWeek * 52 : 300000)).toLocaleString()}/yr)`;
+              const url = getShareUrl();
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+                  <a
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(shareMessage + ' ' + url)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 rounded-2xl font-bold flex flex-col items-center gap-1.5 transition-colors"
+                  >
+                    <span className="text-lg">💬</span>
+                    <span>WhatsApp</span>
+                  </a>
 
-              <a
-                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(getShareUrl())}`}
-                target="_blank"
-                rel="noreferrer"
-                className="p-3 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-900 rounded-2xl font-bold flex flex-col items-center gap-1.5 transition-colors"
-              >
-                <span className="text-lg">𝕏</span>
-                <span>Twitter / X</span>
-              </a>
+                  <a
+                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMessage)}&url=${encodeURIComponent(url)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-3 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-900 rounded-2xl font-bold flex flex-col items-center gap-1.5 transition-colors"
+                  >
+                    <span className="text-lg">𝕏</span>
+                    <span>Twitter / X</span>
+                  </a>
 
-              <a
-                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getShareUrl())}`}
-                target="_blank"
-                rel="noreferrer"
-                className="p-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-900 rounded-2xl font-bold flex flex-col items-center gap-1.5 transition-colors"
-              >
-                <span className="text-lg">📘</span>
-                <span>Facebook</span>
-              </a>
+                  <a
+                    href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-900 rounded-2xl font-bold flex flex-col items-center gap-1.5 transition-colors"
+                  >
+                    <span className="text-lg">📘</span>
+                    <span>Facebook</span>
+                  </a>
 
-              <a
-                href={`mailto:?subject=${encodeURIComponent('Check out ' + listing.title)}&body=${encodeURIComponent(shareText + '\n\n' + getShareUrl())}`}
-                className="p-3 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 rounded-2xl font-bold flex flex-col items-center gap-1.5 transition-colors"
-              >
-                <span className="text-lg">✉️</span>
-                <span>Email</span>
-              </a>
-            </div>
+                  <a
+                    href={`mailto:?subject=${encodeURIComponent('Check out ' + listing.title + ' on DORMIQA')}&body=${encodeURIComponent(shareMessage + '\n\n' + url)}`}
+                    className="p-3 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 rounded-2xl font-bold flex flex-col items-center gap-1.5 transition-colors"
+                  >
+                    <span className="text-lg">✉️</span>
+                    <span>Email</span>
+                  </a>
+                </div>
+              );
+            })()}
 
             {/* Link Copy Box */}
             <div className="space-y-1.5">

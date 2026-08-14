@@ -19,8 +19,21 @@ import {
   fetchListings, 
   fetchInspections, 
   fetchConversations, 
+  fetchListingById,
   startConversation 
 } from './services/api';
+import { 
+  parseRouteFromUrl, 
+  pushPropertyUrl, 
+  pushViewUrl, 
+  ParsedRoute 
+} from './utils/routing';
+import { NotFoundPage } from './components/NotFoundPage';
+import { 
+  PropertyLoadingSkeleton, 
+  PropertyErrorView, 
+  PropertyUnavailableView 
+} from './components/PropertyRouteStateViews';
 
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -63,23 +76,31 @@ export default function App() {
   }, []);
 
   const navigateView = (view: 'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash') => {
+    setIs404Route(false);
+    setRoutePropertyError(null);
+    setRoutePropertyUnavailableReason(null);
+    setDetailListing(null);
+
     if (view === 'admin-dash' && !isAdminAuthenticated) {
       setIsAdminLoginModalOpen(true);
       return;
     }
-    if (!isLoggedIn && view !== 'landing' && view !== 'onboarding' && view !== 'business-verification') {
+    if (!isLoggedIn && view !== 'landing' && view !== 'onboarding' && view !== 'business-verification' && view !== 'search') {
       setActiveView('onboarding');
+      pushViewUrl('onboarding');
       setToastNotice('Please sign up or sign in to access verified accommodation.');
       setTimeout(() => setToastNotice(null), 4000);
       return;
     }
-    if (isLoggedIn && auth.currentUser && !auth.currentUser.emailVerified && !auth.currentUser.providerData.some(p => p.providerId === 'google.com') && view !== 'landing' && view !== 'onboarding') {
+    if (isLoggedIn && auth.currentUser && !auth.currentUser.emailVerified && !auth.currentUser.providerData.some(p => p.providerId === 'google.com') && view !== 'landing' && view !== 'onboarding' && view !== 'search') {
       setActiveView('onboarding');
+      pushViewUrl('onboarding');
       setToastNotice('Email verification required. Please check your inbox and verify your email.');
       setTimeout(() => setToastNotice(null), 4000);
       return;
     }
     setActiveView(view);
+    pushViewUrl(view);
   };
   const [pendingAgentRegistration, setPendingAgentRegistration] = useState<User | null>(null);
   const [currentRole, setCurrentRole] = useState<UserRole>('student');
@@ -203,20 +224,93 @@ export default function App() {
     };
   }, []);
 
-  // Auto-open property listing modal if shared link contains ?listing=
+  // Client-Side Routing & Property Resolution State
+  const [currentRoute, setCurrentRoute] = useState<ParsedRoute>(() => parseRouteFromUrl());
+  const [routePropertyLoading, setRoutePropertyLoading] = useState<boolean>(false);
+  const [routePropertyError, setRoutePropertyError] = useState<string | null>(null);
+  const [routePropertyUnavailableReason, setRoutePropertyUnavailableReason] = useState<string | null>(null);
+  const [is404Route, setIs404Route] = useState<boolean>(false);
+
+  // Sync route state on popstate (browser navigation buttons)
   useEffect(() => {
-    if (listings.length > 0) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const listingId = urlParams.get('listing');
-      if (listingId) {
-        const found = listings.find(l => l.id === listingId);
-        if (found) {
-          setDetailListing(found);
-          setActiveView('search');
+    const handlePopState = () => {
+      const parsed = parseRouteFromUrl();
+      setCurrentRoute(parsed);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Helper to open property detail and push canonical property URL
+  const handleOpenListingDetail = (l: Listing) => {
+    setDetailListing(l);
+    setIs404Route(false);
+    setRoutePropertyError(null);
+    setRoutePropertyUnavailableReason(null);
+    pushPropertyUrl(l.id);
+  };
+
+  // Helper to close property detail and reset URL
+  const handleCloseListingDetail = () => {
+    setDetailListing(null);
+    pushViewUrl(activeView);
+  };
+
+  // Property & Route Resolution Effect (Data-Driven Lookup)
+  const resolveCurrentRoute = async (targetRoute: ParsedRoute) => {
+    if (targetRoute.type === 'property' && targetRoute.propertyId) {
+      setRoutePropertyLoading(true);
+      setRoutePropertyError(null);
+      setRoutePropertyUnavailableReason(null);
+      setIs404Route(false);
+
+      try {
+        const foundListing = await fetchListingById(targetRoute.propertyId);
+
+        if (!foundListing) {
+          // Property genuinely does not exist in Firestore or API
+          setIs404Route(true);
+          setDetailListing(null);
+        } else {
+          // Check Visibility Rules (Requirement #6)
+          const isUnavailableStatus = ['banned', 'rejected', 'deleted', 'inactive'].includes(foundListing.status || '');
+          const isOwner = foundListing.agentId === activeAccountId || (auth.currentUser && foundListing.agentId === auth.currentUser.uid);
+          const isAdmin = currentRole === 'admin';
+
+          if (isUnavailableStatus && !isOwner && !isAdmin) {
+            setRoutePropertyUnavailableReason('This property listing is currently unavailable or has been deactivated by the caretaker.');
+            setDetailListing(null);
+          } else {
+            // Property is valid and viewable
+            setDetailListing(foundListing);
+            setActiveView('search');
+          }
         }
+      } catch (err: any) {
+        // System / Network Error (Requirement #9)
+        setRoutePropertyError(err.message || 'Failed to connect to property database. Please check your internet connection.');
+        setDetailListing(null);
+      } finally {
+        setRoutePropertyLoading(false);
+      }
+    } else if (targetRoute.type === '404') {
+      setIs404Route(true);
+      setRoutePropertyLoading(false);
+      setDetailListing(null);
+    } else if (targetRoute.type === 'view') {
+      setIs404Route(false);
+      setRoutePropertyError(null);
+      setRoutePropertyUnavailableReason(null);
+      setRoutePropertyLoading(false);
+      if (targetRoute.view) {
+        setActiveView(targetRoute.view);
       }
     }
-  }, [listings]);
+  };
+
+  useEffect(() => {
+    resolveCurrentRoute(currentRoute);
+  }, [currentRoute, activeAccountId, currentRole]);
 
   useEffect(() => {
     const unsubscribe = subscribeUserNotifications(
@@ -427,17 +521,33 @@ export default function App() {
   };
 
   const handleStartChatWithAgent = async (agentId: string, listingId: string) => {
+    if (!isLoggedIn) {
+      setActiveView('onboarding');
+      setToastNotice('Please sign up or sign in to message the caretaker directly.');
+      setTimeout(() => setToastNotice(null), 4000);
+      return;
+    }
+
     try {
       const currentUserId = auth.currentUser?.uid || activeAccountId;
+      const studentName = auth.currentUser?.displayName || 
+                          (auth.currentUser?.email ? auth.currentUser.email.split('@')[0] : 'Verified Student');
+      const studentAvatar = auth.currentUser?.photoURL || undefined;
+
       const conv = await startConversation({
         studentId: currentUserId,
+        studentName,
+        studentAvatar,
         agentId,
         listingId
       });
+
       setActiveConversation(conv);
       loadConversationsData();
     } catch (err) {
-      console.error(err);
+      console.error('Error starting conversation:', err);
+      setToastNotice('Unable to start direct chat. Please try again.');
+      setTimeout(() => setToastNotice(null), 3000);
     }
   };
 
@@ -476,53 +586,66 @@ export default function App() {
 
       {/* Main Content View Switcher */}
       <main className="flex-1">
-        
-        {/* 1. Landing Page */}
-        {activeView === 'landing' && (
-          <LandingPage
-            universities={universities}
-            featuredListings={listings.filter(l => l.featured).slice(0, 3)}
-            recentListings={listings.slice(0, 6)}
-            onSearchUniversity={handleSelectUniversity}
-            onOpenListingDetail={(l) => {
-              if (!isLoggedIn) {
-                setActiveView('onboarding');
-                setToastNotice('Please sign up or sign in to view accommodation details.');
-                setTimeout(() => setToastNotice(null), 4000);
-              } else {
-                setDetailListing(l);
-              }
-            }}
-            onBookInspection={(l) => {
-              if (!isLoggedIn) {
-                setActiveView('onboarding');
-                setToastNotice('Please sign up or sign in to book an inspection.');
-                setTimeout(() => setToastNotice(null), 4000);
-              } else {
-                setBookingListing(l);
-              }
-            }}
-            savedIds={savedIds}
-            onToggleSave={(id) => {
-              if (!isLoggedIn) {
-                setActiveView('onboarding');
-                setToastNotice('Please sign up or sign in to save listings.');
-                setTimeout(() => setToastNotice(null), 4000);
-              } else {
-                toggleSave(id);
-              }
-            }}
-            onOpenAgentPortal={() => {
-              if (!isLoggedIn) {
-                setActiveView('onboarding');
-              } else {
-                setCurrentRole('agent');
-                setActiveView('agent-dash');
-              }
-            }}
-            onOpenOnboarding={() => setActiveView('onboarding')}
+        {routePropertyLoading ? (
+          <PropertyLoadingSkeleton />
+        ) : routePropertyError ? (
+          <PropertyErrorView
+            errorMessage={routePropertyError}
+            onRetry={() => resolveCurrentRoute(currentRoute)}
+            onGoToSearch={() => navigateView('search')}
           />
-        )}
+        ) : routePropertyUnavailableReason ? (
+          <PropertyUnavailableView
+            reason={routePropertyUnavailableReason}
+            onGoToSearch={() => navigateView('search')}
+          />
+        ) : is404Route ? (
+          <NotFoundPage
+            onGoHome={() => navigateView('landing')}
+            onGoToSearch={() => navigateView('search')}
+            requestedPath={typeof window !== 'undefined' ? window.location.pathname : undefined}
+          />
+        ) : (
+          <>
+            {/* 1. Landing Page */}
+            {activeView === 'landing' && (
+              <LandingPage
+                universities={universities}
+                featuredListings={listings.filter(l => l.featured).slice(0, 3)}
+                recentListings={listings.slice(0, 6)}
+                onSearchUniversity={handleSelectUniversity}
+                onOpenListingDetail={(l) => handleOpenListingDetail(l)}
+                onBookInspection={(l) => {
+                  if (!isLoggedIn) {
+                    setActiveView('onboarding');
+                    setToastNotice('Please sign up or sign in to book an inspection.');
+                    setTimeout(() => setToastNotice(null), 4000);
+                  } else {
+                    setBookingListing(l);
+                  }
+                }}
+                onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
+                savedIds={savedIds}
+                onToggleSave={(id) => {
+                  if (!isLoggedIn) {
+                    setActiveView('onboarding');
+                    setToastNotice('Please sign up or sign in to save listings.');
+                    setTimeout(() => setToastNotice(null), 4000);
+                  } else {
+                    toggleSave(id);
+                  }
+                }}
+                onOpenAgentPortal={() => {
+                  if (!isLoggedIn) {
+                    setActiveView('onboarding');
+                  } else {
+                    setCurrentRole('agent');
+                    setActiveView('agent-dash');
+                  }
+                }}
+                onOpenOnboarding={() => setActiveView('onboarding')}
+              />
+            )}
 
         {/* Onboarding Gateway Page */}
         {activeView === 'onboarding' && (
@@ -647,8 +770,9 @@ export default function App() {
                         listing={listing}
                         isSaved={savedIds.includes(listing.id)}
                         onToggleSave={toggleSave}
-                        onOpenDetail={(l) => setDetailListing(l)}
+                        onOpenDetail={(l) => handleOpenListingDetail(l)}
                         onBookInspection={(l) => setBookingListing(l)}
+                        onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
                       />
                     ))}
                   </div>
@@ -662,7 +786,7 @@ export default function App() {
                   {listings.map((l) => (
                     <div
                       key={l.id}
-                      onClick={() => setDetailListing(l)}
+                      onClick={() => handleOpenListingDetail(l)}
                       className="bg-white p-3.5 rounded-2xl border border-neutral-200 hover:border-slate-900 transition-all cursor-pointer flex gap-3 shadow-2xs"
                     >
                       <img src={l.photos[0]} alt="" className="w-24 h-24 rounded-xl object-cover shrink-0" />
@@ -687,7 +811,7 @@ export default function App() {
                       listings={listings}
                       selectedUniversity={selectedUni}
                       activeListingId={detailListing?.id || null}
-                      onSelectListing={(l) => setDetailListing(l)}
+                      onSelectListing={(l) => handleOpenListingDetail(l)}
                       onBookInspection={(l) => setBookingListing(l)}
                       savedIds={savedIds}
                       onToggleSave={toggleSave}
@@ -710,8 +834,9 @@ export default function App() {
                   listing={listing}
                   isSaved={true}
                   onToggleSave={toggleSave}
-                  onOpenDetail={(l) => setDetailListing(l)}
+                  onOpenDetail={(l) => handleOpenListingDetail(l)}
                   onBookInspection={(l) => setBookingListing(l)}
+                  onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
                 />
               ))}
             </div>
@@ -753,8 +878,9 @@ export default function App() {
             inspections={inspections}
             conversations={conversations}
             allListings={listings}
-            onOpenListing={(l) => setDetailListing(l)}
+            onOpenListing={(l) => handleOpenListingDetail(l)}
             onOpenChat={(conv) => setActiveConversation(conv)}
+            onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
             onRemoveSaved={toggleSave}
             activeTab={studentTab}
             onTabChange={setStudentTab}
@@ -802,7 +928,8 @@ export default function App() {
             }}
           />
         )}
-
+          </>
+        )}
       </main>
 
       {/* Global Toast Notification */}
@@ -834,7 +961,7 @@ export default function App() {
       {detailListing && (
         <ListingDetailModal
           listing={detailListing}
-          onClose={() => setDetailListing(null)}
+          onClose={() => handleCloseListingDetail()}
           isSaved={savedIds.includes(detailListing.id)}
           onToggleSave={toggleSave}
           onBookInspection={(l) => {
@@ -847,7 +974,7 @@ export default function App() {
           }}
           onReportListing={(l) => setReportListing(l)}
           relatedListings={listings.filter(l => l.id !== detailListing.id).slice(0, 3)}
-          onSelectRelated={(l) => setDetailListing(l)}
+          onSelectRelated={(l) => handleOpenListingDetail(l)}
           onListingUpdated={(updated) => {
             setListings(prev => prev.map(l => l.id === updated.id ? updated : l));
             setDetailListing(updated);

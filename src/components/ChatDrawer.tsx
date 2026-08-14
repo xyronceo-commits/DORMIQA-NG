@@ -89,34 +89,6 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
           senderName
         }
       });
-
-      // Auto agent response simulation if current user is student and message ends with ?
-      if (currentRole === 'student' && textToSend.includes('?')) {
-        setTimeout(async () => {
-          const replyText = `Thanks for asking! Regarding your enquiry about ${conversation.listingTitle}, I have forwarded this to our property team. Would you like to schedule an inspection tour this week?`;
-          const autoReply = await sendMessage(conversation.id, {
-            senderId: conversation.agentId,
-            senderName: conversation.agentName,
-            senderRole: 'agent',
-            recipientId: currentUserId,
-            text: replyText
-          });
-          setMessages(prev => [...prev, autoReply]);
-
-          // Trigger real-time notification for student receiving agent auto-reply
-          sendNotification({
-            userId: currentUserId,
-            title: `💬 Reply from ${conversation.agentName}`,
-            body: replyText,
-            type: 'message',
-            metadata: {
-              conversationId: conversation.id,
-              listingId: conversation.listingId,
-              senderName: conversation.agentName
-            }
-          });
-        }, 1200);
-      }
     } catch (err) {
       console.error(err);
     }

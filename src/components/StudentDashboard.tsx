@@ -25,6 +25,7 @@ interface StudentDashboardProps {
   allListings?: Listing[];
   onOpenListing: (listing: Listing) => void;
   onOpenChat: (conversation: Conversation) => void;
+  onStartChat?: (agentId: string, listingId: string) => void;
   onRemoveSaved: (listingId: string) => void;
   activeTab?: 'inspections' | 'saved' | 'chats' | 'profile';
   onTabChange?: (tab: 'inspections' | 'saved' | 'chats' | 'profile') => void;
@@ -41,6 +42,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   allListings,
   onOpenListing,
   onOpenChat,
+  onStartChat,
   onRemoveSaved,
   activeTab = 'inspections',
   onTabChange,
@@ -247,18 +249,30 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     <p className="text-xs font-bold text-neutral-900">Agent: {insp.agentName}</p>
                     <p className="text-[11px] text-neutral-500">Rent: ₦{(insp.pricePerWeek ? insp.pricePerWeek * 52 : 350000).toLocaleString()}/yr</p>
                   </div>
-                  <button
-                    onClick={() => {
-                      const target = allListings?.find(l => l.id === insp.listingId);
-                      if (target) {
-                        onOpenListing(target);
-                      }
-                    }}
-                    className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-2xs active:scale-95"
-                  >
-                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-                    Rate & Review Property
-                  </button>
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    {onStartChat && (
+                      <button
+                        type="button"
+                        onClick={() => onStartChat(insp.agentId || 'agent_1', insp.listingId)}
+                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-2xs active:scale-95"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                        Message Agent
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        const target = allListings?.find(l => l.id === insp.listingId);
+                        if (target) {
+                          onOpenListing(target);
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-2xs active:scale-95"
+                    >
+                      <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                      Rate & Review
+                    </button>
+                  </div>
                 </div>
               </div>
             ))

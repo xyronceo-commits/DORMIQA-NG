@@ -7,7 +7,8 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Calendar,
-  Building2
+  Building2,
+  MessageSquare
 } from 'lucide-react';
 import { Listing } from '../types';
 
@@ -17,6 +18,7 @@ interface ListingCardProps {
   onToggleSave: (listingId: string) => void;
   onOpenDetail: (listing: Listing) => void;
   onBookInspection: (listing: Listing) => void;
+  onStartChat?: (agentId: string, listingId: string) => void;
 }
 
 export const ListingCard: React.FC<ListingCardProps> = ({
@@ -24,7 +26,8 @@ export const ListingCard: React.FC<ListingCardProps> = ({
   isSaved,
   onToggleSave,
   onOpenDetail,
-  onBookInspection
+  onBookInspection,
+  onStartChat
 }) => {
   const [currentPhotoIdx, setCurrentPhotoIdx] = useState(0);
 
@@ -202,18 +205,34 @@ export const ListingCard: React.FC<ListingCardProps> = ({
             </div>
           </div>
 
-          {/* Action CTA */}
-          <button
-            data-tour="book-inspection-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              onBookInspection(listing);
-            }}
-            className="px-3.5 py-2 text-xs font-bold text-white bg-slate-900 dark:bg-emerald-600 hover:bg-emerald-600 dark:hover:bg-emerald-500 transition-colors rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            Book Tour
-          </button>
+          {/* Action CTAs */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {onStartChat && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStartChat(listing.agentId || listing.agent?.id || 'agent_1', listing.id);
+                }}
+                className="p-2 text-xs font-bold text-neutral-700 dark:text-neutral-200 bg-neutral-100 dark:bg-slate-800 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950 dark:hover:text-emerald-400 border border-neutral-200 dark:border-slate-700 transition-colors rounded-xl flex items-center justify-center cursor-pointer active:scale-95"
+                title="Message Caretaker Directly"
+              >
+                <MessageSquare className="w-4 h-4" />
+              </button>
+            )}
+
+            <button
+              data-tour="book-inspection-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onBookInspection(listing);
+              }}
+              className="px-3 py-2 text-xs font-bold text-white bg-slate-900 dark:bg-emerald-600 hover:bg-emerald-600 dark:hover:bg-emerald-500 transition-colors rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              Book Tour
+            </button>
+          </div>
         </div>
 
       </div>

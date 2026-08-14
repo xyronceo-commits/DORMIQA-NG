@@ -31,6 +31,7 @@ interface LandingPageProps {
   onSearchUniversity: (uniId: string) => void;
   onOpenListingDetail: (listing: Listing) => void;
   onBookInspection: (listing: Listing) => void;
+  onStartChat?: (agentId: string, listingId: string) => void;
   savedIds: string[];
   onToggleSave: (id: string) => void;
   onOpenAgentPortal: () => void;
@@ -44,6 +45,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onSearchUniversity,
   onOpenListingDetail,
   onBookInspection,
+  onStartChat,
   savedIds,
   onToggleSave,
   onOpenAgentPortal,
@@ -283,6 +285,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 onToggleSave={() => onOpenOnboarding ? onOpenOnboarding() : onToggleSave(listing.id)}
                 onOpenDetail={() => onOpenOnboarding ? onOpenOnboarding() : onOpenListingDetail(listing)}
                 onBookInspection={() => onOpenOnboarding ? onOpenOnboarding() : onBookInspection(listing)}
+                onStartChat={(agentId, listingId) => {
+                  if (onOpenOnboarding) {
+                    onOpenOnboarding();
+                  } else if (onStartChat) {
+                    onStartChat(agentId, listingId);
+                  }
+                }}
               />
             ))
           )}
