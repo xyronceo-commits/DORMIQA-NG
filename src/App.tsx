@@ -38,8 +38,11 @@ import {
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { LandingPage } from './components/LandingPage';
+import { getCampusesByUniversityId } from './data/campuses';
+import { calculateHaversineDistanceKm } from './utils/distance';
 import { SearchAndFilterBar } from './components/SearchAndFilterBar';
 import { ListingCard } from './components/ListingCard';
+import { TravelModeBar } from './components/TravelModeBar';
 import { InteractiveMapView } from './components/InteractiveMapView';
 import { ListingDetailModal } from './components/ListingDetailModal';
 import { BookInspectionModal } from './components/BookInspectionModal';
@@ -55,12 +58,14 @@ import { AgentDashboard } from './components/AgentDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { InfoPagesModal } from './components/InfoPagesModal';
+import { ComingSoonPage } from './components/ComingSoonPage';
 import { checkAdminSession, clearAdminToken } from './services/api';
 import { auth, saveUserToFirestore, logoutFirebase, fetchUserProfileFromFirestore } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 export default function App() {
-  const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash'>('landing');
+  const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon'>('landing');
+  const [selectedComingSoonUniId, setSelectedComingSoonUniId] = useState<string>('unilag');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
@@ -75,7 +80,7 @@ export default function App() {
     });
   }, []);
 
-  const navigateView = (view: 'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash') => {
+  const navigateView = (view: 'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon') => {
     setIs404Route(false);
     setRoutePropertyError(null);
     setRoutePropertyUnavailableReason(null);
@@ -85,14 +90,14 @@ export default function App() {
       setIsAdminLoginModalOpen(true);
       return;
     }
-    if (!isLoggedIn && view !== 'landing' && view !== 'onboarding' && view !== 'business-verification' && view !== 'search') {
+    if (!isLoggedIn && view !== 'landing' && view !== 'onboarding' && view !== 'business-verification' && view !== 'search' && view !== 'coming-soon') {
       setActiveView('onboarding');
       pushViewUrl('onboarding');
       setToastNotice('Please sign up or sign in to access verified accommodation.');
       setTimeout(() => setToastNotice(null), 4000);
       return;
     }
-    if (isLoggedIn && auth.currentUser && !auth.currentUser.emailVerified && !auth.currentUser.providerData.some(p => p.providerId === 'google.com') && view !== 'landing' && view !== 'onboarding' && view !== 'search') {
+    if (isLoggedIn && auth.currentUser && !auth.currentUser.emailVerified && !auth.currentUser.providerData.some(p => p.providerId === 'google.com') && view !== 'landing' && view !== 'onboarding' && view !== 'search' && view !== 'coming-soon') {
       setActiveView('onboarding');
       pushViewUrl('onboarding');
       setToastNotice('Email verification required. Please check your inbox and verify your email.');
@@ -100,7 +105,7 @@ export default function App() {
       return;
     }
     setActiveView(view);
-    pushViewUrl(view);
+    pushViewUrl(view as any);
   };
   const [pendingAgentRegistration, setPendingAgentRegistration] = useState<User | null>(null);
   const [currentRole, setCurrentRole] = useState<UserRole>('student');
@@ -119,7 +124,7 @@ export default function App() {
   const [toastNotice, setToastNotice] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<SearchFilters>({
-    universityId: 'unilag',
+    universityId: 'uniosun',
     institutionType: 'all',
     stateFilter: 'all',
     minPrice: 0,
@@ -509,7 +514,13 @@ export default function App() {
   };
 
   const handleSelectUniversity = (uniId: string) => {
-    setFilters(prev => ({ ...prev, universityId: uniId }));
+    if (uniId !== 'uniosun') {
+      setSelectedComingSoonUniId(uniId);
+      setActiveView('coming-soon');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    setFilters(prev => ({ ...prev, universityId: 'uniosun' }));
     if (!isLoggedIn) {
       setActiveView('onboarding');
       setToastNotice('Please sign up or sign in to search verified accommodation.');
@@ -552,6 +563,24 @@ export default function App() {
   };
 
   const selectedUni = universities.find(u => u.id === filters.universityId) || universities[0];
+  const availableCampuses = getCampusesByUniversityId(filters.universityId, universities);
+  const selectedCampus = availableCampuses.find(c => c.id === filters.selectedCampusId) || availableCampuses[0];
+
+  // Apply campus distance filtering and sorting
+  const displayListings = listings
+    .filter(l => {
+      if (!filters.maxDistanceKm || filters.maxDistanceKm <= 0 || !selectedCampus) return true;
+      const dist = calculateHaversineDistanceKm(l.lat, l.lng, selectedCampus.lat, selectedCampus.lng);
+      return dist <= filters.maxDistanceKm;
+    })
+    .sort((a, b) => {
+      if (filters.sortBy === 'distance' && selectedCampus) {
+        const distA = calculateHaversineDistanceKm(a.lat, a.lng, selectedCampus.lat, selectedCampus.lng);
+        const distB = calculateHaversineDistanceKm(b.lat, b.lng, selectedCampus.lat, selectedCampus.lng);
+        return distA - distB;
+      }
+      return 0;
+    });
 
   const savedListings = listings.filter(l => savedIds.includes(l.id));
 
@@ -646,6 +675,22 @@ export default function App() {
                 onOpenOnboarding={() => setActiveView('onboarding')}
               />
             )}
+
+        {/* Coming Soon Page for Universities outside UNIOSUN */}
+        {activeView === 'coming-soon' && (
+          <ComingSoonPage
+            university={universities.find(u => u.id === selectedComingSoonUniId) || universities.find(u => u.id === 'unilag') || universities[0]}
+            universities={universities}
+            onSelectUniversity={(uniId) => {
+              if (uniId === 'uniosun') {
+                handleSelectUniversity('uniosun');
+              } else {
+                setSelectedComingSoonUniId(uniId);
+              }
+            }}
+            onGoBackToUniosun={() => handleSelectUniversity('uniosun')}
+          />
+        )}
 
         {/* Onboarding Gateway Page */}
         {activeView === 'onboarding' && (
@@ -751,20 +796,37 @@ export default function App() {
               universities={universities}
               viewMode={viewMode}
               setViewMode={setViewMode}
-              totalResults={listings.length}
+              totalResults={displayListings.length}
+              onSelectNonUniosun={(uniId) => handleSelectUniversity(uniId)}
             />
 
             {/* View Mode: Grid Cards vs Interactive Map */}
             {viewMode === 'grid' ? (
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-                {listings.length === 0 ? (
-                  <div className="text-center py-16 bg-white rounded-3xl border border-neutral-200 p-8 max-w-md mx-auto space-y-3">
-                    <p className="text-sm font-bold text-slate-900">No properties match your current filter</p>
-                    <p className="text-xs text-neutral-500">Try widening your maximum budget or walking distance radius.</p>
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-6">
+                
+                {/* Clean Uncluttered Results Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-neutral-200/60 dark:border-neutral-800">
+                  <div>
+                    <h2 className="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                      <span>Verified Accommodations</span>
+                      <span className="text-xs font-semibold px-2.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 rounded-full border border-neutral-200 dark:border-neutral-700">
+                        {displayListings.length} {displayListings.length === 1 ? 'lodge' : 'lodges'} available
+                      </span>
+                    </h2>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                      Showing student housing near <span className="font-semibold text-neutral-800 dark:text-neutral-200">{selectedCampus ? selectedCampus.name : 'campus'}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {displayListings.length === 0 ? (
+                  <div className="text-center py-16 bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-8 max-w-md mx-auto space-y-3">
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">No properties match your current filter</p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">Try widening your maximum budget, campus distance radius, or clearing filters.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {listings.map((listing) => (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+                    {displayListings.map((listing) => (
                       <ListingCard
                         key={listing.id}
                         listing={listing}
@@ -773,6 +835,7 @@ export default function App() {
                         onOpenDetail={(l) => handleOpenListingDetail(l)}
                         onBookInspection={(l) => setBookingListing(l)}
                         onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
+                        selectedCampus={selectedCampus}
                       />
                     ))}
                   </div>
@@ -783,22 +846,26 @@ export default function App() {
               <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-10rem)] min-h-[600px]">
                 {/* Left Listing Scroll list */}
                 <div className="lg:col-span-5 overflow-y-auto space-y-3 pr-1">
-                  {listings.map((l) => (
+                  {displayListings.map((l) => (
                     <div
                       key={l.id}
                       onClick={() => handleOpenListingDetail(l)}
-                      className="bg-white p-3.5 rounded-2xl border border-neutral-200 hover:border-slate-900 transition-all cursor-pointer flex gap-3 shadow-2xs"
+                      className="bg-white dark:bg-neutral-900 p-3.5 rounded-2xl border border-neutral-200 dark:border-neutral-800 hover:border-slate-900 dark:hover:border-emerald-600 transition-all cursor-pointer flex gap-3 shadow-2xs"
                     >
                       <img src={l.photos[0]} alt="" className="w-24 h-24 rounded-xl object-cover shrink-0" />
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
-                            {l.walkingDistanceMinutes} min walk
-                          </span>
-                          <span className="text-xs font-extrabold text-slate-900">₦{(l.pricePerYear || (l.pricePerWeek ? l.pricePerWeek * 52 : 300000)).toLocaleString()}/yr</span>
+                          <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">{l.title}</h4>
+                          <span className="text-xs font-extrabold text-slate-900 dark:text-white shrink-0 ml-1">₦{(l.pricePerYear || (l.pricePerWeek ? l.pricePerWeek * 52 : 300000)).toLocaleString()}/yr</span>
                         </div>
-                        <h4 className="font-bold text-xs text-slate-900 truncate">{l.title}</h4>
-                        <p className="text-[11px] text-neutral-500 truncate">{l.address}</p>
+                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">{l.address}</p>
+                        <TravelModeBar
+                          propertyId={l.id}
+                          propertyLat={l.lat}
+                          propertyLng={l.lng}
+                          selectedCampus={selectedCampus}
+                          compact={true}
+                        />
                       </div>
                     </div>
                   ))}
@@ -808,8 +875,9 @@ export default function App() {
                 <div className="lg:col-span-7 h-full">
                   {selectedUni && (
                     <InteractiveMapView
-                      listings={listings}
+                      listings={displayListings}
                       selectedUniversity={selectedUni}
+                      selectedCampus={selectedCampus}
                       activeListingId={detailListing?.id || null}
                       onSelectListing={(l) => handleOpenListingDetail(l)}
                       onBookInspection={(l) => setBookingListing(l)}
@@ -975,6 +1043,7 @@ export default function App() {
           onReportListing={(l) => setReportListing(l)}
           relatedListings={listings.filter(l => l.id !== detailListing.id).slice(0, 3)}
           onSelectRelated={(l) => handleOpenListingDetail(l)}
+          selectedCampus={selectedCampus}
           onListingUpdated={(updated) => {
             setListings(prev => prev.map(l => l.id === updated.id ? updated : l));
             setDetailListing(updated);

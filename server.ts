@@ -429,6 +429,171 @@ async function startServer() {
     res.json(CLEAN_UNIVERSITIES);
   });
 
+  // Route calculation cache on server
+  const routeServerCache = new Map<string, {
+    data: {
+      mode: 'walking' | 'driving' | 'bicycling';
+      distanceKm: number;
+      durationMinutes: number;
+      distanceMeters: number;
+      durationSeconds: number;
+      isAvailable: boolean;
+      reason?: string;
+      source: 'osrm' | 'route_calculation';
+      retrievedAt: string;
+    };
+    cachedAt: number;
+  }>();
+
+  async function computeRealRoute(
+    originLat: number,
+    originLng: number,
+    destLat: number,
+    destLng: number,
+    mode: 'walking' | 'driving' | 'bicycling'
+  ) {
+    const cacheKey = `${originLat.toFixed(4)},${originLng.toFixed(4)}->${destLat.toFixed(4)},${destLng.toFixed(4)}:${mode}`;
+    const now = Date.now();
+    const cached = routeServerCache.get(cacheKey);
+
+    if (cached && (now - cached.cachedAt < 30 * 60 * 1000)) {
+      return cached.data;
+    }
+
+    let osrmProfile = 'foot';
+    if (mode === 'driving') osrmProfile = 'car';
+    if (mode === 'bicycling') osrmProfile = 'bike';
+
+    try {
+      const osrmUrl = `https://router.project-osrm.org/route/v1/${osrmProfile}/${originLng},${originLat};${destLng},${destLat}?overview=false`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+      const response = await fetch(osrmUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const json = await response.json();
+        if (json.code === 'Ok' && json.routes && json.routes.length > 0) {
+          const route = json.routes[0];
+          const distMeters = Math.round(route.distance);
+          const distKm = Math.round((distMeters / 1000) * 10) / 10;
+          const durSec = Math.round(route.duration);
+          const durMin = Math.max(1, Math.round(durSec / 60));
+
+          const isAvailable = mode !== 'walking' || distKm <= 15;
+
+          const result = {
+            mode,
+            distanceKm: distKm,
+            durationMinutes: durMin,
+            distanceMeters: distMeters,
+            durationSeconds: durSec,
+            isAvailable,
+            reason: !isAvailable ? 'Distance too far for practical walking' : undefined,
+            source: 'osrm' as const,
+            retrievedAt: new Date().toISOString()
+          };
+
+          routeServerCache.set(cacheKey, { data: result, cachedAt: now });
+          return result;
+        }
+      }
+    } catch (err) {
+      // OSRM fallback
+    }
+
+    // Accurate fallback route calculation
+    const R = 6371;
+    const dLat = (destLat - originLat) * (Math.PI / 180);
+    const dLng = (destLng - originLng) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(originLat * (Math.PI / 180)) *
+        Math.cos(destLat * (Math.PI / 180)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const straightKm = R * c;
+
+    const networkFactor = mode === 'driving' ? 1.3 : mode === 'bicycling' ? 1.25 : 1.2;
+    const routeDistKm = Math.round(straightKm * networkFactor * 10) / 10;
+    const distMeters = Math.round(routeDistKm * 1000);
+
+    let speedKmH = 4.8;
+    if (mode === 'driving') speedKmH = 32;
+    if (mode === 'bicycling') speedKmH = 15;
+
+    const durHours = routeDistKm / speedKmH;
+    const durMin = Math.max(1, Math.round(durHours * 60));
+    const durSec = durMin * 60;
+
+    const isAvailable = mode !== 'walking' || routeDistKm <= 15;
+
+    const fallbackResult = {
+      mode,
+      distanceKm: routeDistKm,
+      durationMinutes: durMin,
+      distanceMeters: distMeters,
+      durationSeconds: durSec,
+      isAvailable,
+      reason: !isAvailable ? 'Distance too far for practical walking' : undefined,
+      source: 'route_calculation' as const,
+      retrievedAt: new Date().toISOString()
+    };
+
+    routeServerCache.set(cacheKey, { data: fallbackResult, cachedAt: now });
+    return fallbackResult;
+  }
+
+  // GET /api/route?originLat=..&originLng=..&destLat=..&destLng=..&mode=..
+  app.get('/api/route', async (req, res) => {
+    const originLat = parseFloat(req.query.originLat as string);
+    const originLng = parseFloat(req.query.originLng as string);
+    const destLat = parseFloat(req.query.destLat as string);
+    const destLng = parseFloat(req.query.destLng as string);
+    const mode = (req.query.mode as string) || 'walking';
+
+    if (isNaN(originLat) || isNaN(originLng) || isNaN(destLat) || isNaN(destLng)) {
+      return res.status(400).json({ error: 'Invalid origin or destination coordinates' });
+    }
+
+    const validModes = ['walking', 'driving', 'bicycling'];
+    const safeMode = validModes.includes(mode) ? (mode as 'walking' | 'driving' | 'bicycling') : 'walking';
+
+    const route = await computeRealRoute(originLat, originLng, destLat, destLng, safeMode);
+    res.json(route);
+  });
+
+  // POST /api/routes-batch
+  app.post('/api/routes-batch', async (req, res) => {
+    const { items } = req.body || {};
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ error: 'items must be an array' });
+    }
+
+    const results: Record<string, {
+      walking: any;
+      driving: any;
+      bicycling: any;
+    }> = {};
+
+    for (const item of items) {
+      if (!item.id || isNaN(item.originLat) || isNaN(item.originLng) || isNaN(item.destLat) || isNaN(item.destLng)) {
+        continue;
+      }
+      const [walk, drive, bike] = await Promise.all([
+        computeRealRoute(item.originLat, item.originLng, item.destLat, item.destLng, 'walking'),
+        computeRealRoute(item.originLat, item.originLng, item.destLat, item.destLng, 'driving'),
+        computeRealRoute(item.originLat, item.originLng, item.destLat, item.destLng, 'bicycling')
+      ]);
+
+      results[item.id] = { walking: walk, driving: drive, bicycling: bike };
+    }
+
+    res.json({ routes: results, timestamp: new Date().toISOString() });
+  });
+
   // Listings with advanced filtering
   app.get('/api/listings', (req, res) => {
     const { 

@@ -1,11 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { Listing, University } from '../types';
+import { Listing, University, Campus } from '../types';
 import { Footprints, MapPin, ShieldCheck, Heart, Calendar } from 'lucide-react';
 
 interface InteractiveMapViewProps {
   listings: Listing[];
   selectedUniversity: University;
+  selectedCampus?: Campus;
   activeListingId: string | null;
   onSelectListing: (listing: Listing) => void;
   onBookInspection: (listing: Listing) => void;
@@ -16,6 +17,7 @@ interface InteractiveMapViewProps {
 export const InteractiveMapView: React.FC<InteractiveMapViewProps> = ({
   listings,
   selectedUniversity,
+  selectedCampus,
   activeListingId,
   onSelectListing,
   onBookInspection,
@@ -26,6 +28,10 @@ export const InteractiveMapView: React.FC<InteractiveMapViewProps> = ({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<{ [id: string]: L.Marker }>({});
 
+  const centerLat = selectedCampus?.lat || selectedUniversity.lat;
+  const centerLng = selectedCampus?.lng || selectedUniversity.lng;
+  const campusLabel = selectedCampus?.name || `${selectedUniversity.code} Campus`;
+
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -33,7 +39,7 @@ export const InteractiveMapView: React.FC<InteractiveMapViewProps> = ({
     if (!mapInstanceRef.current) {
       const map = L.map(mapContainerRef.current, {
         zoomControl: false
-      }).setView([selectedUniversity.lat, selectedUniversity.lng], 14);
+      }).setView([centerLat, centerLng], 13);
 
       // Clean, elegant tile layer (CartoDB Positron for light Google/Apple map style)
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -46,8 +52,8 @@ export const InteractiveMapView: React.FC<InteractiveMapViewProps> = ({
 
       mapInstanceRef.current = map;
     } else {
-      // Re-center on university change
-      mapInstanceRef.current.setView([selectedUniversity.lat, selectedUniversity.lng], 14);
+      // Re-center on campus/university change
+      mapInstanceRef.current.setView([centerLat, centerLng], 13);
     }
 
     const map = mapInstanceRef.current;
@@ -56,24 +62,24 @@ export const InteractiveMapView: React.FC<InteractiveMapViewProps> = ({
     Object.values(markersRef.current).forEach((m: L.Marker) => m.remove());
     markersRef.current = {};
 
-    // Add University Marker
+    // Add Campus Marker
     const uniIcon = L.divIcon({
       className: 'custom-uni-marker-wrapper',
-      html: `<div class="dormiqa-uni-pin">🎓 ${selectedUniversity.code} Campus</div>`,
-      iconSize: [120, 32],
-      iconAnchor: [60, 16]
+      html: `<div class="dormiqa-uni-pin">🎓 ${selectedCampus?.shortName || selectedUniversity.code} Campus</div>`,
+      iconSize: [140, 32],
+      iconAnchor: [70, 16]
     });
 
-    L.marker([selectedUniversity.lat, selectedUniversity.lng], { icon: uniIcon })
+    L.marker([centerLat, centerLng], { icon: uniIcon })
       .addTo(map)
       .bindPopup(`
         <div class="p-2 font-sans">
-          <div class="text-xs font-bold text-slate-900">${selectedUniversity.name}</div>
-          <div class="text-[11px] text-slate-500">${selectedUniversity.description}</div>
+          <div class="text-xs font-bold text-slate-900">${campusLabel}</div>
+          <div class="text-[11px] text-slate-500">${selectedCampus?.city || selectedUniversity.city}, ${selectedCampus?.state || selectedUniversity.state}</div>
         </div>
       `);
 
-    // Add Property Markers & Polylines
+    // Add Property Markers
     listings.forEach(listing => {
       const isSelected = listing.id === activeListingId;
 
@@ -93,7 +99,7 @@ export const InteractiveMapView: React.FC<InteractiveMapViewProps> = ({
       markersRef.current[listing.id] = marker;
     });
 
-  }, [listings, selectedUniversity, activeListingId]);
+  }, [listings, selectedUniversity, selectedCampus, activeListingId]);
 
   return (
     <div className="w-full h-full relative rounded-2xl overflow-hidden border border-neutral-200 shadow-sm bg-neutral-100">

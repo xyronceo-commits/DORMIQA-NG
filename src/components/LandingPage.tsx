@@ -51,7 +51,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenAgentPortal,
   onOpenOnboarding
 }) => {
-  const [heroUniId, setHeroUniId] = useState(universities[0]?.id || 'unilag');
+  const [heroUniId, setHeroUniId] = useState('uniosun');
   const [heroPropType, setHeroPropType] = useState<string>('all');
   const [heroMaxBudget, setHeroMaxBudget] = useState<number>(1000000);
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
@@ -127,7 +127,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       className="bg-transparent text-xs font-bold text-neutral-900 focus:outline-none w-full cursor-pointer truncate"
                     >
                       {universities.map(u => (
-                        <option key={u.id} value={u.id}>{u.code} — {u.city}</option>
+                        <option key={u.id} value={u.id}>
+                          {u.code} — {u.city} {u.id !== 'uniosun' ? '• Coming Soon' : '• LIVE'}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -169,11 +171,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 {/* Search CTA Buttons */}
                 <div className="pt-1">
                   <button
-                    onClick={() => onOpenOnboarding ? onOpenOnboarding() : onSearchUniversity(heroUniId)}
+                    onClick={() => {
+                      if (heroUniId !== 'uniosun') {
+                        onSearchUniversity(heroUniId);
+                      } else if (onOpenOnboarding) {
+                        onOpenOnboarding();
+                      } else {
+                        onSearchUniversity(heroUniId);
+                      }
+                    }}
                     className="w-full py-3.5 bg-neutral-900 hover:bg-black text-white font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
                   >
                     <Search className="w-4 h-4 text-emerald-400" />
-                    <span>Search Verified Accommodation</span>
+                    <span>
+                      {heroUniId !== 'uniosun' ? 'View Launch Status & Join Waitlist' : 'Search Verified Accommodation'}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -473,7 +485,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           {displayedUniversities.map((uni) => (
             <div
               key={uni.id}
-              onClick={() => onOpenOnboarding ? onOpenOnboarding() : onSearchUniversity(uni.id)}
+              onClick={() => {
+                if (uni.id !== 'uniosun') {
+                  onSearchUniversity(uni.id);
+                } else if (onOpenOnboarding) {
+                  onOpenOnboarding();
+                } else {
+                  onSearchUniversity(uni.id);
+                }
+              }}
               className="group bg-white p-4 rounded-xl border border-neutral-200 hover:border-neutral-400 cursor-pointer transition-all shadow-xs flex flex-col justify-between space-y-3"
             >
               <div>
@@ -481,9 +501,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="text-[10px] font-extrabold bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded">
                     {uni.code}
                   </span>
-                  <span className="text-[10px] font-bold text-emerald-700">
-                    {uni.totalListings} Listings
-                  </span>
+                  {uni.id === 'uniosun' ? (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                      {uni.totalListings} Listings
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded">
+                      Coming Soon
+                    </span>
+                  )}
                 </div>
                 <h3 className="font-extrabold text-sm text-neutral-900 group-hover:text-emerald-800 transition-colors line-clamp-1">
                   {uni.name}
@@ -492,7 +518,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
 
               <div className="text-[11px] font-bold text-neutral-900 flex items-center justify-between pt-2 border-t border-neutral-100">
-                <span>Explore Lodges</span>
+                <span>{uni.id === 'uniosun' ? 'Explore Lodges' : 'Join Waitlist'}</span>
                 <ArrowRight className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-900 group-hover:translate-x-0.5 transition-all" />
               </div>
             </div>

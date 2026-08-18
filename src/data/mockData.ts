@@ -1057,23 +1057,42 @@ const PHOTO_SETS = [
   ]
 ];
 
+import { MASTER_CAMPUSES, getCampusesByUniversityId } from './campuses';
+
 const TEMPLATES = [
   { titleSuffix: 'Royal Palms Self-Contain Lodge', propertyType: 'self_contain' as const, pricePerYear: 350000, walkMin: 5, featured: true },
   { titleSuffix: 'Executive 1-Bedroom Student Flat', propertyType: 'one_bedroom' as const, pricePerYear: 550000, walkMin: 8, featured: false },
   { titleSuffix: 'Crown Villa Ensuite Studio', propertyType: 'ensuite' as const, pricePerYear: 420000, walkMin: 4, featured: true },
   { titleSuffix: 'Greenfield Shared Student Apartment', propertyType: 'shared_flat' as const, pricePerYear: 280000, walkMin: 12, featured: false },
-  { titleSuffix: 'Campus Gate View Serviced Lodge', propertyType: 'studio' as const, pricePerYear: 380000, walkMin: 6, featured: false }
+  { titleSuffix: 'Campus Gate View Serviced Lodge', propertyType: 'studio' as const, pricePerYear: 380000, walkMin: 6, featured: false },
+  { titleSuffix: 'Garden View Hillside Lodge', propertyType: 'self_contain' as const, pricePerYear: 320000, walkMin: 5, featured: true }
 ];
 
 export const MOCK_LISTINGS: Listing[] = UNIVERSITIES.flatMap((uni) => {
-  return TEMPLATES.map((tmpl, idx) => {
-    const area = uni.popularAreas[idx % uni.popularAreas.length] || 'Campus Gate Axis';
+  const uniCampuses = getCampusesByUniversityId(uni.id, UNIVERSITIES);
+  
+  return TEMPLATES.slice(0, Math.max(5, uniCampuses.length)).map((tmpl, idx) => {
+    // For multi-campus universities, distribute properties across the campuses
+    const targetCampus = uniCampuses[idx % uniCampuses.length] || {
+      lat: uni.lat,
+      lng: uni.lng,
+      city: uni.city,
+      state: uni.state,
+      shortName: uni.code
+    };
+
+    const area = uni.popularAreas[idx % uni.popularAreas.length] || `${targetCampus.city} Campus Area`;
     const photos = PHOTO_SETS[idx % PHOTO_SETS.length];
     const pricePerYear = tmpl.pricePerYear;
+    
+    // Offset coordinates slightly from campus center for realistic 300m - 500m walk distance
+    const propertyLat = Number((targetCampus.lat + (idx * 0.001 - 0.002)).toFixed(5));
+    const propertyLng = Number((targetCampus.lng + (idx * 0.001 - 0.002)).toFixed(5));
+
     return {
       id: `${uni.id}-demo-${idx + 1}`,
-      title: `${uni.code} ${tmpl.titleSuffix}`,
-      description: `Newly built and verified off-campus student accommodation near ${uni.name}. Situated around ${area}, within ${tmpl.walkMin} minutes walking distance to campus gate. Equipped with reliable water supply, gated security, and prepaid meter.`,
+      title: `${uni.code} ${targetCampus.city ? `(${targetCampus.city}) ` : ''}${tmpl.titleSuffix}`,
+      description: `Newly built and verified off-campus student accommodation near ${uni.name} (${targetCampus.shortName || targetCampus.city}). Situated around ${area}, close to campus gate. Equipped with reliable water supply, gated security, and prepaid meter.`,
       pricePerYear,
       pricePerMonth: Math.round(pricePerYear / 12),
       pricePerWeek: Math.round(pricePerYear / 52),
@@ -1085,11 +1104,11 @@ export const MOCK_LISTINGS: Listing[] = UNIVERSITIES.flatMap((uni) => {
       universityName: uni.name,
       walkingDistanceMinutes: tmpl.walkMin,
       walkingDistanceMeters: tmpl.walkMin * 80,
-      address: `${10 + idx * 4} ${area}, ${uni.city}`,
-      city: uni.city,
-      state: uni.state,
-      lat: Number((uni.lat + (idx * 0.0015 - 0.003)).toFixed(5)),
-      lng: Number((uni.lng + (idx * 0.0015 - 0.003)).toFixed(5)),
+      address: `${10 + idx * 4} ${area}, ${targetCampus.city || uni.city}`,
+      city: targetCampus.city || uni.city,
+      state: targetCampus.state || uni.state,
+      lat: propertyLat,
+      lng: propertyLng,
       photos,
       vacanciesCount: 3 - (idx % 3),
       unitStatus: idx === 3 ? 'remaining' : 'vacant',

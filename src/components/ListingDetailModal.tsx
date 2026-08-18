@@ -27,7 +27,10 @@ import {
   Sparkles,
   ExternalLink
 } from 'lucide-react';
-import { Listing, ListingReview } from '../types';
+import { Listing, ListingReview, Campus } from '../types';
+import { getPropertyDistanceToCampus } from '../utils/distance';
+import { getCampusesByUniversityId } from '../data/campuses';
+import { TravelModeBar } from './TravelModeBar';
 import { submitListingReview } from '../services/api';
 import { sendNotification } from '../services/notificationService';
 import { updateListingSeo, updateDocumentSeo } from '../utils/seo';
@@ -45,6 +48,7 @@ interface ListingDetailModalProps {
   relatedListings: Listing[];
   onSelectRelated: (listing: Listing) => void;
   onListingUpdated?: (updatedListing: Listing) => void;
+  selectedCampus?: Campus;
 }
 
 export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
@@ -57,10 +61,29 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   onReportListing,
   relatedListings,
   onSelectRelated,
-  onListingUpdated
+  onListingUpdated,
+  selectedCampus
 }) => {
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const [currentListing, setCurrentListing] = useState<Listing | null>(initialListing);
+
+  const campuses = currentListing ? getCampusesByUniversityId(currentListing.universityId) : [];
+  const [activeCampusId, setActiveCampusId] = useState<string>(
+    selectedCampus?.id || campuses[0]?.id || ''
+  );
+
+  useEffect(() => {
+    if (selectedCampus) {
+      setActiveCampusId(selectedCampus.id);
+    } else if (campuses.length > 0) {
+      setActiveCampusId(campuses[0].id);
+    }
+  }, [selectedCampus, currentListing?.universityId]);
+
+  const currentCampus = campuses.find(c => c.id === activeCampusId) || selectedCampus || campuses[0];
+  const distanceInfo = (currentListing && currentCampus) 
+    ? getPropertyDistanceToCampus(currentListing.lat, currentListing.lng, currentCampus, currentListing.walkingDistanceMinutes)
+    : null;
 
   // Review Submission Form State
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -377,17 +400,46 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
               {listing.title}
             </h1>
             
-            <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-600 font-medium">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-600 font-medium pt-1">
               <p className="flex items-center gap-1">
                 <MapPin className="w-4 h-4 text-neutral-400" />
                 {listing.address}
               </p>
-              <span className="text-neutral-300">•</span>
-              <p className="flex items-center gap-1.5 font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                <Footprints className="w-4 h-4 text-emerald-600" />
-                {listing.walkingDistanceMinutes} min WALK time to {listing.universityName}
-              </p>
+
+              {campuses.length > 0 && (
+                <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-neutral-700">
+                  <span className="text-[10px] font-bold text-neutral-500 uppercase">Target Campus:</span>
+                  <select
+                    value={currentCampus?.id || ''}
+                    onChange={(e) => setActiveCampusId(e.target.value)}
+                    className="text-xs font-bold text-slate-800 dark:text-white bg-transparent focus:outline-none cursor-pointer"
+                    title="Select Target Campus"
+                  >
+                    {campuses.map(c => (
+                      <option key={c.id} value={c.id} className="dark:bg-neutral-900">
+                        {c.name} ({c.city})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
+
+            {/* Real-time Multi-Mode Travel Routing Bar */}
+            {currentCampus && (
+              <div className="pt-2">
+                <p className="text-[10px] uppercase tracking-wider font-extrabold text-neutral-400 dark:text-neutral-500 mb-1">
+                  Travel Time to {currentCampus.name}
+                </p>
+                <TravelModeBar
+                  propertyId={listing.id}
+                  propertyLat={listing.lat}
+                  propertyLng={listing.lng}
+                  selectedCampus={currentCampus}
+                  compact={false}
+                />
+              </div>
+            )}
           </div>
 
           {/* 4. Key Specs Grid */}

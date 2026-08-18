@@ -119,9 +119,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                         }`}
                       >
                         <span className="truncate">{uni.name}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-500 font-medium">
-                          {uni.city}
-                        </span>
+                        {uni.id !== 'uniosun' ? (
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 shrink-0 ml-1">
+                            Coming Soon
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-bold shrink-0 ml-1">
+                            LIVE
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>

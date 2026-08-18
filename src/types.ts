@@ -23,6 +23,19 @@ export interface User {
   createdAt: string;
 }
 
+export interface Campus {
+  id: string;
+  universityId: string;
+  name: string;
+  shortName: string;
+  city: string;
+  state: string;
+  lat: number;
+  lng: number;
+  description?: string;
+  isMainCampus?: boolean;
+}
+
 export type InstitutionType = 'federal' | 'state' | 'private' | 'polytechnic' | 'college';
 
 export interface University {
@@ -223,6 +236,8 @@ export interface AppNotification {
 
 export interface SearchFilters {
   universityId: string;
+  selectedCampusId?: string;
+  maxDistanceKm?: number;
   institutionType: string;
   stateFilter: string;
   minPrice: number;

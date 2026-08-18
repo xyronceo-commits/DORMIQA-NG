@@ -10,7 +10,9 @@ import {
   Building2,
   MessageSquare
 } from 'lucide-react';
-import { Listing } from '../types';
+import { Listing, Campus } from '../types';
+import { getPropertyDistanceToCampus } from '../utils/distance';
+import { TravelModeBar } from './TravelModeBar';
 
 interface ListingCardProps {
   listing: Listing;
@@ -19,6 +21,7 @@ interface ListingCardProps {
   onOpenDetail: (listing: Listing) => void;
   onBookInspection: (listing: Listing) => void;
   onStartChat?: (agentId: string, listingId: string) => void;
+  selectedCampus?: Campus;
 }
 
 export const ListingCard: React.FC<ListingCardProps> = ({
@@ -27,9 +30,14 @@ export const ListingCard: React.FC<ListingCardProps> = ({
   onToggleSave,
   onOpenDetail,
   onBookInspection,
-  onStartChat
+  onStartChat,
+  selectedCampus
 }) => {
   const [currentPhotoIdx, setCurrentPhotoIdx] = useState(0);
+
+  const distanceInfo = selectedCampus 
+    ? getPropertyDistanceToCampus(listing.lat, listing.lng, selectedCampus, listing.walkingDistanceMinutes)
+    : null;
 
   const nextPhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -119,26 +127,26 @@ export const ListingCard: React.FC<ListingCardProps> = ({
       </div>
 
       {/* Content body */}
-      <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+      <div className="p-5 flex-1 flex flex-col justify-between space-y-3.5">
         
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {/* Property Type & Availability Metadata */}
           <div className="flex items-center justify-between text-[11px] font-bold">
             <span className="uppercase tracking-wider text-[10px] text-neutral-500 dark:text-slate-400 font-extrabold">
               {typeLabel}
             </span>
             {listing.unitStatus === 'occupied' ? (
-              <span className="text-rose-600 dark:text-rose-400 text-[10px] font-extrabold flex items-center gap-1">
+              <span className="text-rose-600 dark:text-rose-400 text-[10px] font-extrabold flex items-center gap-1 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-full border border-rose-200/60 dark:border-rose-800/60">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-600 dark:bg-rose-400 inline-block"></span>
                 Fully Rented
               </span>
             ) : listing.unitStatus === 'remaining' || listing.vacanciesCount ? (
-              <span className="text-amber-600 dark:text-amber-400 text-[10px] font-extrabold flex items-center gap-1">
+              <span className="text-amber-700 dark:text-amber-300 text-[10px] font-extrabold flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-200/60 dark:border-amber-800/60">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>
-                {listing.vacanciesCount || 1} Rooms Left
+                {listing.vacanciesCount || 1} Left
               </span>
             ) : (
-              <span className="text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold flex items-center gap-1">
+              <span className="text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-800/60">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
                 Available
               </span>
@@ -146,61 +154,66 @@ export const ListingCard: React.FC<ListingCardProps> = ({
           </div>
 
           {/* Title & Verified Shield */}
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-bold text-neutral-900 dark:text-white text-sm sm:text-base leading-snug line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+          <div className="flex items-start justify-between gap-2 pt-0.5">
+            <h3 className="font-bold text-neutral-900 dark:text-white text-base leading-snug line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
               {listing.title}
             </h3>
             {listing.agent.isVerified && (
-              <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800" title="Verified Caretaker/Agent">
+              <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200/80 dark:border-emerald-800/80" title="Verified Caretaker/Agent">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 Verified
               </span>
             )}
           </div>
 
-          {/* Location & Walking Distance */}
-          <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-slate-400 gap-2">
-            <p className="flex items-center gap-1 truncate min-w-0">
-              <MapPin className="w-3.5 h-3.5 shrink-0 text-neutral-400 dark:text-slate-500" />
-              <span className="truncate">{listing.address}</span>
-            </p>
-            <span className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-              <Footprints className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-              <span>{listing.walkingDistanceMinutes} min walk</span>
-            </span>
+          {/* Location & Address */}
+          <div className="flex items-center text-xs text-neutral-500 dark:text-slate-400 gap-1.5 truncate">
+            <MapPin className="w-3.5 h-3.5 shrink-0 text-neutral-400 dark:text-slate-500" />
+            <span className="truncate">{listing.address}</span>
           </div>
 
-          {/* Key Facilities snippet */}
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            {listing.facilities.slice(0, 3).map((facility, i) => (
+          {/* 3-Travel Mode Real-Time Routing Bar */}
+          <div className="py-1">
+            <TravelModeBar
+              propertyId={listing.id}
+              propertyLat={listing.lat}
+              propertyLng={listing.lng}
+              selectedCampus={selectedCampus}
+              compact={true}
+            />
+          </div>
+
+          {/* Key Facilities snippet (Streamlined to max 2 for visual breathing room) */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+            {listing.facilities.slice(0, 2).map((facility, i) => (
               <span 
                 key={i}
-                className="text-[10px] font-medium bg-neutral-100 dark:bg-slate-800 text-neutral-600 dark:text-slate-300 px-2 py-0.5 rounded-md border border-neutral-200/70 dark:border-slate-700"
+                className="text-[10px] font-medium bg-neutral-100/80 dark:bg-slate-800/80 text-neutral-600 dark:text-slate-300 px-2 py-0.5 rounded-md border border-neutral-200/60 dark:border-slate-700/60"
               >
                 {facility}
               </span>
             ))}
-            {listing.facilities.length > 3 && (
+            {listing.facilities.length > 2 && (
               <span className="text-[10px] text-neutral-400 dark:text-slate-500 font-semibold px-1 py-0.5">
-                +{listing.facilities.length - 3}
+                +{listing.facilities.length - 2} more
               </span>
             )}
           </div>
         </div>
 
         {/* Pricing & Inspection CTA Row */}
-        <div className="pt-3 border-t border-neutral-100 dark:border-slate-800 flex items-center justify-between mt-auto">
+        <div className="pt-3.5 border-t border-neutral-100 dark:border-slate-800 flex items-center justify-between mt-auto">
           <div>
             <div className="flex items-baseline gap-1">
-              <span className="font-black text-neutral-900 dark:text-white text-base sm:text-lg">
+              <span className="font-extrabold text-neutral-900 dark:text-white text-base sm:text-lg">
                 ₦{(listing.pricePerYear || (listing.pricePerWeek ? listing.pricePerWeek * 52 : 300000)).toLocaleString()}
               </span>
-              <span className="text-xs text-neutral-500 dark:text-slate-400 font-medium">/ yr</span>
+              <span className="text-xs text-neutral-500 dark:text-slate-400 font-medium">/yr</span>
             </div>
-            <div className="text-[11px] text-neutral-400 dark:text-slate-500 font-medium flex items-center gap-1.5">
+            <div className="text-[11px] text-neutral-400 dark:text-slate-500 font-medium flex items-center gap-1.5 mt-0.5">
               <span>₦{(listing.pricePerMonth || Math.round((listing.pricePerYear || 300000) / 12)).toLocaleString()}/mo</span>
               {listing.billsIncluded && (
-                <span className="text-emerald-600 dark:text-emerald-400 font-bold">• Light Inc.</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold">• Utilities Inc.</span>
               )}
             </div>
           </div>
@@ -214,7 +227,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({
                   e.stopPropagation();
                   onStartChat(listing.agentId || listing.agent?.id || 'agent_1', listing.id);
                 }}
-                className="p-2 text-xs font-bold text-neutral-700 dark:text-neutral-200 bg-neutral-100 dark:bg-slate-800 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950 dark:hover:text-emerald-400 border border-neutral-200 dark:border-slate-700 transition-colors rounded-xl flex items-center justify-center cursor-pointer active:scale-95"
+                className="p-2.5 text-xs font-bold text-neutral-700 dark:text-neutral-200 bg-neutral-100 dark:bg-slate-800 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950 dark:hover:text-emerald-400 border border-neutral-200/80 dark:border-slate-700 transition-colors rounded-xl flex items-center justify-center cursor-pointer active:scale-95"
                 title="Message Caretaker Directly"
               >
                 <MessageSquare className="w-4 h-4" />
@@ -227,7 +240,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({
                 e.stopPropagation();
                 onBookInspection(listing);
               }}
-              className="px-3 py-2 text-xs font-bold text-white bg-slate-900 dark:bg-emerald-600 hover:bg-emerald-600 dark:hover:bg-emerald-500 transition-colors rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
+              className="px-3.5 py-2.5 text-xs font-bold text-white bg-slate-900 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-500 transition-colors rounded-xl flex items-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
             >
               <Calendar className="w-3.5 h-3.5" />
               Book Tour
