@@ -5,13 +5,14 @@
 export interface ParsedRoute {
   type: 'property' | 'view' | '404';
   propertyId?: string;
-  view?: 'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash';
+  view?: 'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon';
 }
 
 const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
   '/': 'landing',
   '/search': 'search',
   '/discover': 'search',
+  '/explore': 'search',
   '/saved': 'saved',
   '/messages': 'messages',
   '/chats': 'messages',
@@ -20,6 +21,7 @@ const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
   '/student-dashboard': 'student-dash',
   '/agent-dashboard': 'agent-dash',
   '/admin-dashboard': 'admin-dash',
+  '/coming-soon': 'coming-soon',
 };
 
 /**
@@ -96,7 +98,8 @@ export function pushViewUrl(view: string, replace = false) {
     'business-verification': '/business-verification',
     'student-dash': '/student-dashboard',
     'agent-dash': '/agent-dashboard',
-    'admin-dash': '/admin-dashboard'
+    'admin-dash': '/admin-dashboard',
+    'coming-soon': '/coming-soon'
   };
 
   const targetPath = pathMap[view] || '/';

@@ -724,31 +724,28 @@ export default function App() {
               setAccounts([newAccount]);
               setActiveAccountId(newAccount.id);
 
-              const isNewUser = userData.isSignup || !localStorage.getItem('dormiqa_has_seen_onboarding');
+              const isSignup = Boolean(userData.isSignup);
 
-              if (userData.role === 'agent' && userData.isSignup) {
-                setPendingAgentRegistration(newAccount);
-                setActiveView('business-verification');
-                if (isNewUser) setShowOnboardingShowcase(true);
-                setToastNotice(`Account registered! Redirecting to business verification...`);
-                setTimeout(() => setToastNotice(null), 4000);
-              } else if (userData.role === 'student') {
+              if (!isSignup) {
+                // RETURNING USER SIGN IN (Agent or Student) -> Directly to Explore (search) page, no onboarding page or modal
                 setActiveView('search');
-                if (isNewUser) {
-                  setShowOnboardingShowcase(true);
-                } else if (!localStorage.getItem('dormiqa_guided_tour_completed')) {
-                  setShowGuidedTour(true);
-                }
-                setToastNotice(`Welcome, ${newAccount.name}!`);
+                pushViewUrl('search');
+                setToastNotice(`Welcome back, ${newAccount.name}!`);
                 setTimeout(() => setToastNotice(null), 4000);
               } else if (userData.role === 'agent') {
-                setActiveView('agent-dash');
-                if (isNewUser) setShowOnboardingShowcase(true);
-                setToastNotice(`Signed in as ${newAccount.name}`);
+                // NEW AGENT SIGNUP
+                setPendingAgentRegistration(newAccount);
+                setActiveView('business-verification');
+                pushViewUrl('business-verification');
+                setShowOnboardingShowcase(true);
+                setToastNotice(`Account registered! Redirecting to business verification...`);
                 setTimeout(() => setToastNotice(null), 4000);
               } else {
-                setActiveView('admin-dash');
-                setToastNotice(`Signed in as ${newAccount.name}`);
+                // NEW STUDENT SIGNUP
+                setActiveView('search');
+                pushViewUrl('search');
+                setShowOnboardingShowcase(true);
+                setToastNotice(`Welcome to Dormiqa, ${newAccount.name}!`);
                 setTimeout(() => setToastNotice(null), 4000);
               }
             }}

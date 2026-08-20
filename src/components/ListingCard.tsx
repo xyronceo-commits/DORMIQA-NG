@@ -8,11 +8,13 @@ import {
   ChevronRight, 
   Calendar,
   Building2,
-  MessageSquare
+  MessageSquare,
+  Share2
 } from 'lucide-react';
 import { Listing, Campus } from '../types';
 import { getPropertyDistanceToCampus } from '../utils/distance';
 import { TravelModeBar } from './TravelModeBar';
+import { sharePropertyListing } from '../utils/routing';
 
 interface ListingCardProps {
   listing: Listing;
@@ -106,7 +108,19 @@ export const ListingCard: React.FC<ListingCardProps> = ({
         )}
 
         {/* Top Badges */}
-        <div className="absolute top-3 right-3 flex justify-end pointer-events-none">
+        <div className="absolute top-3 right-3 flex items-center gap-1.5 pointer-events-none">
+          {/* Share Link Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              sharePropertyListing(listing);
+            }}
+            className="pointer-events-auto p-2 rounded-lg backdrop-blur-md transition-all active:scale-90 border cursor-pointer bg-white/90 dark:bg-slate-900/80 border-neutral-200 dark:border-slate-700 hover:bg-white text-neutral-700 dark:text-neutral-200 shadow-xs"
+            title="Share property link"
+          >
+            <Share2 className="w-4 h-4" />
+          </button>
+
           {/* Save Heart Button */}
           <button
             onClick={(e) => {
@@ -116,7 +130,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({
             className={`pointer-events-auto p-2 rounded-lg backdrop-blur-md transition-all active:scale-90 border cursor-pointer ${
               isSaved
                 ? 'bg-rose-500 border-rose-500 text-white shadow-xs'
-                : 'bg-white/90 dark:bg-slate-900/80 border-neutral-200 dark:border-slate-700 hover:bg-white text-neutral-700 dark:text-neutral-200'
+                : 'bg-white/90 dark:bg-slate-900/80 border-neutral-200 dark:border-slate-700 hover:bg-white text-neutral-700 dark:text-neutral-200 shadow-xs'
             }`}
             title={isSaved ? "Remove from saved" : "Save accommodation"}
           >
