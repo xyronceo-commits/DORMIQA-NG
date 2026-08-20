@@ -34,6 +34,8 @@ export interface Campus {
   lng: number;
   description?: string;
   isMainCampus?: boolean;
+  isComingSoon?: boolean;
+  status?: 'available' | 'coming_soon';
 }
 
 export type InstitutionType = 'federal' | 'state' | 'private' | 'polytechnic' | 'college';

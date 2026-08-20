@@ -28,7 +28,8 @@ import {
   loginWithEmail, 
   resendVerificationEmail, 
   checkEmailVerified,
-  saveUserToFirestore
+  saveUserToFirestore,
+  fetchUserProfileFromFirestore
 } from '../services/firebase';
 
 const GoogleIcon = () => (
@@ -123,6 +124,28 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
       const displayName = fbUser.displayName || '';
       const email = fbUser.email || '';
       const photoURL = fbUser.photoURL || undefined;
+      const uid = fbUser.uid;
+
+      // Check if existing user account in Firestore or if authMode === 'signin'
+      const existingProfile = await fetchUserProfileFromFirestore(uid) || await fetchUserProfileFromFirestore(email);
+
+      if (existingProfile || authMode === 'signin') {
+        // EXISTING USER GOOGLE SIGN IN -> Bypass onboarding page, take straight to Explore!
+        const fullData = {
+          role: (existingProfile?.role || selectedRole || 'student') as UserRole,
+          name: existingProfile?.name || displayName || email.split('@')[0] || 'User',
+          email: email,
+          phone: existingProfile?.phone || '',
+          universityName: existingProfile?.universityName || '',
+          agencyName: existingProfile?.agencyName || '',
+          avatarUrl: existingProfile?.avatarUrl || photoURL,
+          isSignup: false,
+          isEmailVerified: true
+        };
+        await saveUserToFirestore(fullData);
+        onCompleteOnboarding(fullData);
+        return;
+      }
 
       if (displayName) {
         setStudentName(prev => prev || displayName);
@@ -378,7 +401,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
   if (showEmailVerificationScreen) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-neutral-50 dark:bg-neutral-950 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+      <div className="min-h-[calc(100vh-4rem)] bg-neutral-50 dark:bg-neutral-950 py-12 px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center gap-4">
         <EmailVerificationCard
           email={pendingUserOnboardingData?.email || studentEmail || agentEmail || auth.currentUser?.email || ''}
           onBack={() => setShowEmailVerificationScreen(false)}
@@ -386,16 +409,28 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
             if (auth.currentUser) {
               await auth.currentUser.reload();
             }
-            if (auth.currentUser?.emailVerified) {
-              const verifiedData = {
-                ...pendingUserOnboardingData,
-                isEmailVerified: true
-              };
-              await saveUserToFirestore(verifiedData);
-              onCompleteOnboarding(verifiedData);
-            }
+            const verifiedData = {
+              ...pendingUserOnboardingData,
+              isEmailVerified: auth.currentUser?.emailVerified === true
+            };
+            await saveUserToFirestore(verifiedData);
+            onCompleteOnboarding(verifiedData);
           }}
         />
+
+        <button
+          onClick={() => {
+            onCompleteOnboarding({
+              ...pendingUserOnboardingData,
+              isEmailVerified: false,
+              isSignup: false
+            });
+          }}
+          type="button"
+          className="text-xs font-bold text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white underline cursor-pointer transition-colors"
+        >
+          Skip & Continue to Explore Page without verifying now
+        </button>
       </div>
     );
   }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { 
   UserRole, 
   University, 
@@ -60,7 +61,7 @@ import { AdminLoginModal } from './components/AdminLoginModal';
 import { InfoPagesModal } from './components/InfoPagesModal';
 import { ComingSoonPage } from './components/ComingSoonPage';
 import { checkAdminSession, clearAdminToken } from './services/api';
-import { auth, saveUserToFirestore, logoutFirebase, fetchUserProfileFromFirestore } from './services/firebase';
+import { auth, saveUserToFirestore, logoutFirebase, fetchUserProfileFromFirestore, resendVerificationEmail } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 export default function App() {
@@ -97,11 +98,18 @@ export default function App() {
       setTimeout(() => setToastNotice(null), 4000);
       return;
     }
-    if (isLoggedIn && auth.currentUser && !auth.currentUser.emailVerified && !auth.currentUser.providerData.some(p => p.providerId === 'google.com') && view !== 'landing' && view !== 'onboarding' && view !== 'search' && view !== 'coming-soon') {
-      setActiveView('onboarding');
-      pushViewUrl('onboarding');
-      setToastNotice('Email verification required. Please check your inbox and verify your email.');
-      setTimeout(() => setToastNotice(null), 4000);
+    if (isLoggedIn && view === 'onboarding') {
+      // Existing logged-in user -> Do NOT show onboarding page, take straight to Explore page!
+      setActiveView('search');
+      pushViewUrl('search');
+      const isVerified = auth.currentUser ? (auth.currentUser.emailVerified || auth.currentUser.providerData.some(p => p.providerId === 'google.com')) : true;
+      if (!isVerified && auth.currentUser?.email) {
+        setToastNotice(`Notice: Your email address (${auth.currentUser.email}) is not verified yet. Please check your inbox.`);
+        setTimeout(() => setToastNotice(null), 5000);
+      } else {
+        setToastNotice('You are already signed in!');
+        setTimeout(() => setToastNotice(null), 3000);
+      }
       return;
     }
     setActiveView(view);
@@ -204,6 +212,18 @@ export default function App() {
       setCurrentRole(userAccount.role);
       setIsLoggedIn(true);
       localStorage.setItem('dormiqa_is_logged_in', 'true');
+
+      // Existing user auto-route: If authenticated user lands on onboarding page, skip straight to Explore ('search') page
+      const initialRoute = parseRouteFromUrl();
+      if (initialRoute.type === 'view' && initialRoute.view === 'onboarding') {
+        setActiveView('search');
+        pushViewUrl('search');
+      }
+
+      if (!isVerified && email) {
+        setToastNotice(`Notice: Your email address (${email}) is not verified yet. Check your inbox.`);
+        setTimeout(() => setToastNotice(null), 6000);
+      }
     });
 
     const handleFocus = async () => {
@@ -612,6 +632,35 @@ export default function App() {
         }}
         onReplayOnboarding={() => setShowOnboardingShowcase(true)}
       />
+
+      {/* Unverified Email Warning Banner for Existing Logged-In Users */}
+      {isLoggedIn && auth.currentUser && !auth.currentUser.emailVerified && !auth.currentUser.providerData.some(p => p.providerId === 'google.com') && (
+        <div className="bg-amber-500/10 dark:bg-amber-500/20 border-b border-amber-500/30 px-4 py-2.5 text-xs font-medium text-amber-900 dark:text-amber-200 transition-colors">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>
+                <strong>Email Verification Pending:</strong> Your email address <strong>({auth.currentUser.email})</strong> is not verified yet. Please check your inbox for the link.
+              </span>
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  await resendVerificationEmail();
+                  setToastNotice('Verification link sent! Please check your email inbox and spam folder.');
+                  setTimeout(() => setToastNotice(null), 5000);
+                } catch (err: any) {
+                  setToastNotice('Could not send verification email: ' + (err?.message || 'Try again'));
+                  setTimeout(() => setToastNotice(null), 5000);
+                }
+              }}
+              className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition-colors cursor-pointer shrink-0 shadow-2xs"
+            >
+              Resend Verification Link
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content View Switcher */}
       <main className="flex-1">
