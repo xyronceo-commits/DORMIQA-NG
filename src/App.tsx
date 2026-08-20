@@ -60,6 +60,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { InfoPagesModal } from './components/InfoPagesModal';
 import { ComingSoonPage } from './components/ComingSoonPage';
+import { ListingGridSkeleton, ListItemRowSkeleton, DashboardSkeleton, ChatDrawerSkeleton } from './components/SkeletonLoader';
 import { checkAdminSession, clearAdminToken } from './services/api';
 import { auth, saveUserToFirestore, logoutFirebase, fetchUserProfileFromFirestore, resendVerificationEmail } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -119,6 +120,7 @@ export default function App() {
   const [currentRole, setCurrentRole] = useState<UserRole>('student');
   const [universities, setUniversities] = useState<University[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
+  const [isListingsLoading, setIsListingsLoading] = useState<boolean>(true);
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   
@@ -499,18 +501,25 @@ export default function App() {
   };
 
   const loadListingsData = async () => {
-    const params: any = {
-      universityId: filters.universityId,
-      maxPrice: filters.maxPrice,
-      maxWalkingMinutes: filters.maxWalkingMinutes,
-      sortBy: filters.sortBy
-    };
-    if (filters.propertyTypes.length > 0) params.propertyType = filters.propertyTypes.join(',');
-    if (filters.facilities.length > 0) params.facilities = filters.facilities.join(',');
-    if (filters.genderPreference !== 'all') params.genderPreference = filters.genderPreference;
+    setIsListingsLoading(true);
+    try {
+      const params: any = {
+        universityId: filters.universityId,
+        maxPrice: filters.maxPrice,
+        maxWalkingMinutes: filters.maxWalkingMinutes,
+        sortBy: filters.sortBy
+      };
+      if (filters.propertyTypes.length > 0) params.propertyType = filters.propertyTypes.join(',');
+      if (filters.facilities.length > 0) params.facilities = filters.facilities.join(',');
+      if (filters.genderPreference !== 'all') params.genderPreference = filters.genderPreference;
 
-    const data = await fetchListings(params);
-    setListings(data);
+      const data = await fetchListings(params);
+      setListings(data);
+    } catch (err) {
+      console.error("Failed to load listings:", err);
+    } finally {
+      setIsListingsLoading(false);
+    }
   };
 
   const loadInspectionsData = async () => {
@@ -848,30 +857,32 @@ export default function App() {
 
             {/* View Mode: Grid Cards vs Interactive Map */}
             {viewMode === 'grid' ? (
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-6">
+              <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-8 w-full space-y-4 sm:space-y-6">
                 
                 {/* Clean Uncluttered Results Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-neutral-200/60 dark:border-neutral-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 pb-2 border-b border-neutral-200/60 dark:border-neutral-800">
                   <div>
-                    <h2 className="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                    <h2 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
                       <span>Verified Accommodations</span>
-                      <span className="text-xs font-semibold px-2.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 rounded-full border border-neutral-200 dark:border-neutral-700">
+                      <span className="text-[11px] sm:text-xs font-semibold px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 rounded-full border border-neutral-200 dark:border-neutral-700">
                         {displayListings.length} {displayListings.length === 1 ? 'lodge' : 'lodges'} available
                       </span>
                     </h2>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                    <p className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                       Showing student housing near <span className="font-semibold text-neutral-800 dark:text-neutral-200">{selectedCampus ? selectedCampus.name : 'campus'}</span>
                     </p>
                   </div>
                 </div>
 
-                {displayListings.length === 0 ? (
-                  <div className="text-center py-16 bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-8 max-w-md mx-auto space-y-3">
+                {isListingsLoading ? (
+                  <ListingGridSkeleton count={6} />
+                ) : displayListings.length === 0 ? (
+                  <div className="text-center py-12 sm:py-16 bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 sm:p-8 max-w-md mx-auto space-y-3">
                     <p className="text-sm font-bold text-slate-900 dark:text-white">No properties match your current filter</p>
                     <p className="text-xs text-neutral-500 dark:text-neutral-400">Try widening your maximum budget, campus distance radius, or clearing filters.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-6 lg:gap-8">
                     {displayListings.map((listing) => (
                       <ListingCard
                         key={listing.id}
@@ -892,29 +903,35 @@ export default function App() {
               <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-10rem)] min-h-[600px]">
                 {/* Left Listing Scroll list */}
                 <div className="lg:col-span-5 overflow-y-auto space-y-3 pr-1">
-                  {displayListings.map((l) => (
-                    <div
-                      key={l.id}
-                      onClick={() => handleOpenListingDetail(l)}
-                      className="bg-white dark:bg-neutral-900 p-3.5 rounded-2xl border border-neutral-200 dark:border-neutral-800 hover:border-slate-900 dark:hover:border-emerald-600 transition-all cursor-pointer flex gap-3 shadow-2xs"
-                    >
-                      <img src={l.photos[0]} alt="" className="w-24 h-24 rounded-xl object-cover shrink-0" />
-                      <div className="flex-1 min-w-0 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">{l.title}</h4>
-                          <span className="text-xs font-extrabold text-slate-900 dark:text-white shrink-0 ml-1">₦{(l.pricePerYear || (l.pricePerWeek ? l.pricePerWeek * 52 : 300000)).toLocaleString()}/yr</span>
+                  {isListingsLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <ListItemRowSkeleton key={i} />
+                    ))
+                  ) : (
+                    displayListings.map((l) => (
+                      <div
+                        key={l.id}
+                        onClick={() => handleOpenListingDetail(l)}
+                        className="bg-white dark:bg-neutral-900 p-3.5 rounded-2xl border border-neutral-200 dark:border-neutral-800 hover:border-slate-900 dark:hover:border-emerald-600 transition-all cursor-pointer flex gap-3 shadow-2xs"
+                      >
+                        <img src={l.photos[0]} alt="" className="w-24 h-24 rounded-xl object-cover shrink-0" />
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">{l.title}</h4>
+                            <span className="text-xs font-extrabold text-slate-900 dark:text-white shrink-0 ml-1">₦{(l.pricePerYear || (l.pricePerWeek ? l.pricePerWeek * 52 : 300000)).toLocaleString()}/yr</span>
+                          </div>
+                          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">{l.address}</p>
+                          <TravelModeBar
+                            propertyId={l.id}
+                            propertyLat={l.lat}
+                            propertyLng={l.lng}
+                            selectedCampus={selectedCampus}
+                            compact={true}
+                          />
                         </div>
-                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">{l.address}</p>
-                        <TravelModeBar
-                          propertyId={l.id}
-                          propertyLat={l.lat}
-                          propertyLng={l.lng}
-                          selectedCampus={selectedCampus}
-                          compact={true}
-                        />
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
 
                 {/* Right Leaflet Map */}

@@ -141,7 +141,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({
       </div>
 
       {/* Content body */}
-      <div className="p-5 flex-1 flex flex-col justify-between space-y-3.5">
+      <div className="p-3.5 sm:p-5 flex-1 flex flex-col justify-between space-y-2.5 sm:space-y-3.5">
         
         <div className="space-y-2">
           {/* Property Type & Availability Metadata */}
