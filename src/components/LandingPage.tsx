@@ -378,15 +378,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-neutral-200 pb-4">
           <div>
             <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block mb-1">Shared Living & Budget Splitting</span>
-            <h2 className="text-2xl font-extrabold text-neutral-900">Verified Roommate Requests</h2>
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-2xl font-extrabold text-neutral-900">Verified Roommate Requests</h2>
+              <span className="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 rounded-full border border-amber-300">
+                Coming Soon
+              </span>
+            </div>
             <p className="text-xs text-neutral-500 mt-0.5">Connect with verified students seeking flatmates to share rent and utility costs.</p>
           </div>
 
           <button
-            onClick={onOpenOnboarding}
-            className="px-4 py-2 bg-neutral-900 hover:bg-black text-white font-bold text-xs rounded-xl transition-all"
+            disabled
+            className="px-4 py-2 bg-neutral-100 text-neutral-400 font-bold text-xs rounded-xl cursor-not-allowed border border-neutral-200 flex items-center gap-1.5"
           >
-            Post Roommate Request
+            <span>Coming Soon</span>
           </button>
         </div>
 
@@ -394,14 +399,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           {sampleRoommateRequests.length === 0 ? (
             <div className="col-span-full text-center py-10 bg-white rounded-2xl border border-neutral-200 p-8 space-y-3 shadow-2xs">
               <Users className="w-8 h-8 text-neutral-400 mx-auto" />
-              <p className="text-xs font-bold text-slate-900">No active roommate requests posted yet</p>
-              <p className="text-[11px] text-neutral-500 max-w-sm mx-auto">Verified students seeking flatmates to share rent and solar utility expenses will appear here.</p>
-              <button
-                onClick={onOpenOnboarding}
-                className="mt-1 px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-black transition-colors"
-              >
-                Post First Roommate Request
-              </button>
+              <p className="text-xs font-bold text-slate-900">Roommate Matching — Coming Soon</p>
+              <p className="text-[11px] text-neutral-500 max-w-sm mx-auto">Verified student roommate matching and rent-splitting feature is currently in development and will be available soon.</p>
+              <span className="inline-block mt-1 px-4 py-2 bg-neutral-100 text-neutral-600 border border-neutral-200 text-xs font-bold rounded-xl">
+                Coming Soon
+              </span>
             </div>
           ) : (
             sampleRoommateRequests.map((rm) => (

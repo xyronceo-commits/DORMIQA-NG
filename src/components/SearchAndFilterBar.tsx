@@ -230,26 +230,34 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
                 }`}
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Filters</span>
-                {(filters.propertyTypes.length + filters.facilities.length) > 0 && (
+                <span>Filters</span>
+                {(filters.propertyTypes.length + filters.facilities.length + (filters.maxDistanceKm ? 1 : 0)) > 0 && (
                   <span className="bg-emerald-600 dark:bg-white dark:text-neutral-900 text-white text-[10px] font-black w-4 h-4 rounded-md flex items-center justify-center">
-                    {filters.propertyTypes.length + filters.facilities.length}
+                    {filters.propertyTypes.length + filters.facilities.length + (filters.maxDistanceKm ? 1 : 0)}
                   </span>
                 )}
               </button>
 
-              {/* Sort selector on Mobile */}
-              <div className="sm:hidden flex-1">
-                <select
-                  value={filters.sortBy}
-                  onChange={(e) => setFilters(prev => ({ ...prev, sortBy: e.target.value as any }))}
-                  className="w-full h-[38px] text-[11px] font-bold text-neutral-700 dark:text-neutral-200 bg-neutral-50 dark:bg-neutral-800/90 border border-neutral-200/80 dark:border-neutral-700/80 rounded-xl px-2.5 focus:outline-none cursor-pointer truncate"
+              {/* View mode toggle on mobile */}
+              <div className="sm:hidden flex items-center bg-neutral-50 dark:bg-neutral-800/90 p-0.5 rounded-xl border border-neutral-200/80 dark:border-neutral-700/80 h-[38px]">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                    viewMode === 'grid' ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 shadow-2xs' : 'text-neutral-500 dark:text-neutral-400'
+                  }`}
+                  title="Grid Cards View"
                 >
-                  <option value="distance" className="dark:bg-neutral-900">Closest Campus</option>
-                  <option value="price_asc" className="dark:bg-neutral-900">Price: Low to High</option>
-                  <option value="price_desc" className="dark:bg-neutral-900">Price: High to Low</option>
-                  <option value="rating" className="dark:bg-neutral-900">Highest Rated</option>
-                </select>
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setViewMode('map')}
+                  className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                    viewMode === 'map' ? 'bg-slate-900 dark:bg-emerald-600 text-white shadow-2xs' : 'text-neutral-500 dark:text-neutral-400'
+                  }`}
+                  title="Interactive Map View"
+                >
+                  <MapIcon className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
@@ -298,9 +306,9 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
 
         </div>
 
-        {/* Expanded Filters Drawer */}
+        {/* DESKTOP Expanded Filters Drawer */}
         {expandedDrawer && (
-          <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-800 animate-in fade-in space-y-4">
+          <div className="hidden sm:block mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-800 animate-in fade-in space-y-4">
             
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
               
@@ -460,6 +468,156 @@ export const SearchAndFilterBar: React.FC<SearchAndFilterBarProps> = ({
               </button>
             </div>
 
+          </div>
+        )}
+
+        {/* MOBILE SLIDE-UP FILTER BOTTOM SHEET */}
+        {expandedDrawer && (
+          <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex flex-col justify-end sm:hidden animate-in fade-in duration-200">
+            <div 
+              onClick={(e) => e.stopPropagation()} 
+              className="bg-white dark:bg-neutral-900 rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl border-t border-neutral-200 dark:border-neutral-800 animate-in slide-in-from-bottom duration-300"
+            >
+              {/* Header */}
+              <div className="p-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between sticky top-0 bg-white dark:bg-neutral-900 z-10 rounded-t-3xl">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <h3 className="font-extrabold text-sm text-neutral-900 dark:text-white">Filter Accommodations</h3>
+                </div>
+                <button
+                  onClick={() => setExpandedDrawer(false)}
+                  className="p-2 rounded-xl text-neutral-400 hover:text-neutral-700 dark:hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Scrollable Filter Options */}
+              <div className="p-4 overflow-y-auto space-y-5">
+                
+                {/* Budget Selection */}
+                <div className="space-y-2">
+                  <label className="text-xs font-extrabold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block">
+                    Maximum Budget (₦/yr)
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: 'Any Budget', value: 0 },
+                      { label: 'Under ₦250k', value: 250000 },
+                      { label: 'Under ₦350k', value: 350000 },
+                      { label: 'Under ₦500k', value: 500000 },
+                      { label: 'Under ₦750k', value: 750000 },
+                      { label: 'Under ₦1 Million', value: 1000000 },
+                      { label: 'Under ₦1.5 Million', value: 1500000 },
+                      { label: 'Under ₦2 Million', value: 2000000 }
+                    ].map(b => (
+                      <button
+                        key={b.value}
+                        onClick={() => setFilters(prev => ({ ...prev, maxPrice: b.value }))}
+                        className={`p-2.5 rounded-xl text-xs font-bold border text-center transition-all min-h-[44px] ${
+                          (filters.maxPrice || 0) === b.value
+                            ? 'bg-emerald-600 text-white border-emerald-600 dark:bg-emerald-600'
+                            : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-700'
+                        }`}
+                      >
+                        {b.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Campus Distance Radius */}
+                <div className="space-y-2">
+                  <label className="text-xs font-extrabold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block">
+                    Campus Distance Radius
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: 'Any Distance', value: 0 },
+                      { label: 'Within 1 km', value: 1 },
+                      { label: 'Within 3 km', value: 3 },
+                      { label: 'Within 5 km', value: 5 }
+                    ].map(dist => (
+                      <button
+                        key={dist.value}
+                        onClick={() => setFilters(prev => ({ ...prev, maxDistanceKm: dist.value }))}
+                        className={`p-2.5 rounded-xl text-xs font-bold border transition-all min-h-[44px] ${
+                          (filters.maxDistanceKm || 0) === dist.value
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-700'
+                        }`}
+                      >
+                        {dist.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Housing Types */}
+                <div className="space-y-2">
+                  <label className="text-xs font-extrabold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block">
+                    Housing / Accommodation Type
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {PROPERTY_TYPES.map(t => (
+                      <button
+                        key={t.key}
+                        onClick={() => togglePropertyType(t.key)}
+                        className={`px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all min-h-[44px] ${
+                          filters.propertyTypes.includes(t.key)
+                            ? 'bg-slate-900 text-white border-slate-900 dark:bg-emerald-600'
+                            : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-700'
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Amenities & Facilities */}
+                <div className="space-y-2">
+                  <label className="text-xs font-extrabold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider block">
+                    Amenities & Facilities
+                  </label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {NIGERIAN_FACILITIES.map(fac => (
+                      <button
+                        key={fac}
+                        onClick={() => toggleFacility(fac)}
+                        className={`text-left text-xs font-semibold p-3 rounded-xl border flex items-center justify-between min-h-[44px] ${
+                          filters.facilities.includes(fac)
+                            ? 'bg-slate-900 text-white border-slate-900 dark:bg-emerald-600'
+                            : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-700'
+                        }`}
+                      >
+                        <span>{fac}</span>
+                        {filters.facilities.includes(fac) && <Check className="w-4 h-4 text-white" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="p-4 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between gap-3 bg-neutral-50 dark:bg-neutral-900/90 rounded-b-3xl">
+                <button
+                  onClick={resetFilters}
+                  className="px-3 py-3 text-xs font-bold text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white flex items-center gap-1 cursor-pointer shrink-0 min-h-[44px]"
+                >
+                  <RotateCcw className="w-4 h-4" /> Reset
+                </button>
+
+                <button
+                  onClick={() => setExpandedDrawer(false)}
+                  className="flex-1 py-3 bg-slate-900 dark:bg-emerald-600 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer text-center min-h-[44px]"
+                >
+                  Apply Filters ({totalResults})
+                </button>
+              </div>
+
+            </div>
           </div>
         )}
 
