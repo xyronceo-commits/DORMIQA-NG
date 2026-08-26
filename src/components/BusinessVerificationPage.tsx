@@ -4,47 +4,63 @@ import {
   Building2, 
   Upload, 
   CheckCircle2, 
-  Sparkles, 
   FileCheck,
   AlertTriangle,
   Loader2,
   BadgeCheck,
   Camera,
   Lock,
-  User as UserIcon
+  User as UserIcon,
+  MapPin,
+  Phone,
+  Clock,
+  LogOut,
+  HelpCircle
 } from 'lucide-react';
-import { User } from '../types';
-import { verifyAgentBusiness } from '../services/api';
+import { User, BusinessVerificationDetails, BusinessVerificationStatus } from '../types';
+import { saveUserToFirestore } from '../services/firebase';
 
 interface BusinessVerificationPageProps {
   agentData?: Partial<User> | null;
-  onCompleteVerification: (verificationDetails: { licenseNumber: string; isVerifiedAgent: boolean; avatarUrl?: string }) => void;
-  onSkip: () => void;
+  onCompleteVerification: (details: { licenseNumber: string; isVerifiedAgent: boolean; avatarUrl?: string }) => void;
+  onSignOut?: () => void;
 }
 
 export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> = ({
   agentData,
   onCompleteVerification,
-  onSkip
+  onSignOut
 }) => {
-  const [businessName, setBusinessName] = useState(agentData?.agencyName || '');
-  const [proofType, setProofType] = useState<'banner' | 'logo' | 'office' | 'cac' | 'business_card'>('banner');
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  // Current Status
+  const currentStatus: BusinessVerificationStatus = agentData?.businessVerificationStatus || (agentData?.isVerifiedAgent ? 'approved' : 'none');
+  const existingDetails = agentData?.businessVerificationDetails;
+
+  // Form State
+  const [businessName, setBusinessName] = useState(existingDetails?.businessName || agentData?.agencyName || '');
+  const [agentFullName, setAgentFullName] = useState(existingDetails?.agentFullName || agentData?.name || '');
+  const [phone, setPhone] = useState(existingDetails?.phone || agentData?.phone || '');
+  const [businessType, setBusinessType] = useState<'individual_caretaker' | 'registered_agency' | 'property_management_company'>(
+    existingDetails?.businessType || 'individual_caretaker'
+  );
+  const [businessAddress, setBusinessAddress] = useState(existingDetails?.businessAddress || '');
+  const [hostelManagementInfo, setHostelManagementInfo] = useState(existingDetails?.hostelManagementInfo || '');
+  const [relationship, setRelationship] = useState<'owner' | 'caretaker' | 'managing_agent' | 'representative'>(
+    existingDetails?.relationship || 'caretaker'
+  );
+  const [proofType, setProofType] = useState<'cac' | 'nin_id' | 'utility_bill' | 'office_photo' | 'business_card'>(
+    existingDetails?.proofType || 'nin_id'
+  );
   
-  // Agent Face Verification Portrait State
-  const [portraitPhoto, setPortraitPhoto] = useState<string | null>(agentData?.avatarUrl || null);
+  const [uploadedDocument, setUploadedDocument] = useState<File | null>(null);
+  const [uploadedDocName, setUploadedDocName] = useState<string | null>(existingDetails?.documentName || null);
+  
+  // Personal Face Photo State
+  const [portraitPhoto, setPortraitPhoto] = useState<string | null>(existingDetails?.portraitPhotoUrl || agentData?.avatarUrl || null);
   const [portraitFileName, setPortraitFileName] = useState<string | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  
-  const [aiResult, setAiResult] = useState<{
-    approved: boolean;
-    confidenceScore: number;
-    statusBadge: string;
-    aiReason: string;
-    licenseNumber: string;
-  } | null>(null);
+  const [submissionSuccess, setSubmissionSuccess] = useState(false);
 
   const handlePortraitUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -61,162 +77,226 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
     }
   };
 
+  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setUploadedDocument(file);
+      setUploadedDocName(file.name);
+      setErrorMessage(null);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    setAiResult(null);
 
     if (!portraitPhoto) {
-      setErrorMessage('Please upload a clear, unblurred photo of yourself without a mask for identity verification.');
+      setErrorMessage('Please upload a clear, unblurred personal photo for identity verification.');
       return;
     }
 
-    if (!businessName.trim() && !uploadedFile) {
-      setErrorMessage('Please enter the name of your business and upload a proof of business document or photo.');
+    if (!agentFullName.trim() || !businessName.trim() || !phone.trim()) {
+      setErrorMessage('Please complete all required fields (Full Name, Business Name, WhatsApp Phone).');
+      return;
+    }
+
+    if (!businessAddress.trim() || !hostelManagementInfo.trim()) {
+      setErrorMessage('Please specify your business address and hostel management details.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Simulate Firebase Storage document upload path
-      const storageUrl = uploadedFile ? `gs://dormiqa-firebase.appspot.com/proof_of_business/${Date.now()}_${uploadedFile.name}` : null;
-
-      const res = await verifyAgentBusiness({
+      const licenseNumber = `DMQ-AGT-${Math.floor(100000 + Math.random() * 900000)}`;
+      const verificationObj: BusinessVerificationDetails = {
         businessName: businessName.trim(),
+        agentFullName: agentFullName.trim(),
+        phone: phone.trim(),
+        businessType,
+        businessAddress: businessAddress.trim(),
+        hostelManagementInfo: hostelManagementInfo.trim(),
+        relationship,
         proofType,
-        documentFileName: uploadedFile ? uploadedFile.name : null,
-        documentStorageUrl: storageUrl,
-        agentName: agentData?.name || 'Agent',
-        agencyName: businessName.trim() || agentData?.agencyName || 'Housing Agency',
-        agentPortraitUrl: portraitPhoto
-      });
+        documentName: uploadedDocName || 'proof_document.pdf',
+        portraitPhotoUrl: portraitPhoto,
+        submittedAt: new Date().toISOString()
+      };
 
-      setAiResult({
-        approved: res.approved,
-        confidenceScore: res.confidenceScore,
-        statusBadge: res.statusBadge,
-        aiReason: res.aiReason,
-        licenseNumber: res.licenseNumber
-      });
-
-      if (res.approved) {
-        setTimeout(() => {
-          onCompleteVerification({
-            licenseNumber: res.licenseNumber,
-            isVerifiedAgent: true,
-            avatarUrl: portraitPhoto
-          });
-        }, 2200);
+      // Save to Firestore and state as PENDING for admin review
+      const uid = agentData?.id;
+      if (uid) {
+        await saveUserToFirestore({
+          id: uid,
+          name: agentFullName.trim(),
+          email: agentData?.email || '',
+          role: 'agent',
+          agencyName: businessName.trim(),
+          phone: phone.trim(),
+          avatarUrl: portraitPhoto,
+          isEmailVerified: true
+        });
       }
+
+      setSubmissionSuccess(true);
+      setTimeout(() => {
+        onCompleteVerification({
+          licenseNumber,
+          isVerifiedAgent: false, // Will become true upon admin approval
+          avatarUrl: portraitPhoto
+        });
+      }, 1500);
+
     } catch (err: any) {
-      console.error('AI verification failed:', err);
-      setErrorMessage(err.message || 'Verification service encountered an error. Please try again.');
+      console.error('Business Verification submit error:', err);
+      setErrorMessage(err.message || 'Verification submission failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // 1. PENDING STATUS SCREEN
+  if (currentStatus === 'pending' || submissionSuccess) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] bg-neutral-50 dark:bg-neutral-950 py-12 px-4 sm:px-6 flex items-center justify-center">
+        <div className="max-w-xl w-full bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 sm:p-8 shadow-sm space-y-6">
+          
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-950/80 text-amber-600 rounded-3xl flex items-center justify-center mx-auto shadow-xs border border-amber-200 dark:border-amber-800">
+              <Clock className="w-8 h-8 animate-pulse" />
+            </div>
+
+            <span className="inline-block text-[11px] font-black uppercase tracking-wider px-3 py-1 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 rounded-full border border-amber-300 dark:border-amber-800">
+              STATUS: VERIFICATION IN PROGRESS
+            </span>
+
+            <h2 className="text-2xl font-black text-neutral-900 dark:text-white tracking-tight">
+              Verification under review
+            </h2>
+
+            <p className="text-xs text-neutral-600 dark:text-neutral-400 max-w-md mx-auto leading-relaxed font-medium">
+              Thank you for submitting your business details! The Dormiqa verification team is currently auditing your identity documents and property information.
+            </p>
+          </div>
+
+          <div className="p-4 bg-neutral-50 dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 text-xs space-y-2">
+            <h4 className="font-extrabold text-neutral-900 dark:text-white flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              Submission Details Summary
+            </h4>
+            <div className="grid grid-cols-2 gap-2 text-[11px] text-neutral-600 dark:text-neutral-400 pt-1">
+              <div><strong>Agency / Business:</strong> {businessName || 'Hostel Management'}</div>
+              <div><strong>Agent Name:</strong> {agentFullName || 'Caretaker'}</div>
+              <div><strong>Contact Phone:</strong> {phone || 'N/A'}</div>
+              <div><strong>Business Type:</strong> {businessType.replace('_', ' ')}</div>
+            </div>
+            <p className="text-[10px] text-neutral-500 pt-2 border-t border-neutral-200 dark:border-neutral-700">
+              Standard review time is <strong>12–24 hours</strong>. You will be notified via email once your business is verified and full listing permissions are granted.
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row gap-3">
+            {onSignOut && (
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="flex-1 py-3 px-4 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-neutral-800 dark:text-neutral-200 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out for Now</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => alert('Support team contact: support@dormiqa.ng')}
+              className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <HelpCircle className="w-4 h-4" />
+              <span>Contact Support</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  // 2. FORM STATE (For status 'none' or 'rejected')
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-neutral-50/80 py-10 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
-      <div className="max-w-xl w-full space-y-6">
+    <div className="min-h-[calc(100vh-4rem)] bg-neutral-50 dark:bg-neutral-950 py-10 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+      <div className="max-w-2xl w-full space-y-6">
         
-        {/* Step Indicator */}
+        {/* Step Header */}
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-            <span className="font-extrabold text-neutral-800 uppercase tracking-wider">Account Created</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <span className="font-extrabold text-neutral-900 dark:text-white uppercase tracking-wider">Email Verified ✓</span>
           </div>
-          <span className="text-[11px] font-extrabold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300">
-            STEP 2 OF 2: AGENT IDENTITY & BUSINESS VERIFICATION
+          <span className="text-[11px] font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-3 py-1 rounded-full border border-emerald-300 dark:border-emerald-800">
+            BUSINESS VERIFICATION REQUIRED
           </span>
         </div>
 
         {/* Verification Card */}
-        <div className="bg-white rounded-3xl border border-neutral-200 p-6 sm:p-8 shadow-xs space-y-6">
+        <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 sm:p-8 shadow-xs space-y-6">
           
           <div className="text-center space-y-2">
-            <div className="w-14 h-14 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-xs">
+            <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-xs border border-emerald-200 dark:border-emerald-800">
               <ShieldCheck className="w-7 h-7" />
             </div>
-            <h2 className="text-2xl font-black text-neutral-900 tracking-tight">
+            <h2 className="text-2xl font-black text-neutral-900 dark:text-white tracking-tight">
               Agent Identity & Business Verification
             </h2>
-            <p className="text-xs text-neutral-600 max-w-md mx-auto font-medium leading-relaxed">
-              Welcome aboard, <strong className="text-neutral-900">{agentData?.name || 'Agent'}</strong>! To prevent scam listings, provide a clear personal photo of yourself and verify your business details.
+            <p className="text-xs text-neutral-600 dark:text-neutral-400 max-w-md mx-auto font-medium leading-relaxed">
+              To protect students and guarantee zero fake listings on Dormiqa, all hostel caretakers and accommodation managers must complete business verification before accessing the dashboard.
             </p>
           </div>
 
-          {/* Verification Benefit Banner */}
-          <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-start gap-3 text-xs text-emerald-950">
-            <Sparkles className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-            <div>
-              <h4 className="font-extrabold">Instant Identity Audit & Profile Lock</h4>
-              <p className="text-[11px] text-emerald-800 mt-0.5 leading-relaxed font-medium">
-                Your verified photo will be locked as your non-editable profile picture across all property listings and student chat channels.
+          {/* Rejection Banner if rejected */}
+          {currentStatus === 'rejected' && (
+            <div className="p-4 bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-800 rounded-2xl text-xs text-rose-900 dark:text-rose-200 space-y-1">
+              <div className="flex items-center gap-2 font-bold">
+                <AlertTriangle className="w-4 h-4 text-rose-600" />
+                <span>Previous Verification Application Needs Correction</span>
+              </div>
+              <p className="text-[11px]">
+                Reason: {agentData?.rejectionReason || 'Uploaded documents were unreadable or information requires updating.'} Please review your details and resubmit.
               </p>
             </div>
-          </div>
+          )}
 
           {errorMessage && (
-            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-2.5 text-xs text-rose-800 font-semibold">
+            <div className="p-3.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-2xl flex items-center gap-2 text-xs text-rose-800 dark:text-rose-300 font-semibold">
               <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
               <span>{errorMessage}</span>
             </div>
           )}
 
-          {/* AI Result Feedback Banner */}
-          {aiResult && (
-            <div className={`p-4 rounded-2xl border text-xs space-y-2 ${
-              aiResult.approved 
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-950' 
-                : 'bg-rose-50 border-rose-200 text-rose-950'
-            }`}>
-              <div className="flex items-center justify-between">
-                <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full ${
-                  aiResult.approved ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
-                }`}>
-                  {aiResult.statusBadge} ({aiResult.confidenceScore}% AI Confidence)
-                </span>
-                <span className="text-[10px] font-bold text-slate-500">AI Trust Inspector</span>
-              </div>
-              <p className="text-xs font-semibold leading-relaxed">
-                {aiResult.aiReason}
-              </p>
-              {aiResult.approved && (
-                <div className="pt-2 text-[11px] text-emerald-800 font-bold flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Face Identity Verified & Profile Locked. Redirecting to Dashboard...
-                </div>
-              )}
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-6 text-xs">
             
-            {/* MANDATORY AGENT PERSONAL FACE PHOTO REQUIREMENT */}
-            <div className="p-4 bg-slate-900 text-white rounded-2xl space-y-3 border border-slate-800">
+            {/* 1. AGENT PERSONAL FACE PHOTO */}
+            <div className="p-4 bg-neutral-900 dark:bg-neutral-950 text-white rounded-2xl space-y-3 border border-neutral-800">
               <div className="flex items-center justify-between">
                 <label className="font-bold text-xs flex items-center gap-1.5 text-emerald-400">
                   <Camera className="w-4 h-4 text-emerald-400" />
-                  1. Agent Personal Verification Photo (Required)
+                  1. Personal Verification Photo (Required)
                 </label>
                 <span className="text-[10px] bg-emerald-950 text-emerald-300 font-extrabold px-2 py-0.5 rounded border border-emerald-800/80 flex items-center gap-1">
-                  <Lock className="w-3 h-3 text-emerald-400" /> Non-Editable
+                  <Lock className="w-3 h-3 text-emerald-400" /> Locked Profile Photo
                 </span>
               </div>
 
-              <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
-                Please upload a <strong>good, clear photo of yourself</strong>. Must be well-lit, unblurred, no face mask, no dark sunglasses, and a full picture of your face.
+              <p className="text-[11px] text-neutral-300 leading-relaxed font-medium">
+                Upload a <strong>clear, well-lit photo of yourself</strong>. Must be unblurred, no dark sunglasses, no face mask, clearly displaying your face.
               </p>
 
-              {/* Photo Preview & Upload UI */}
-              <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-950/80 p-3.5 rounded-xl border border-slate-800">
+              <div className="flex flex-col sm:flex-row items-center gap-4 bg-neutral-950 p-3.5 rounded-xl border border-neutral-800">
                 <div className="relative shrink-0">
                   <img
-                    src={portraitPhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'}
+                    src={portraitPhoto || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80'}
                     alt="Agent Identity Verification Face"
                     className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500 shadow-md"
                   />
-                  <div className="absolute -bottom-1 -right-1 bg-emerald-600 text-white p-1 rounded-full shadow-xs" title="Verified Face Badge">
+                  <div className="absolute -bottom-1 -right-1 bg-emerald-600 text-white p-1 rounded-full shadow-xs">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                   </div>
                 </div>
@@ -224,7 +304,7 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
                 <div className="flex-1 space-y-2 text-center sm:text-left w-full">
                   <label className="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer transition-colors shadow-2xs">
                     <Upload className="w-3.5 h-3.5" />
-                    <span>{portraitFileName ? 'Change Uploaded Photo' : 'Upload Picture of Yourself'}</span>
+                    <span>{portraitFileName ? 'Change Uploaded Photo' : 'Upload Personal Photo'}</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -234,57 +314,145 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
                   </label>
                   {portraitFileName && (
                     <p className="text-[10px] text-emerald-400 font-semibold truncate">
-                      ✓ Uploaded: {portraitFileName}
+                      ✓ Selected: {portraitFileName}
                     </p>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Business Name Field */}
-            <div>
-              <label className="font-bold text-neutral-800 block mb-1.5 flex items-center gap-1.5">
-                <Building2 className="w-4 h-4 text-emerald-600" />
-                2. Name of Business / Agency
-              </label>
-              <input
-                type="text"
-                required
-                value={businessName}
-                onChange={(e) => {
-                  setBusinessName(e.target.value);
-                  setErrorMessage(null);
-                }}
-                placeholder="e.g. Yaba Student Housing Ltd or Chief Tunde Lodges"
-                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-neutral-900"
-              />
+            {/* 2. AGENT & BUSINESS IDENTITY */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                  Agent's Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={agentFullName}
+                  onChange={(e) => setAgentFullName(e.target.value)}
+                  placeholder="e.g. Chief Tunde Adebayo"
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                  Name of Agency / Business *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  placeholder="e.g. Yaba Student Housing Ltd"
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
             </div>
 
-            {/* Proof of Business Category */}
-            <div>
-              <label className="font-bold text-neutral-800 block mb-2 flex items-center gap-1.5">
-                <FileCheck className="w-4 h-4 text-emerald-600" />
-                3. Select Proof of Business Type
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                  WhatsApp Contact Phone *
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+234 803 456 7890"
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                  Business Type *
+                </label>
+                <select
+                  value={businessType}
+                  onChange={(e) => setBusinessType(e.target.value as any)}
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                >
+                  <option value="individual_caretaker">Individual Caretaker / Hostel Manager</option>
+                  <option value="registered_agency">Registered Housing Agency</option>
+                  <option value="property_management_company">Property Management Company</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 3. LOCATION & PROPERTY MANAGEMENT INFO */}
+            <div className="space-y-4">
+              <div>
+                <label className="font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                  Business Office Address / Location *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={businessAddress}
+                  onChange={(e) => setBusinessAddress(e.target.value)}
+                  placeholder="e.g. Suite 4, Akoka Commercial Complex, Yaba, Lagos State"
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                    Hostels / Property Details Managed *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={hostelManagementInfo}
+                    onChange={(e) => setHostelManagementInfo(e.target.value)}
+                    placeholder="e.g. Divine Villa (12 self-contain units)"
+                    className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                    Ownership or Relationship *
+                  </label>
+                  <select
+                    value={relationship}
+                    onChange={(e) => setRelationship(e.target.value as any)}
+                    className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  >
+                    <option value="caretaker">Managing Caretaker</option>
+                    <option value="owner">Direct Property Owner / Landlord</option>
+                    <option value="managing_agent">Managing Agency Representative</option>
+                    <option value="representative">Official Hostel Admin</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. SUPPORTING DOCUMENTATION */}
+            <div className="space-y-3">
+              <label className="font-bold text-neutral-800 dark:text-neutral-200 block">
+                Select Supporting Document Type *
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
-                  { id: 'banner', label: 'Banner Picture', icon: '🖼️' },
-                  { id: 'logo', label: 'Business Logo', icon: '🎨' },
-                  { id: 'office', label: 'Office Storefront', icon: '🏢' },
-                  { id: 'business_card', label: 'Business Card', icon: '🎴' },
-                  { id: 'cac', label: 'CAC Photo (Optional)', icon: '📜' },
+                  { id: 'nin_id', label: 'National ID / NIN', icon: '🎴' },
+                  { id: 'office_photo', label: 'Office Storefront', icon: '🏢' },
+                  { id: 'business_card', label: 'Business Card', icon: '🏷️' },
+                  { id: 'utility_bill', label: 'Utility Bill', icon: '📄' },
+                  { id: 'cac', label: 'CAC Document', icon: '📜' },
                 ].map((item) => (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => {
-                      setProofType(item.id as any);
-                      setErrorMessage(null);
-                    }}
-                    className={`p-2.5 rounded-xl border text-[11px] font-bold flex items-center gap-1.5 justify-center transition-all ${
+                    onClick={() => setProofType(item.id as any)}
+                    className={`p-2.5 rounded-xl border text-[11px] font-bold flex items-center gap-1.5 justify-center transition-all cursor-pointer ${
                       proofType === item.id
-                        ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
-                        : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100'
+                        ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 border-neutral-900 shadow-sm'
+                        : 'bg-neutral-50 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100'
                     }`}
                   >
                     <span>{item.icon}</span>
@@ -292,23 +460,18 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
                   </button>
                 ))}
               </div>
-            </div>
 
-            {/* Upload Proof of Business Image File */}
-            <div>
-              <label className="font-bold text-neutral-800 block mb-1">
-                Upload Proof of Business ({proofType === 'banner' ? 'Banner Photo' : proofType === 'logo' ? 'Logo Image' : proofType === 'office' ? 'Office Building Photo' : proofType === 'business_card' ? 'Business Card Image' : 'CAC Photo'})
-              </label>
-              <div className="border-2 border-dashed border-neutral-300 rounded-2xl p-5 text-center bg-neutral-50/50 hover:bg-neutral-50 transition-all cursor-pointer">
-                {uploadedFile ? (
-                  <div className="flex items-center justify-between text-xs text-emerald-800 font-semibold px-2">
+              {/* Upload Document Box */}
+              <div className="border-2 border-dashed border-neutral-300 dark:border-neutral-700 rounded-2xl p-5 text-center bg-neutral-50/50 dark:bg-neutral-800/50 hover:bg-neutral-50 transition-all cursor-pointer">
+                {uploadedDocName ? (
+                  <div className="flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300 font-semibold px-2">
                     <span className="flex items-center gap-2 truncate">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      {uploadedFile.name} ({(uploadedFile.size / 1024).toFixed(1)} KB)
+                      Document Attached: {uploadedDocName}
                     </span>
                     <button
                       type="button"
-                      onClick={() => setUploadedFile(null)}
+                      onClick={() => { setUploadedDocument(null); setUploadedDocName(null); }}
                       className="text-[11px] text-rose-600 font-bold hover:underline"
                     >
                       Remove
@@ -317,18 +480,15 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
                 ) : (
                   <label className="cursor-pointer flex flex-col items-center gap-1.5 py-1">
                     <Upload className="w-6 h-6 text-neutral-400" />
-                    <span className="text-xs font-bold text-neutral-800">Click to upload banner, logo, office photo, or card</span>
+                    <span className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
+                      Click to upload selected document ({proofType.toUpperCase()})
+                    </span>
                     <span className="text-[10px] text-neutral-400">JPG, PNG, WEBP, or PDF up to 10MB</span>
                     <input 
                       type="file" 
                       accept=".jpg,.jpeg,.png,.webp,.pdf"
                       className="hidden" 
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          setUploadedFile(e.target.files[0]);
-                          setErrorMessage(null);
-                        }
-                      }} 
+                      onChange={handleDocumentUpload} 
                     />
                   </label>
                 )}
@@ -345,22 +505,14 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    Auditing Photo & Business Details with AI...
+                    Submitting Business Verification Details...
                   </>
                 ) : (
                   <>
                     <BadgeCheck className="w-4 h-4" />
-                    Verify Identity & Lock Profile Picture
+                    Submit for Verification
                   </>
                 )}
-              </button>
-
-              <button
-                type="button"
-                onClick={onSkip}
-                className="w-full py-2.5 text-neutral-500 hover:text-neutral-900 font-semibold text-xs transition-colors"
-              >
-                Skip for now & go directly to Agent Dashboard
               </button>
             </div>
 

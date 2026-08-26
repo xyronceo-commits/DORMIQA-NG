@@ -1,5 +1,23 @@
 export type UserRole = 'student' | 'agent' | 'admin';
 
+export type BusinessVerificationStatus = 'none' | 'pending' | 'approved' | 'rejected';
+
+export interface BusinessVerificationDetails {
+  businessName: string;
+  agentFullName: string;
+  phone: string;
+  businessType: 'individual_caretaker' | 'registered_agency' | 'property_management_company';
+  businessAddress: string;
+  hostelManagementInfo: string;
+  relationship: 'owner' | 'caretaker' | 'managing_agent' | 'representative';
+  proofType: 'cac' | 'nin_id' | 'utility_bill' | 'office_photo' | 'business_card';
+  documentUrl?: string;
+  documentName?: string;
+  portraitPhotoUrl?: string;
+  submittedAt: string;
+  rejectionReason?: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -13,6 +31,8 @@ export interface User {
   universityName?: string;
   isVerifiedAgent?: boolean;
   isEmailVerified?: boolean;
+  businessVerificationStatus?: BusinessVerificationStatus;
+  businessVerificationDetails?: BusinessVerificationDetails;
   agencyName?: string;
   licenseNumber?: string;
   status?: 'verified' | 'pending' | 'rejected';

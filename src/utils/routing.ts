@@ -5,7 +5,7 @@
 export interface ParsedRoute {
   type: 'property' | 'view' | '404';
   propertyId?: string;
-  view?: 'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon';
+  view?: 'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon';
 }
 
 const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
@@ -17,6 +17,8 @@ const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
   '/messages': 'messages',
   '/chats': 'messages',
   '/onboarding': 'onboarding',
+  '/agent-portal': 'agent-landing',
+  '/agent-landing': 'agent-landing',
   '/business-verification': 'business-verification',
   '/student-dashboard': 'student-dash',
   '/agent-dashboard': 'agent-dash',

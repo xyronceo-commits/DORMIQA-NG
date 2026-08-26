@@ -54,6 +54,7 @@ import { OnboardingPage } from './components/OnboardingPage';
 import { OnboardingShowcaseModal } from './components/OnboardingShowcaseModal';
 import { AppGuidedTour } from './components/AppGuidedTour';
 import { BusinessVerificationPage } from './components/BusinessVerificationPage';
+import { AgentPortalLanding } from './components/AgentPortalLanding';
 import { StudentDashboard } from './components/StudentDashboard';
 import { AgentDashboard } from './components/AgentDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -66,7 +67,7 @@ import { auth, saveUserToFirestore, logoutFirebase, fetchUserProfileFromFirestor
 import { onAuthStateChanged } from 'firebase/auth';
 
 export default function App() {
-  const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon'>('landing');
+  const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon'>('landing');
   const [selectedComingSoonUniId, setSelectedComingSoonUniId] = useState<string>('unilag');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
@@ -205,6 +206,9 @@ export default function App() {
         agencyName: profile?.agencyName || '',
         isVerifiedAgent: profile?.isVerifiedAgent || false,
         isEmailVerified: isVerified,
+        businessVerificationStatus: profile?.businessVerificationStatus || (profile?.isVerifiedAgent ? 'approved' : 'none'),
+        businessVerificationDetails: profile?.businessVerificationDetails,
+        rejectionReason: profile?.rejectionReason,
         avatarUrl: profile?.avatarUrl || fbUser.photoURL || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
         createdAt: profile?.createdAt || new Date().toISOString().split('T')[0]
       };
@@ -215,11 +219,14 @@ export default function App() {
       setIsLoggedIn(true);
       localStorage.setItem('dormiqa_is_logged_in', 'true');
 
-      // Existing user auto-route: If authenticated user lands on onboarding page, route appropriately based on role
+      // Existing user auto-route: If authenticated user lands on onboarding or agent pages, route strictly
       const initialRoute = parseRouteFromUrl();
-      if (initialRoute.type === 'view' && initialRoute.view === 'onboarding') {
+      if (initialRoute.type === 'view' && (initialRoute.view === 'onboarding' || initialRoute.view === 'agent-dash' || initialRoute.view === 'agent-landing')) {
         if (userAccount.role === 'agent') {
-          if (!userAccount.isVerifiedAgent) {
+          if (!isVerified) {
+            setActiveView('agent-landing');
+            pushViewUrl('agent-landing');
+          } else if (userAccount.businessVerificationStatus !== 'approved') {
             setActiveView('business-verification');
             pushViewUrl('business-verification');
           } else {
@@ -794,22 +801,33 @@ export default function App() {
 
               const isSignup = Boolean(userData.isSignup);
 
-              if (!isSignup) {
-                // RETURNING USER SIGN IN (Agent or Student) -> Directly to Explore (search) page, no onboarding page or modal
+              if (userData.role === 'agent') {
+                setCurrentRole('agent');
+                setShowOnboardingShowcase(false);
+                if (!isSignup) {
+                  // RETURNING AGENT SIGN IN -> Directly to Agent Caretaker Dashboard
+                  setActiveView('agent-dash');
+                  pushViewUrl('agent-dash');
+                  setToastNotice(`Welcome back to your Caretaker Dashboard, ${newAccount.name}!`);
+                  setTimeout(() => setToastNotice(null), 4000);
+                } else {
+                  // NEW AGENT SIGNUP -> Directly to Business Verification or Caretaker Dashboard
+                  setPendingAgentRegistration(newAccount);
+                  setActiveView('business-verification');
+                  pushViewUrl('business-verification');
+                  setToastNotice(`Agent account registered! Redirecting to business verification...`);
+                  setTimeout(() => setToastNotice(null), 4000);
+                }
+              } else if (!isSignup) {
+                // RETURNING STUDENT SIGN IN -> Directly to Student Discover (search) page
+                setCurrentRole('student');
                 setActiveView('search');
                 pushViewUrl('search');
                 setToastNotice(`Welcome back, ${newAccount.name}!`);
                 setTimeout(() => setToastNotice(null), 4000);
-              } else if (userData.role === 'agent') {
-                // NEW AGENT SIGNUP
-                setPendingAgentRegistration(newAccount);
-                setActiveView('business-verification');
-                pushViewUrl('business-verification');
-                setShowOnboardingShowcase(true);
-                setToastNotice(`Account registered! Redirecting to business verification...`);
-                setTimeout(() => setToastNotice(null), 4000);
               } else {
-                // NEW STUDENT SIGNUP
+                // NEW STUDENT SIGNUP -> Directly to Student Discover page with showcase modal
+                setCurrentRole('student');
                 setActiveView('search');
                 pushViewUrl('search');
                 setShowOnboardingShowcase(true);
@@ -821,18 +839,46 @@ export default function App() {
           />
         )}
 
-        {/* Business Verification Page for Agent Post-Signup */}
+        {/* Agent Portal Landing Page (Unauthenticated / Unverified Entry Point) */}
+        {activeView === 'agent-landing' && (
+          <AgentPortalLanding
+            universities={universities}
+            onAgentAuthenticated={(agentUser) => {
+              setAccounts([agentUser]);
+              setActiveAccountId(agentUser.id);
+              setIsLoggedIn(true);
+              setCurrentRole('agent');
+              setPendingAgentRegistration(agentUser);
+
+              if (!agentUser.isEmailVerified) {
+                setActiveView('agent-landing');
+              } else if (agentUser.businessVerificationStatus !== 'approved') {
+                setActiveView('business-verification');
+                pushViewUrl('business-verification');
+              } else {
+                setActiveView('agent-dash');
+                pushViewUrl('agent-dash');
+              }
+            }}
+            onOpenAdminAccess={() => setIsAdminLoginModalOpen(true)}
+            onGoToStudentView={() => setActiveView('landing')}
+          />
+        )}
+
+        {/* Business Verification Page for Agent Verification Gate */}
         {activeView === 'business-verification' && (
           <BusinessVerificationPage
-            agentData={pendingAgentRegistration}
+            agentData={accounts.find(a => a.id === activeAccountId) || pendingAgentRegistration}
             onCompleteVerification={({ licenseNumber, avatarUrl }) => {
-              if (pendingAgentRegistration?.id) {
+              const currentId = activeAccountId || pendingAgentRegistration?.id;
+              if (currentId) {
                 setAccounts(prev => prev.map(a => 
-                  a.id === pendingAgentRegistration.id
+                  a.id === currentId
                     ? { 
                         ...a, 
                         licenseNumber, 
-                        isVerifiedAgent: true,
+                        isVerifiedAgent: false,
+                        businessVerificationStatus: 'pending',
                         avatarUrl: avatarUrl || a.avatarUrl,
                         isAvatarLocked: true,
                         verificationPhotoUrl: avatarUrl || a.avatarUrl
@@ -840,15 +886,10 @@ export default function App() {
                     : a
                 ));
               }
-              setToastNotice('Identity & Business verification submitted! Verified photo set as profile picture.');
+              setToastNotice('Business verification details submitted! Verification is now in progress.');
               setTimeout(() => setToastNotice(null), 4000);
-              setActiveView('agent-dash');
             }}
-            onSkip={() => {
-              setToastNotice('Verification skipped for now. You can verify anytime in settings.');
-              setTimeout(() => setToastNotice(null), 4000);
-              setActiveView('agent-dash');
-            }}
+            onSignOut={handleSignOut}
           />
         )}
 
@@ -1032,28 +1073,83 @@ export default function App() {
           />
         )}
 
-        {/* 6. Agent Dashboard */}
-        {activeView === 'agent-dash' && (
-          <AgentDashboard
-            listings={listings}
-            inspections={inspections}
-            conversations={conversations}
-            onOpenAddModal={() => setAddModalOpen(true)}
-            onOpenChat={(conv) => setActiveConversation(conv)}
-            activeTab={agentTab}
-            onTabChange={setAgentTab}
-            accounts={accounts}
-            activeAccountId={activeAccountId}
-            onSignOut={handleSignOut}
-            onDeleteAccount={handleDeleteAccount}
-            onListingUpdate={(updatedListing) => {
-              setListings(prev => prev.map(l => l.id === updatedListing.id ? updatedListing : l));
-              if (detailListing?.id === updatedListing.id) {
-                setDetailListing(updatedListing);
-              }
-            }}
-          />
-        )}
+        {/* 6. Agent Dashboard Gate & Rendering */}
+        {activeView === 'agent-dash' && (() => {
+          const currentAccount = accounts.find(a => a.id === activeAccountId);
+          const isEmailVerified = auth.currentUser ? (auth.currentUser.emailVerified || auth.currentUser.providerData.some(p => p.providerId === 'google.com')) : currentAccount?.isEmailVerified;
+          const isApproved = currentAccount?.businessVerificationStatus === 'approved' || currentAccount?.isVerifiedAgent === true;
+
+          // Gate 1 & 2: Unauthenticated or Email unverified -> Agent Landing Page
+          if (!isLoggedIn || !isEmailVerified) {
+            return (
+              <AgentPortalLanding
+                universities={universities}
+                onAgentAuthenticated={(agentUser) => {
+                  setAccounts([agentUser]);
+                  setActiveAccountId(agentUser.id);
+                  setIsLoggedIn(true);
+                  setCurrentRole('agent');
+                  setPendingAgentRegistration(agentUser);
+                }}
+                onOpenAdminAccess={() => setIsAdminLoginModalOpen(true)}
+                onGoToStudentView={() => setActiveView('landing')}
+              />
+            );
+          }
+
+          // Gate 3: Business verification pending / unsubmitted / rejected -> Business Verification Page
+          if (!isApproved) {
+            return (
+              <BusinessVerificationPage
+                agentData={currentAccount || pendingAgentRegistration}
+                onCompleteVerification={({ licenseNumber, avatarUrl }) => {
+                  const currentId = activeAccountId || pendingAgentRegistration?.id;
+                  if (currentId) {
+                    setAccounts(prev => prev.map(a => 
+                      a.id === currentId
+                        ? { 
+                            ...a, 
+                            licenseNumber, 
+                            isVerifiedAgent: false,
+                            businessVerificationStatus: 'pending',
+                            avatarUrl: avatarUrl || a.avatarUrl,
+                            isAvatarLocked: true,
+                            verificationPhotoUrl: avatarUrl || a.avatarUrl
+                          }
+                        : a
+                    ));
+                  }
+                  setToastNotice('Business verification details submitted! Verification is now in progress.');
+                  setTimeout(() => setToastNotice(null), 4000);
+                }}
+                onSignOut={handleSignOut}
+              />
+            );
+          }
+
+          // Fully Authenticated & Verified -> Render Agent Dashboard
+          return (
+            <AgentDashboard
+              listings={listings}
+              inspections={inspections}
+              conversations={conversations}
+              onOpenAddModal={() => setAddModalOpen(true)}
+              onOpenChat={(conv) => setActiveConversation(conv)}
+              activeTab={agentTab}
+              onTabChange={setAgentTab}
+              accounts={accounts}
+              activeAccountId={activeAccountId}
+              onSignOut={handleSignOut}
+              onDeleteAccount={handleDeleteAccount}
+              onListingUpdate={(updatedListing) => {
+                setListings(prev => prev.map(l => l.id === updatedListing.id ? updatedListing : l));
+                if (detailListing?.id === updatedListing.id) {
+                  setDetailListing(updatedListing);
+                }
+              }}
+            />
+          );
+        })()}
 
         {/* 7. Admin Dashboard */}
         {activeView === 'admin-dash' && (

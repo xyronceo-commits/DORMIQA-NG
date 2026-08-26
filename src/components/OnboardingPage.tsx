@@ -429,7 +429,9 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           type="button"
           className="text-xs font-bold text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white underline cursor-pointer transition-colors"
         >
-          Skip & Continue to Explore Page without verifying now
+          {pendingUserOnboardingData?.role === 'agent' 
+            ? "Skip & Continue to Agent Dashboard without verifying now" 
+            : "Skip & Continue to Explore Page without verifying now"}
         </button>
       </div>
     );

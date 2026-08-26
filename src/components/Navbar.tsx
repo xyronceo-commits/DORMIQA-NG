@@ -75,26 +75,24 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
         
         {/* ==========================================
-            LEFT ZONE: BRAND LOGO + CAMPUS SELECTOR
+            LEFT ZONE: BRAND LOGO (SIMPLE & PROMINENT)
            ========================================== */}
         <div className="flex items-center gap-3 md:gap-5 shrink-0">
           <button 
-            onClick={() => setActiveView('landing')}
-            className="flex items-center gap-2 group text-left focus:outline-none cursor-pointer py-1"
+            onClick={() => {
+              if (currentRole === 'agent') {
+                setActiveView('agent-dash');
+                if (onNavigateAgentTab) onNavigateAgentTab('availability');
+              } else {
+                setActiveView('landing');
+              }
+            }}
+            className="flex items-center gap-2.5 group text-left focus:outline-none cursor-pointer py-1"
           >
-            <img src="/favicon.svg" alt="Dormiqa Map Pin" className="h-7 sm:h-8 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform" />
-            <div className="flex items-center gap-2">
-              <span className="font-black text-lg sm:text-xl tracking-tight text-neutral-900 dark:text-white flex items-center gap-1.5">
-                DORMIQA
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600" title="100% Verified Platform"></span>
-              </span>
-              {currentRole === 'agent' && (
-                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-900 text-emerald-400 border border-slate-800 tracking-wider uppercase">
-                  <Building2 className="w-3 h-3 text-emerald-400" />
-                  Agent Portal
-                </span>
-              )}
-            </div>
+            <img src="/favicon.svg" alt="Dormiqa" className="h-7 sm:h-8 w-auto object-contain shrink-0" />
+            <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-neutral-900 dark:text-white">
+              DORMIQA
+            </span>
           </button>
 
           {/* Desktop Institution Selector (For Authenticated Students) */}
