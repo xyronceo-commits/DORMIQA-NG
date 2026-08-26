@@ -49,6 +49,7 @@ interface ListingDetailModalProps {
   onSelectRelated: (listing: Listing) => void;
   onListingUpdated?: (updatedListing: Listing) => void;
   selectedCampus?: Campus;
+  isAgentView?: boolean;
 }
 
 export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
@@ -62,7 +63,8 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   relatedListings,
   onSelectRelated,
   onListingUpdated,
-  selectedCampus
+  selectedCampus,
+  isAgentView = false
 }) => {
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const [currentListing, setCurrentListing] = useState<Listing | null>(initialListing);
@@ -317,26 +319,35 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
               <button
                 onClick={handleShareClick}
                 className="px-3.5 py-3 bg-white hover:bg-neutral-100 text-neutral-900 border border-neutral-300 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
-                title="Share Property with Roommates / Friends"
+                title="Share Property Link"
               >
                 <Share2 className="w-4 h-4 text-emerald-600" />
-                <span>Share</span>
+                <span>Share Listing</span>
               </button>
 
-              <button
-                onClick={() => onBookInspection(listing)}
-                className="px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
-              >
-                <Calendar className="w-4 h-4" />
-                Book Free Inspection
-              </button>
-              <button
-                onClick={() => onStartChat(listing.agentId, listing.id)}
-                className="px-4 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
-              >
-                <MessageSquare className="w-4 h-4 text-emerald-400" />
-                Message Agent
-              </button>
+              {!isAgentView ? (
+                <>
+                  <button
+                    onClick={() => onBookInspection(listing)}
+                    className="px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    Book Free Inspection
+                  </button>
+                  <button
+                    onClick={() => onStartChat(listing.agentId, listing.id)}
+                    className="px-4 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+                  >
+                    <MessageSquare className="w-4 h-4 text-emerald-400" />
+                    Message Agent
+                  </button>
+                </>
+              ) : (
+                <div className="px-4 py-2.5 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  Your Listed Property
+                </div>
+              )}
             </div>
           </div>
 
@@ -582,12 +593,14 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
 
             <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-300">
               <span>Agent Phone: {listing.agent.phone}</span>
-              <button
-                onClick={() => onStartChat(listing.agentId, listing.id)}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg transition-colors flex items-center gap-1.5"
-              >
-                <MessageSquare className="w-4 h-4" /> Start Direct Chat
-              </button>
+              {!isAgentView && (
+                <button
+                  onClick={() => onStartChat(listing.agentId, listing.id)}
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg transition-colors flex items-center gap-1.5"
+                >
+                  <MessageSquare className="w-4 h-4" /> Start Direct Chat
+                </button>
+              )}
             </div>
           </div>
 
@@ -603,13 +616,15 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                 </h3>
               </div>
 
-              <button
-                onClick={() => setShowReviewForm(!showReviewForm)}
-                className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-xs active:scale-95"
-              >
-                <PenTool className="w-3.5 h-3.5 text-emerald-600" />
-                {showReviewForm ? 'Cancel Review' : 'Write a Review'}
-              </button>
+              {!isAgentView && (
+                <button
+                  onClick={() => setShowReviewForm(!showReviewForm)}
+                  className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-xs active:scale-95"
+                >
+                  <PenTool className="w-3.5 h-3.5 text-emerald-600" />
+                  {showReviewForm ? 'Cancel Review' : 'Write a Review'}
+                </button>
+              )}
             </div>
 
             {/* Review Success Notice */}

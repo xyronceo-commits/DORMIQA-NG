@@ -141,9 +141,9 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
 
   const activeUser = accounts.find(a => a.id === activeAccountId) || accounts[0];
   const currentAgentUid = activeAccountId || auth.currentUser?.uid;
-  const agentListings = listings.filter(l => l.agentId === currentAgentUid || !l.agentId);
-  const agentInspections = localInspections.filter(i => !currentAgentUid || i.agentId === currentAgentUid || true);
-  const agentConversations = localConversations.filter(c => !currentAgentUid || c.agentId === currentAgentUid || true);
+  const agentListings = listings.filter(l => Boolean(currentAgentUid && l.agentId === currentAgentUid));
+  const agentInspections = localInspections.filter(i => Boolean(currentAgentUid && i.agentId === currentAgentUid));
+  const agentConversations = localConversations.filter(c => Boolean(currentAgentUid && c.agentId === currentAgentUid));
 
   // Statistics calculations
   const totalHostels = agentListings.length;

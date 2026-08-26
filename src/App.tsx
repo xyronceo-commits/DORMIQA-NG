@@ -277,6 +277,13 @@ export default function App() {
 
   // Sync route state on popstate (browser navigation buttons)
   useEffect(() => {
+    if (currentRole === 'agent' && activeView === 'search') {
+      setActiveView('agent-dash');
+      pushViewUrl('agent-dash');
+    }
+  }, [currentRole, activeView]);
+
+  useEffect(() => {
     const handlePopState = () => {
       const parsed = parseRouteFromUrl();
       setCurrentRoute(parsed);
@@ -1135,6 +1142,7 @@ export default function App() {
               conversations={conversations}
               onOpenAddModal={() => setAddModalOpen(true)}
               onOpenChat={(conv) => setActiveConversation(conv)}
+              onOpenListingDetail={(l) => handleOpenListingDetail(l)}
               activeTab={agentTab}
               onTabChange={setAgentTab}
               accounts={accounts}
@@ -1217,6 +1225,7 @@ export default function App() {
             setListings(prev => prev.map(l => l.id === updated.id ? updated : l));
             setDetailListing(updated);
           }}
+          isAgentView={currentRole === 'agent'}
         />
       )}
 
