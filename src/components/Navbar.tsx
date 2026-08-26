@@ -75,22 +75,28 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
         
         {/* Left Brand Logo & University Quick Picker */}
-        <div className="flex items-center gap-4 sm:gap-6">
+        <div className="flex items-center gap-3 sm:gap-6">
           <button 
             onClick={() => setActiveView('landing')}
             className="flex items-center gap-2 group text-left focus:outline-none cursor-pointer"
           >
             <img src="/favicon.svg" alt="Dormiqa Map Pin" className="h-7 sm:h-8 w-auto object-contain shrink-0 group-hover:scale-105 transition-transform" />
-            <div>
+            <div className="flex items-center gap-2">
               <span className="font-black text-lg sm:text-xl tracking-tight text-neutral-900 dark:text-white flex items-center gap-1.5">
                 DORMIQA
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600" title="100% Verified Platform"></span>
               </span>
+              {currentRole === 'agent' && (
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-900 text-emerald-400 border border-slate-800 tracking-wider uppercase">
+                  <Building2 className="w-3 h-3 text-emerald-400" />
+                  Agent Portal
+                </span>
+              )}
             </div>
           </button>
 
-          {/* University Selector Button (only when authenticated) */}
-          {!isPublicView && (
+          {/* University Selector Button (only for student view when authenticated) */}
+          {!isPublicView && currentRole !== 'agent' && (
             <div className="relative hidden md:block">
               <button
                 onClick={() => setUniDropdownOpen(!uniDropdownOpen)}
@@ -139,70 +145,171 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Desktop Direct Header Nav Tabs (When authenticated) */}
         {!isPublicView && (
-          <nav className="hidden lg:flex items-center gap-1 bg-neutral-100/70 dark:bg-neutral-800/60 p-1 rounded-2xl border border-neutral-200/60 dark:border-neutral-700/60">
-            <button
-              onClick={() => setActiveView('search')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeView === 'search'
-                  ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
-                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-              }`}
-            >
-              <Search className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>Discover</span>
-            </button>
+          <nav className="hidden lg:flex items-center gap-1.5 bg-neutral-100/70 dark:bg-neutral-800/60 p-1.5 rounded-2xl border border-neutral-200/60 dark:border-neutral-700/60">
+            {currentRole === 'agent' ? (
+              /* AGENT PORTAL DESKTOP NAVIGATION */
+              <>
+                <button
+                  onClick={() => {
+                    setActiveView('agent-dash');
+                    if (onNavigateAgentTab) onNavigateAgentTab('schedule');
+                  }}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeView === 'agent-dash' && (agentTab === 'schedule' || !agentTab)
+                      ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
+                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Dashboard</span>
+                </button>
 
-            <button
-              onClick={() => {
-                setActiveView('saved');
-                if (onNavigateStudentTab) onNavigateStudentTab('saved');
-              }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeView === 'saved'
-                  ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
-                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-              }`}
-            >
-              <Heart className="w-3.5 h-3.5 text-rose-500" />
-              <span>Saved</span>
-              {savedCount > 0 && (
-                <span className="px-1.5 py-0.2 text-[10px] font-black rounded-md bg-rose-500 text-white">
-                  {savedCount}
-                </span>
-              )}
-            </button>
+                <button
+                  onClick={() => {
+                    setActiveView('agent-dash');
+                    if (onNavigateAgentTab) onNavigateAgentTab('availability');
+                  }}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeView === 'agent-dash' && agentTab === 'availability'
+                      ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
+                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-500" />
+                  <span>My Hostels</span>
+                </button>
 
-            <button
-              onClick={() => {
-                setActiveView('student-dash');
-                if (onNavigateStudentTab) onNavigateStudentTab('chats');
-              }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeView === 'messages'
-                  ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
-                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-              }`}
-            >
-              <MessageSquare className="w-3.5 h-3.5 text-blue-500" />
-              <span>Messages</span>
-              {unreadCount > 0 && (
-                <span className="px-1.5 py-0.2 text-[10px] font-black rounded-md bg-blue-600 text-white">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
+                <button
+                  onClick={() => {
+                    setActiveView('agent-dash');
+                    if (onNavigateAgentTab) onNavigateAgentTab('requests');
+                  }}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeView === 'agent-dash' && agentTab === 'requests'
+                      ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
+                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-purple-500" />
+                  <span>Messages</span>
+                  {unreadCount > 0 && (
+                    <span className="px-1.5 py-0.2 text-[10px] font-black rounded-md bg-purple-600 text-white">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
 
-            <button
-              onClick={() => setActiveView(currentRole === 'agent' ? 'agent-dash' : currentRole === 'admin' ? 'admin-dash' : 'student-dash')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeView.includes('dash')
-                  ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
-                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-              }`}
-            >
-              <UserIcon className="w-3.5 h-3.5 text-neutral-700 dark:text-neutral-300" />
-              <span>Dashboard</span>
-            </button>
+                <button
+                  onClick={() => {
+                    setActiveView('agent-dash');
+                    if (onNavigateAgentTab) onNavigateAgentTab('schedule');
+                  }}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeView === 'agent-dash' && agentTab === 'schedule'
+                      ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
+                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Calendar</span>
+                </button>
+
+                <button
+                  onClick={onOpenNotifications}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white`}
+                >
+                  <Bell className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Notifications</span>
+                  {notificationUnreadCount > 0 && (
+                    <span className="px-1.5 py-0.2 text-[10px] font-black rounded-md bg-rose-600 text-white">
+                      {notificationUnreadCount}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveView('agent-dash');
+                    if (onNavigateAgentTab) onNavigateAgentTab('profile');
+                  }}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeView === 'agent-dash' && agentTab === 'profile'
+                      ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
+                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                  }`}
+                >
+                  <UserIcon className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Profile</span>
+                </button>
+              </>
+            ) : (
+              /* STUDENT PORTAL DESKTOP NAVIGATION */
+              <>
+                <button
+                  onClick={() => setActiveView('search')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeView === 'search'
+                      ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
+                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Search className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Discover</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveView('saved');
+                    if (onNavigateStudentTab) onNavigateStudentTab('saved');
+                  }}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeView === 'saved'
+                      ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
+                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Heart className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Saved</span>
+                  {savedCount > 0 && (
+                    <span className="px-1.5 py-0.2 text-[10px] font-black rounded-md bg-rose-500 text-white">
+                      {savedCount}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveView('student-dash');
+                    if (onNavigateStudentTab) onNavigateStudentTab('chats');
+                  }}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeView === 'messages'
+                      ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
+                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-blue-500" />
+                  <span>Messages</span>
+                  {unreadCount > 0 && (
+                    <span className="px-1.5 py-0.2 text-[10px] font-black rounded-md bg-blue-600 text-white">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setActiveView(currentRole === 'admin' ? 'admin-dash' : 'student-dash')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeView.includes('dash')
+                      ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs'
+                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                  }`}
+                >
+                  <UserIcon className="w-3.5 h-3.5 text-neutral-700 dark:text-neutral-300" />
+                  <span>Dashboard</span>
+                </button>
+              </>
+            )}
           </nav>
         )}
 

@@ -117,17 +117,17 @@ export const AppGuidedTour: React.FC<AppGuidedTourProps> = ({
     }
   }, [isActive, currentStepIndex, step, updateTargetPosition]);
 
-  // 2. Attach passive scroll/resize listeners to keep targetRect synced during manual scroll
+  // Passive scroll/resize listener for smooth scrolling without layout thrashing
   useEffect(() => {
     if (!isActive) return;
 
     updateTargetPosition();
 
-    window.addEventListener('scroll', handleScrollOrResize, { passive: true, capture: true });
+    window.addEventListener('scroll', handleScrollOrResize, { passive: true });
     window.addEventListener('resize', handleScrollOrResize, { passive: true });
 
     return () => {
-      window.removeEventListener('scroll', handleScrollOrResize, { capture: true });
+      window.removeEventListener('scroll', handleScrollOrResize);
       window.removeEventListener('resize', handleScrollOrResize);
       if (animFrameIdRef.current !== null) {
         cancelAnimationFrame(animFrameIdRef.current);
@@ -241,10 +241,10 @@ export const AppGuidedTour: React.FC<AppGuidedTourProps> = ({
       
       {/* Non-blocking Spotlight Overlay */}
       {targetRect && (
-        <svg className="fixed inset-0 w-full h-full pointer-events-none z-40 transition-opacity duration-300">
+        <svg className="fixed inset-0 w-full h-full pointer-events-none z-40 transition-opacity duration-300" style={{ pointerEvents: 'none' }}>
           <defs>
             <mask id="dormiqa-tour-mask">
-              <rect x="0" y="0" width="100%" height="100%" fill="white" />
+              <rect x="0" y="0" width="100%" height="100%" fill="white" style={{ pointerEvents: 'none' }} />
               <rect 
                 x={targetRect.left - 6} 
                 y={targetRect.top - 6} 
@@ -252,6 +252,7 @@ export const AppGuidedTour: React.FC<AppGuidedTourProps> = ({
                 height={targetRect.height + 12} 
                 rx="16" 
                 fill="black" 
+                style={{ pointerEvents: 'none' }}
               />
             </mask>
           </defs>
@@ -262,6 +263,7 @@ export const AppGuidedTour: React.FC<AppGuidedTourProps> = ({
             height="100%" 
             fill="rgba(15, 23, 42, 0.65)" 
             mask="url(#dormiqa-tour-mask)" 
+            style={{ pointerEvents: 'none' }}
           />
         </svg>
       )}

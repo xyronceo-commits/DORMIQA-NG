@@ -215,11 +215,21 @@ export default function App() {
       setIsLoggedIn(true);
       localStorage.setItem('dormiqa_is_logged_in', 'true');
 
-      // Existing user auto-route: If authenticated user lands on onboarding page, skip straight to Explore ('search') page
+      // Existing user auto-route: If authenticated user lands on onboarding page, route appropriately based on role
       const initialRoute = parseRouteFromUrl();
       if (initialRoute.type === 'view' && initialRoute.view === 'onboarding') {
-        setActiveView('search');
-        pushViewUrl('search');
+        if (userAccount.role === 'agent') {
+          if (!userAccount.isVerifiedAgent) {
+            setActiveView('business-verification');
+            pushViewUrl('business-verification');
+          } else {
+            setActiveView('agent-dash');
+            pushViewUrl('agent-dash');
+          }
+        } else {
+          setActiveView('search');
+          pushViewUrl('search');
+        }
       }
 
       if (!isVerified && email) {
