@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   Building2, 
@@ -18,11 +18,14 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { User, BusinessVerificationDetails, BusinessVerificationStatus } from '../types';
-import { saveUserToFirestore } from '../services/firebase';
+import { saveUserToFirestore, auth, db } from '../services/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+
+import { VerificationStatusPage } from './VerificationStatusPage';
 
 interface BusinessVerificationPageProps {
   agentData?: Partial<User> | null;
-  onCompleteVerification: (details: { licenseNumber: string; isVerifiedAgent: boolean; avatarUrl?: string }) => void;
+  onCompleteVerification: (details: { licenseNumber: string; isVerifiedAgent: boolean; avatarUrl?: string; verificationDetails?: BusinessVerificationDetails }) => void;
   onSignOut?: () => void;
 }
 
@@ -34,6 +37,29 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
   // Current Status
   const currentStatus: BusinessVerificationStatus = agentData?.businessVerificationStatus || (agentData?.isVerifiedAgent ? 'approved' : 'none');
   const existingDetails = agentData?.businessVerificationDetails;
+
+  // Real-time listener for status changes (e.g. when approved by Admin)
+  useEffect(() => {
+    const uid = agentData?.id || auth.currentUser?.uid;
+    if (!uid) return;
+
+    const userRef = doc(db, 'users', uid);
+    const unsubscribe = onSnapshot(userRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.businessVerificationStatus === 'approved' || data.isVerifiedAgent === true) {
+          onCompleteVerification({
+            licenseNumber: data.licenseNumber || `DMQ-AGT-${Math.floor(100000 + Math.random() * 900000)}`,
+            isVerifiedAgent: true,
+            avatarUrl: data.avatarUrl,
+            verificationDetails: data.businessVerificationDetails
+          });
+        }
+      }
+    }, (err) => console.warn('Status listener warning:', err));
+
+    return () => unsubscribe();
+  }, [agentData?.id]);
 
   // Form State
   const [businessName, setBusinessName] = useState(existingDetails?.businessName || agentData?.agencyName || '');
@@ -122,29 +148,35 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
         submittedAt: new Date().toISOString()
       };
 
-      // Save to Firestore and state as PENDING for admin review
-      const uid = agentData?.id;
+      // 1. Persist state as PENDING and save full verification details into Firestore
+      const uid = agentData?.id || auth.currentUser?.uid;
       if (uid) {
         await saveUserToFirestore({
           id: uid,
           name: agentFullName.trim(),
-          email: agentData?.email || '',
+          email: agentData?.email || auth.currentUser?.email || '',
           role: 'agent',
           agencyName: businessName.trim(),
           phone: phone.trim(),
           avatarUrl: portraitPhoto,
-          isEmailVerified: true
+          isEmailVerified: true,
+          businessVerificationStatus: 'pending',
+          businessVerificationDetails: verificationObj,
+          isVerifiedAgent: false,
+          licenseNumber
         });
       }
 
+      // 2. Set submission success state which displays the dedicated Verification Status page
       setSubmissionSuccess(true);
-      setTimeout(() => {
-        onCompleteVerification({
-          licenseNumber,
-          isVerifiedAgent: false, // Will become true upon admin approval
-          avatarUrl: portraitPhoto
-        });
-      }, 1500);
+
+      // 3. Notify parent app state of updated pending status
+      onCompleteVerification({
+        licenseNumber,
+        isVerifiedAgent: false, // Remains false until admin approves
+        avatarUrl: portraitPhoto,
+        verificationDetails: verificationObj
+      });
 
     } catch (err: any) {
       console.error('Business Verification submit error:', err);
@@ -157,66 +189,33 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
   // 1. PENDING STATUS SCREEN
   if (currentStatus === 'pending' || submissionSuccess) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-neutral-50 dark:bg-neutral-950 py-12 px-4 sm:px-6 flex items-center justify-center">
-        <div className="max-w-xl w-full bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 sm:p-8 shadow-sm space-y-6">
-          
-          <div className="text-center space-y-3">
-            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-950/80 text-amber-600 rounded-3xl flex items-center justify-center mx-auto shadow-xs border border-amber-200 dark:border-amber-800">
-              <Clock className="w-8 h-8 animate-pulse" />
-            </div>
-
-            <span className="inline-block text-[11px] font-black uppercase tracking-wider px-3 py-1 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 rounded-full border border-amber-300 dark:border-amber-800">
-              STATUS: VERIFICATION IN PROGRESS
-            </span>
-
-            <h2 className="text-2xl font-black text-neutral-900 dark:text-white tracking-tight">
-              Verification under review
-            </h2>
-
-            <p className="text-xs text-neutral-600 dark:text-neutral-400 max-w-md mx-auto leading-relaxed font-medium">
-              Thank you for submitting your business details! The Dormiqa verification team is currently auditing your identity documents and property information.
-            </p>
-          </div>
-
-          <div className="p-4 bg-neutral-50 dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 text-xs space-y-2">
-            <h4 className="font-extrabold text-neutral-900 dark:text-white flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              Submission Details Summary
-            </h4>
-            <div className="grid grid-cols-2 gap-2 text-[11px] text-neutral-600 dark:text-neutral-400 pt-1">
-              <div><strong>Agency / Business:</strong> {businessName || 'Hostel Management'}</div>
-              <div><strong>Agent Name:</strong> {agentFullName || 'Caretaker'}</div>
-              <div><strong>Contact Phone:</strong> {phone || 'N/A'}</div>
-              <div><strong>Business Type:</strong> {businessType.replace('_', ' ')}</div>
-            </div>
-            <p className="text-[10px] text-neutral-500 pt-2 border-t border-neutral-200 dark:border-neutral-700">
-              Standard review time is <strong>12–24 hours</strong>. You will be notified via email once your business is verified and full listing permissions are granted.
-            </p>
-          </div>
-
-          <div className="pt-2 flex flex-col sm:flex-row gap-3">
-            {onSignOut && (
-              <button
-                type="button"
-                onClick={onSignOut}
-                className="flex-1 py-3 px-4 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-neutral-800 dark:text-neutral-200 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Sign Out for Now</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => alert('Support team contact: support@dormiqa.ng')}
-              className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <HelpCircle className="w-4 h-4" />
-              <span>Contact Support</span>
-            </button>
-          </div>
-
-        </div>
-      </div>
+      <VerificationStatusPage
+        agentData={{
+          ...agentData,
+          businessVerificationStatus: 'pending',
+          businessVerificationDetails: {
+            businessName: businessName.trim(),
+            agentFullName: agentFullName.trim(),
+            phone: phone.trim(),
+            businessType,
+            businessAddress: businessAddress.trim(),
+            hostelManagementInfo: hostelManagementInfo.trim(),
+            relationship,
+            proofType,
+            documentName: uploadedDocName || 'proof_document.pdf',
+            portraitPhotoUrl: portraitPhoto || '',
+            submittedAt: new Date().toISOString()
+          }
+        }}
+        onSignOut={onSignOut}
+        onApproved={() => {
+          onCompleteVerification({
+            licenseNumber: agentData?.licenseNumber || `DMQ-AGT-${Math.floor(100000 + Math.random() * 900000)}`,
+            isVerifiedAgent: true,
+            avatarUrl: portraitPhoto || agentData?.avatarUrl
+          });
+        }}
+      />
     );
   }
 

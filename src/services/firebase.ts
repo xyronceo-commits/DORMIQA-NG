@@ -201,6 +201,54 @@ export const uploadFileToFirebaseStorage = async (file: File, path: string): Pro
   }
 };
 
+// Firestore Error Handling Definition
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 export const saveUserToFirestore = async (userObj: {
   id?: string;
   name: string;
@@ -211,20 +259,25 @@ export const saveUserToFirestore = async (userObj: {
   agencyName?: string;
   isEmailVerified?: boolean;
   avatarUrl?: string;
+  businessVerificationStatus?: string;
+  businessVerificationDetails?: any;
+  isVerifiedAgent?: boolean;
+  licenseNumber?: string;
+  rejectionReason?: string;
 }) => {
+  const user = auth.currentUser;
+  const uid = userObj.id || user?.uid;
+  const cleanEmail = (userObj.email || user?.email || '').trim().toLowerCase();
+  
+  if (!uid && !cleanEmail) return;
+
+  const docId = uid || cleanEmail;
+  const userRef = doc(db, 'users', docId);
+
   try {
-    const user = auth.currentUser;
-    const uid = userObj.id || user?.uid;
-    const cleanEmail = (userObj.email || user?.email || '').trim().toLowerCase();
-    
-    if (!uid && !cleanEmail) return;
-
-    const docId = uid || cleanEmail;
-    const userRef = doc(db, 'users', docId);
-
     const isVerified = user ? (user.emailVerified || user.providerData.some(p => p.providerId === 'google.com')) : !!userObj.isEmailVerified;
 
-    await setDoc(userRef, {
+    const updateData: Record<string, any> = {
       id: docId,
       uid: docId,
       name: userObj.name || user?.displayName || cleanEmail.split('@')[0] || 'User',
@@ -236,16 +289,35 @@ export const saveUserToFirestore = async (userObj: {
       isEmailVerified: isVerified,
       avatarUrl: userObj.avatarUrl || user?.photoURL || '',
       updatedAt: new Date().toISOString()
-    }, { merge: true });
+    };
+
+    if (userObj.businessVerificationStatus !== undefined) {
+      updateData.businessVerificationStatus = userObj.businessVerificationStatus;
+    }
+    if (userObj.businessVerificationDetails !== undefined) {
+      updateData.businessVerificationDetails = userObj.businessVerificationDetails;
+    }
+    if (userObj.isVerifiedAgent !== undefined) {
+      updateData.isVerifiedAgent = userObj.isVerifiedAgent;
+    }
+    if (userObj.licenseNumber !== undefined) {
+      updateData.licenseNumber = userObj.licenseNumber;
+    }
+    if (userObj.rejectionReason !== undefined) {
+      updateData.rejectionReason = userObj.rejectionReason;
+    }
+
+    await setDoc(userRef, updateData, { merge: true });
   } catch (err) {
     console.warn("Failed to sync user to Firestore users collection:", err);
+    handleFirestoreError(err, OperationType.WRITE, `users/${docId}`);
   }
 };
 
 export const fetchUserProfileFromFirestore = async (uidOrEmail: string): Promise<any | null> => {
+  if (!uidOrEmail) return null;
+  const userRef = doc(db, 'users', uidOrEmail);
   try {
-    if (!uidOrEmail) return null;
-    const userRef = doc(db, 'users', uidOrEmail);
     const snap = await getDoc(userRef);
     if (snap.exists()) {
       return snap.data();
@@ -253,6 +325,7 @@ export const fetchUserProfileFromFirestore = async (uidOrEmail: string): Promise
     return null;
   } catch (err) {
     console.warn("Failed to fetch user profile from Firestore:", err);
+    handleFirestoreError(err, OperationType.GET, `users/${uidOrEmail}`);
     return null;
   }
 };

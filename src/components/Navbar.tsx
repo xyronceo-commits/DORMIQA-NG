@@ -301,7 +301,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={() => setActiveView('onboarding')}
                 className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-neutral-900 text-white font-extrabold text-xs transition-all shadow-2xs cursor-pointer active:scale-95"
               >
-                Sign In
+                Sign Up / Sign In
               </button>
 
               {onOpenAdminLoginModal && (

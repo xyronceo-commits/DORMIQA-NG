@@ -12,6 +12,10 @@
         { "name": "agencyName", "type": "string", "description": "Agency name if agent" },
         { "name": "avatarUrl", "type": "string", "description": "Profile picture URL" },
         { "name": "isVerifiedAgent", "type": "boolean", "description": "Verification status" },
+        { "name": "businessVerificationStatus", "type": "string", "description": "Status: pending, approved, rejected, none" },
+        { "name": "businessVerificationDetails", "type": "object", "description": "Details of business verification application" },
+        { "name": "licenseNumber", "type": "string", "description": "Agent license number" },
+        { "name": "rejectionReason", "type": "string", "description": "Reason if verification was rejected" },
         { "name": "createdAt", "type": "string", "description": "Creation timestamp" }
       ]
     },
