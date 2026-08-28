@@ -360,10 +360,10 @@ function createRateLimiter(maxRequests: number, windowMs: number, store: Map<str
 
 const adminLoginLimiter = createRateLimiter(5, 15 * 60 * 1000, adminRateLimitStore);
 
-// Admin Active Sessions & Security
-const validAdminPasswords = new Set<string>([
-  (process.env.ADMIN_PASSWORD && process.env.ADMIN_PASSWORD.trim()) || 'Dormiqa26/27'
-]);
+const ADMIN_PASSCODE = 'Dormiqa_332456701';
+const validAdminPasswords = new Set<string>([ADMIN_PASSCODE]);
+
+const adminTrialStore = new Map<string, { attempts: number; lockedUntil?: number }>();
 
 const activeAdminSessions = new Set<string>();
 
@@ -1052,18 +1052,58 @@ Return ONLY valid JSON matching this schema:
 
   // --- SECURE ADMIN CONTROLS & AUTHENTICATION ENDPOINTS ---
 
-  // Admin Login (Rate-limited, Password-verified)
-  app.post('/api/admin/login', adminLoginLimiter, (req, res) => {
+  // Admin Login (Rate-limited, Password-verified with 5 passcode trials)
+  app.post('/api/admin/login', (req, res) => {
     const { password } = req.body || {};
     const cleanPassword = typeof password === 'string' ? password.trim() : '';
-    if (!cleanPassword || !validAdminPasswords.has(cleanPassword)) {
-      return res.status(401).json({
+
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    let trial = adminTrialStore.get(ip);
+    if (!trial) {
+      trial = { attempts: 0 };
+      adminTrialStore.set(ip, trial);
+    }
+
+    if (trial.lockedUntil && now < trial.lockedUntil) {
+      const remainingSecs = Math.ceil((trial.lockedUntil - now) / 1000);
+      return res.status(429).json({
         success: false,
-        error: 'Unauthorized',
-        message: 'Invalid administrative password.'
+        error: 'MaxTrialsExceeded',
+        attemptsLeft: 0,
+        message: `Maximum 5 passcode trials exceeded. Admin portal is locked. Try again in ${remainingSecs} seconds.`
       });
     }
 
+    if (trial.lockedUntil && now >= trial.lockedUntil) {
+      trial.attempts = 0;
+      delete trial.lockedUntil;
+    }
+
+    if (!cleanPassword || cleanPassword !== ADMIN_PASSCODE) {
+      trial.attempts += 1;
+      const attemptsLeft = Math.max(0, 5 - trial.attempts);
+
+      if (trial.attempts >= 5) {
+        trial.lockedUntil = now + 15 * 60 * 1000; // 15 minute lock after 5 trials
+        return res.status(401).json({
+          success: false,
+          error: 'MaxTrialsExceeded',
+          attemptsLeft: 0,
+          message: 'Maximum 5 passcode trials exceeded. Admin portal access locked.'
+        });
+      }
+
+      return res.status(401).json({
+        success: false,
+        error: 'InvalidPasscode',
+        attemptsLeft,
+        message: `Incorrect passcode. ${attemptsLeft} trial${attemptsLeft === 1 ? '' : 's'} remaining.`
+      });
+    }
+
+    // Success: reset trial count
+    adminTrialStore.delete(ip);
     const token = `dormiqa_admin_${Date.now()}_${Math.random().toString(36).substring(2, 12)}`;
     activeAdminSessions.add(token);
 

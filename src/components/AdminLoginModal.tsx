@@ -16,13 +16,20 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [trialsLeft, setTrialsLeft] = useState<number | null>(5);
+  const [isLocked, setIsLocked] = useState(false);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLocked) {
+      setError('Maximum 5 passcode trials exceeded. Access locked.');
+      return;
+    }
+
     if (!password.trim()) {
-      setError('Please enter the access password.');
+      setError('Please enter the admin passcode.');
       return;
     }
 
@@ -34,10 +41,18 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       if (response.success) {
         setPassword('');
         setError(null);
+        setTrialsLeft(5);
+        setIsLocked(false);
         onSuccess();
         onClose();
       } else {
-        setError(response.message || 'Invalid authentication credentials.');
+        if (response.attemptsLeft !== undefined) {
+          setTrialsLeft(response.attemptsLeft);
+          if (response.attemptsLeft <= 0) {
+            setIsLocked(true);
+          }
+        }
+        setError(response.message || 'Incorrect passcode. Access denied.');
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please try again.');
@@ -85,22 +100,30 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           )}
 
           <div className="space-y-1.5">
-            <label className="text-xs font-extrabold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 block">
-              Password
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-extrabold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 block">
+                Admin Passcode
+              </label>
+              {trialsLeft !== null && (
+                <span className={`text-[10px] font-bold ${trialsLeft <= 2 ? 'text-rose-500' : 'text-neutral-400'}`}>
+                  {trialsLeft} trial{trialsLeft === 1 ? '' : 's'} remaining
+                </span>
+              )}
+            </div>
             <div className="relative flex items-center">
               <Lock className="w-4 h-4 text-neutral-400 absolute left-3.5" />
               <input
                 type="password"
                 value={password}
+                disabled={isLocked}
                 onChange={(e) => {
                   setPassword(e.target.value);
                   if (error) setError(null);
                 }}
-                placeholder="••••••••••••"
+                placeholder="Enter passcode"
                 autoFocus
                 required
-                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/80 text-neutral-900 dark:text-white font-mono text-sm focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500 transition-colors"
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/80 text-neutral-900 dark:text-white font-mono text-sm focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -108,7 +131,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           <div className="pt-2">
             <button
               type="submit"
-              disabled={isLoading || !password.trim()}
+              disabled={isLoading || !password.trim() || isLocked}
               className="w-full py-3.5 px-4 rounded-2xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
