@@ -54,8 +54,15 @@ import { OnboardingPage } from './components/OnboardingPage';
 import { OnboardingShowcaseModal } from './components/OnboardingShowcaseModal';
 import { AppGuidedTour } from './components/AppGuidedTour';
 import { BusinessVerificationPage } from './components/BusinessVerificationPage';
+import { VerificationStatusPage } from './components/VerificationStatusPage';
 import { AgentPortalLanding } from './components/AgentPortalLanding';
 import { StudentDashboard } from './components/StudentDashboard';
+import { StudentDiscoverPage } from './components/StudentDiscoverPage';
+import { SavedPage } from './components/SavedPage';
+import { ChatsPage } from './components/ChatsPage';
+import { InspectionsPage } from './components/InspectionsPage';
+import { StudentProfilePage } from './components/StudentProfilePage';
+import { BottomNav } from './components/BottomNav';
 import { AgentDashboard } from './components/AgentDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AdminLoginModal } from './components/AdminLoginModal';
@@ -63,11 +70,12 @@ import { InfoPagesModal } from './components/InfoPagesModal';
 import { ComingSoonPage } from './components/ComingSoonPage';
 import { ListingGridSkeleton, ListItemRowSkeleton, DashboardSkeleton, ChatDrawerSkeleton } from './components/SkeletonLoader';
 import { checkAdminSession, clearAdminToken } from './services/api';
-import { auth, saveUserToFirestore, logoutFirebase, fetchUserProfileFromFirestore, resendVerificationEmail } from './services/firebase';
+import { auth, saveUserToFirestore, logoutFirebase, fetchUserProfileFromFirestore, resendVerificationEmail, db } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 export default function App() {
-  const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon'>('landing');
+  const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections'>('landing');
   const [selectedComingSoonUniId, setSelectedComingSoonUniId] = useState<string>('unilag');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
@@ -83,7 +91,7 @@ export default function App() {
     });
   }, []);
 
-  const navigateView = (view: 'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon') => {
+  const navigateView = (view: 'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections') => {
     setIs404Route(false);
     setRoutePropertyError(null);
     setRoutePropertyUnavailableReason(null);
@@ -204,7 +212,7 @@ export default function App() {
         phone: profile?.phone || '',
         universityName: profile?.universityName || '',
         agencyName: profile?.agencyName || '',
-        isVerifiedAgent: profile?.isVerifiedAgent || false,
+        isVerifiedAgent: profile?.businessVerificationStatus === 'approved' || profile?.isVerifiedAgent || false,
         isEmailVerified: isVerified,
         businessVerificationStatus: profile?.businessVerificationStatus || (profile?.isVerifiedAgent ? 'approved' : 'none'),
         businessVerificationDetails: profile?.businessVerificationDetails,
@@ -218,6 +226,32 @@ export default function App() {
       setCurrentRole(userAccount.role);
       setIsLoggedIn(true);
       localStorage.setItem('dormiqa_is_logged_in', 'true');
+
+      // Real-Time Listener on User Document in Firestore
+      const userDocRef = doc(db, 'users', uid);
+      const unsubscribeUserDoc = onSnapshot(userDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const liveData = docSnap.data();
+          const liveStatus = liveData.businessVerificationStatus || (liveData.isVerifiedAgent ? 'approved' : 'none');
+          setAccounts(prev => prev.map(a => {
+            if (a.id === uid) {
+              return {
+                ...a,
+                name: liveData.name || a.name,
+                agencyName: liveData.agencyName || a.agencyName,
+                phone: liveData.phone || a.phone,
+                licenseNumber: liveData.licenseNumber || a.licenseNumber,
+                isVerifiedAgent: liveStatus === 'approved',
+                businessVerificationStatus: liveStatus,
+                businessVerificationDetails: liveData.businessVerificationDetails || a.businessVerificationDetails,
+                rejectionReason: liveData.rejectionReason || a.rejectionReason,
+                avatarUrl: liveData.avatarUrl || a.avatarUrl
+              };
+            }
+            return a;
+          }));
+        }
+      }, (err) => console.warn('User doc snapshot error:', err));
 
       // Existing user auto-route: If authenticated user lands on onboarding or agent pages, route strictly
       const initialRoute = parseRouteFromUrl();
@@ -640,31 +674,33 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 font-sans selection:bg-emerald-500 selection:text-white transition-colors duration-200">
       
-      {/* Navbar */}
-      <Navbar
-        activeView={activeView}
-        setActiveView={navigateView}
-        currentRole={currentRole}
-        setCurrentRole={setCurrentRole}
-        savedCount={savedIds.length}
-        unreadCount={conversations.length}
-        notificationUnreadCount={notifications.filter(n => !n.read).length}
-        onOpenNotifications={() => setIsNotificationCenterOpen(true)}
-        universities={universities}
-        selectedUniversityId={filters.universityId}
-        onSelectUniversity={handleSelectUniversity}
-        onOpenAddModal={() => setAddModalOpen(true)}
-        onNavigateStudentTab={(t) => setStudentTab(t)}
-        onNavigateAgentTab={(t) => setAgentTab(t)}
-        onOpenAdminLoginModal={() => setIsAdminLoginModalOpen(true)}
-        studentTab={studentTab}
-        agentTab={agentTab}
-        onReplayTour={() => {
-          setActiveView('search');
-          setShowGuidedTour(true);
-        }}
-        onReplayOnboarding={() => setShowOnboardingShowcase(true)}
-      />
+      {/* Global Navbar for Public/Agent/Admin Pages */}
+      {(currentRole !== 'student' || ['landing', 'onboarding', 'agent-dash', 'agent-landing', 'admin-dash', 'coming-soon'].includes(activeView)) && (
+        <Navbar
+          activeView={activeView as any}
+          setActiveView={navigateView as any}
+          currentRole={currentRole}
+          setCurrentRole={setCurrentRole}
+          savedCount={savedIds.length}
+          unreadCount={conversations.length}
+          notificationUnreadCount={notifications.filter(n => !n.read).length}
+          onOpenNotifications={() => setIsNotificationCenterOpen(true)}
+          universities={universities}
+          selectedUniversityId={filters.universityId}
+          onSelectUniversity={handleSelectUniversity}
+          onOpenAddModal={() => setAddModalOpen(true)}
+          onNavigateStudentTab={(t) => setStudentTab(t)}
+          onNavigateAgentTab={(t) => setAgentTab(t)}
+          onOpenAdminLoginModal={() => setIsAdminLoginModalOpen(true)}
+          studentTab={studentTab}
+          agentTab={agentTab}
+          onReplayTour={() => {
+            setActiveView('search');
+            setShowGuidedTour(true);
+          }}
+          onReplayOnboarding={() => setShowOnboardingShowcase(true)}
+        />
+      )}
 
       {/* Unverified Email Warning Banner for Existing Logged-In Users */}
       {isLoggedIn && auth.currentUser && !auth.currentUser.emailVerified && !auth.currentUser.providerData.some(p => p.providerId === 'google.com') && (
@@ -900,183 +936,84 @@ export default function App() {
           />
         )}
 
-        {/* 2. Search & Discover Experience */}
-        {activeView === 'search' && (
-          <div className="flex flex-col min-h-[calc(100vh-4rem)]">
-            <SearchAndFilterBar
-              filters={filters}
-              setFilters={setFilters}
-              universities={universities}
-              viewMode={viewMode}
-              setViewMode={setViewMode}
-              totalResults={displayListings.length}
-              onSelectNonUniosun={(uniId) => handleSelectUniversity(uniId)}
-            />
-
-            {/* View Mode: Grid Cards vs Interactive Map */}
-            {viewMode === 'grid' ? (
-              <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-8 w-full space-y-4 sm:space-y-6">
-                
-                {/* Clean Uncluttered Results Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 pb-2 border-b border-neutral-200/60 dark:border-neutral-800">
-                  <div>
-                    <h2 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                      <span>Verified Accommodations</span>
-                      <span className="text-[11px] sm:text-xs font-semibold px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 rounded-full border border-neutral-200 dark:border-neutral-700">
-                        {displayListings.length} {displayListings.length === 1 ? 'lodge' : 'lodges'} available
-                      </span>
-                    </h2>
-                    <p className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                      Showing student housing near <span className="font-semibold text-neutral-800 dark:text-neutral-200">{selectedCampus ? selectedCampus.name : 'campus'}</span>
-                    </p>
-                  </div>
-                </div>
-
-                {isListingsLoading ? (
-                  <ListingGridSkeleton count={6} />
-                ) : displayListings.length === 0 ? (
-                  <div className="text-center py-12 sm:py-16 bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 sm:p-8 max-w-md mx-auto space-y-3">
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">No properties match your current filter</p>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400">Try widening your maximum budget, campus distance radius, or clearing filters.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-6 lg:gap-8">
-                    {displayListings.map((listing) => (
-                      <ListingCard
-                        key={listing.id}
-                        listing={listing}
-                        isSaved={savedIds.includes(listing.id)}
-                        onToggleSave={toggleSave}
-                        onOpenDetail={(l) => handleOpenListingDetail(l)}
-                        onBookInspection={(l) => setBookingListing(l)}
-                        onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
-                        selectedCampus={selectedCampus}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Map View (Split screen layout) */
-              <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 w-full grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-10rem)] min-h-[600px]">
-                {/* Left Listing Scroll list */}
-                <div className="lg:col-span-5 overflow-y-auto space-y-3 pr-1">
-                  {isListingsLoading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <ListItemRowSkeleton key={i} />
-                    ))
-                  ) : (
-                    displayListings.map((l) => (
-                      <div
-                        key={l.id}
-                        onClick={() => handleOpenListingDetail(l)}
-                        className="bg-white dark:bg-neutral-900 p-3.5 rounded-2xl border border-neutral-200 dark:border-neutral-800 hover:border-slate-900 dark:hover:border-emerald-600 transition-all cursor-pointer flex gap-3 shadow-2xs"
-                      >
-                        <img src={l.photos[0]} alt="" className="w-24 h-24 rounded-xl object-cover shrink-0" />
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">{l.title}</h4>
-                            <span className="text-xs font-extrabold text-slate-900 dark:text-white shrink-0 ml-1">₦{(l.pricePerYear || (l.pricePerWeek ? l.pricePerWeek * 52 : 300000)).toLocaleString()}/yr</span>
-                          </div>
-                          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">{l.address}</p>
-                          <TravelModeBar
-                            propertyId={l.id}
-                            propertyLat={l.lat}
-                            propertyLng={l.lng}
-                            selectedCampus={selectedCampus}
-                            compact={true}
-                          />
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Right Leaflet Map */}
-                <div className="lg:col-span-7 h-full">
-                  {selectedUni && (
-                    <InteractiveMapView
-                      listings={displayListings}
-                      selectedUniversity={selectedUni}
-                      selectedCampus={selectedCampus}
-                      activeListingId={detailListing?.id || null}
-                      onSelectListing={(l) => handleOpenListingDetail(l)}
-                      onBookInspection={(l) => setBookingListing(l)}
-                      savedIds={savedIds}
-                      onToggleSave={toggleSave}
-                    />
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+        {/* 2. Redesigned Student Portal Views */}
+        {(activeView === 'search' || activeView === 'landing') && currentRole === 'student' && (
+          <StudentDiscoverPage
+            listings={displayListings}
+            isListingsLoading={isListingsLoading}
+            savedIds={savedIds}
+            onToggleSave={toggleSave}
+            onOpenDetail={(l) => handleOpenListingDetail(l)}
+            onBookInspection={(l) => setBookingListing(l)}
+            onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
+            universities={universities}
+            selectedUniversityId={filters.universityId}
+            onSelectUniversity={(uniId) => handleSelectUniversity(uniId)}
+            selectedCampus={selectedCampus}
+            notificationCount={notifications.filter(n => !n.read).length}
+            onOpenNotifications={() => setIsNotificationCenterOpen(true)}
+            onOpenProfile={() => navigateView('student-dash')}
+            userAvatar={auth.currentUser?.photoURL || undefined}
+            userName={auth.currentUser?.displayName || undefined}
+          />
         )}
 
-        {/* 3. Saved Wishlist */}
+        {/* Saved Page */}
         {activeView === 'saved' && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-            <h1 className="text-2xl font-black text-slate-900">Saved Accommodation Wishlist</h1>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {savedListings.map((listing) => (
-                <ListingCard
-                  key={listing.id}
-                  listing={listing}
-                  isSaved={true}
-                  onToggleSave={toggleSave}
-                  onOpenDetail={(l) => handleOpenListingDetail(l)}
-                  onBookInspection={(l) => setBookingListing(l)}
-                  onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 4. Messages / Chats View */}
-        {activeView === 'messages' && (
-          <div className="max-w-4xl mx-auto px-4 py-8 space-y-4">
-            <h1 className="text-2xl font-black text-slate-900">Agent Conversations</h1>
-            <div className="bg-white rounded-3xl border border-neutral-200 divide-y overflow-hidden shadow-xs">
-              {conversations.map((conv) => (
-                <div
-                  key={conv.id}
-                  onClick={() => setActiveConversation(conv)}
-                  className="p-5 hover:bg-neutral-50 transition-colors cursor-pointer flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-4">
-                    <img src={currentRole === 'student' ? conv.agentAvatar : conv.studentAvatar} alt="" className="w-12 h-12 rounded-full object-cover" />
-                    <div>
-                      <h3 className="font-bold text-sm text-slate-900">
-                        {currentRole === 'student' ? conv.agentName : conv.studentName}
-                      </h3>
-                      <p className="text-xs text-neutral-500 font-medium">{conv.listingTitle}</p>
-                      <p className="text-xs text-neutral-700 italic mt-0.5 line-clamp-1">"{conv.lastMessage}"</p>
-                    </div>
-                  </div>
-                  <span className="text-[10px] text-neutral-400 font-semibold">{conv.lastMessageTime}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 5. Student Dashboard */}
-        {activeView === 'student-dash' && (
-          <StudentDashboard
+          <SavedPage
             savedListings={savedListings}
-            inspections={inspections}
+            savedIds={savedIds}
+            onToggleSave={toggleSave}
+            onOpenDetail={(l) => handleOpenListingDetail(l)}
+            onBookInspection={(l) => setBookingListing(l)}
+            onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
+            onGoBack={() => navigateView('search')}
+            selectedCampus={selectedCampus}
+          />
+        )}
+
+        {/* Messages / Chats Page */}
+        {activeView === 'messages' && (
+          <ChatsPage
             conversations={conversations}
+            onOpenChat={(conv) => setActiveConversation(conv)}
+            onGoBack={() => navigateView('search')}
+            currentRole={currentRole}
+          />
+        )}
+
+        {/* Inspections & Requests Page */}
+        {activeView === 'inspections' && (
+          <InspectionsPage
+            inspections={inspections}
             allListings={listings}
             onOpenListing={(l) => handleOpenListingDetail(l)}
-            onOpenChat={(conv) => setActiveConversation(conv)}
             onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
-            onRemoveSaved={toggleSave}
-            activeTab={studentTab}
-            onTabChange={setStudentTab}
-            accounts={accounts}
-            activeAccountId={activeAccountId}
+            onGoBack={() => navigateView('search')}
+          />
+        )}
+
+        {/* Student Profile Page */}
+        {activeView === 'student-dash' && (
+          <StudentProfilePage
+            user={accounts.find(a => a.id === activeAccountId)}
+            savedCount={savedIds.length}
+            chatsCount={conversations.length}
+            inspectionsCount={inspections.length}
+            onNavigateView={(view) => navigateView(view)}
             onSignOut={handleSignOut}
-            onDeleteAccount={handleDeleteAccount}
+            onGoBack={() => navigateView('search')}
+          />
+        )}
+
+        {/* Mobile Bottom Navigation Bar for Student Portal */}
+        {currentRole === 'student' && 
+         ['search', 'landing', 'saved', 'messages', 'inspections', 'student-dash'].includes(activeView) && (
+          <BottomNav
+            activeView={activeView}
+            onNavigate={(view) => navigateView(view)}
+            savedCount={savedIds.length}
+            unreadCount={conversations.length}
           />
         )}
 
@@ -1084,7 +1021,7 @@ export default function App() {
         {activeView === 'agent-dash' && (() => {
           const currentAccount = accounts.find(a => a.id === activeAccountId);
           const isEmailVerified = auth.currentUser ? (auth.currentUser.emailVerified || auth.currentUser.providerData.some(p => p.providerId === 'google.com')) : currentAccount?.isEmailVerified;
-          const isApproved = currentAccount?.businessVerificationStatus === 'approved' || currentAccount?.isVerifiedAgent === true;
+          const isApproved = currentAccount?.businessVerificationStatus === 'approved';
 
           // Gate 1 & 2: Unauthenticated or Email unverified -> Agent Landing Page
           if (!isLoggedIn || !isEmailVerified) {
@@ -1106,6 +1043,26 @@ export default function App() {
 
           // Gate 3: Business verification pending / unsubmitted / rejected -> Business Verification Page
           if (!isApproved) {
+            const status = currentAccount?.businessVerificationStatus;
+            if (status === 'pending') {
+              return (
+                <VerificationStatusPage
+                  agentData={currentAccount || pendingAgentRegistration}
+                  onSignOut={handleSignOut}
+                  onApproved={() => {
+                    const currentId = activeAccountId || pendingAgentRegistration?.id;
+                    if (currentId) {
+                      setAccounts(prev => prev.map(a => 
+                        a.id === currentId
+                          ? { ...a, businessVerificationStatus: 'approved', isVerifiedAgent: true }
+                          : a
+                      ));
+                    }
+                  }}
+                />
+              );
+            }
+
             return (
               <BusinessVerificationPage
                 agentData={currentAccount || pendingAgentRegistration}
@@ -1143,6 +1100,8 @@ export default function App() {
               onOpenAddModal={() => setAddModalOpen(true)}
               onOpenChat={(conv) => setActiveConversation(conv)}
               onOpenListingDetail={(l) => handleOpenListingDetail(l)}
+              onOpenNotificationCenter={() => setIsNotificationCenterOpen(true)}
+              onOpenAdminAccess={() => setIsAdminLoginModalOpen(true)}
               activeTab={agentTab}
               onTabChange={setAgentTab}
               accounts={accounts}

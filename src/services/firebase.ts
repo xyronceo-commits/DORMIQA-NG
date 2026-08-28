@@ -228,7 +228,7 @@ export interface FirestoreErrorInfo {
   };
 }
 
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null, shouldThrow = false) {
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -246,7 +246,9 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  if (shouldThrow) {
+    throw new Error(JSON.stringify(errInfo));
+  }
 }
 
 export const saveUserToFirestore = async (userObj: {
@@ -310,7 +312,7 @@ export const saveUserToFirestore = async (userObj: {
     await setDoc(userRef, updateData, { merge: true });
   } catch (err) {
     console.warn("Failed to sync user to Firestore users collection:", err);
-    handleFirestoreError(err, OperationType.WRITE, `users/${docId}`);
+    handleFirestoreError(err, OperationType.WRITE, `users/${docId}`, false);
   }
 };
 
@@ -325,7 +327,7 @@ export const fetchUserProfileFromFirestore = async (uidOrEmail: string): Promise
     return null;
   } catch (err) {
     console.warn("Failed to fetch user profile from Firestore:", err);
-    handleFirestoreError(err, OperationType.GET, `users/${uidOrEmail}`);
+    handleFirestoreError(err, OperationType.GET, `users/${uidOrEmail}`, false);
     return null;
   }
 };

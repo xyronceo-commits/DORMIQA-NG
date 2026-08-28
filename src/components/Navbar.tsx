@@ -11,7 +11,7 @@ import {
   Menu, 
   X, 
   ChevronDown,
-  Sparkles,
+  Info,
   Plus,
   CheckCircle2,
   Calendar,
@@ -325,7 +325,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 transition-colors text-xs font-bold cursor-pointer"
                   title="Launch Guided Feature Tour"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <Info className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span>Tour</span>
                 </button>
               )}
@@ -660,7 +660,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   }}
                   className="text-xs font-bold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white flex items-center gap-1 cursor-pointer"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                  <Info className="w-3.5 h-3.5 text-emerald-500" />
                   <span>Replay Guided Tour</span>
                 </button>
               )}

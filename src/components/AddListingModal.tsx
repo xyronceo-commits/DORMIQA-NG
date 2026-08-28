@@ -1,5 +1,20 @@
 import React, { useState } from 'react';
-import { X, Building2, Upload, Plus, CheckCircle2, Footprints, Video, AlertCircle, Camera, Check } from 'lucide-react';
+import { 
+  X, 
+  Building2, 
+  Upload, 
+  Plus, 
+  CheckCircle2, 
+  AlertCircle, 
+  Camera, 
+  Check, 
+  ArrowRight, 
+  ArrowLeft,
+  MapPin,
+  Clock,
+  ShieldCheck,
+  DollarSign
+} from 'lucide-react';
 import { University, PropertyType, Listing } from '../types';
 import { createListing } from '../services/api';
 import { sendNotification, notifyAgentListingReviewComplete } from '../services/notificationService';
@@ -12,7 +27,7 @@ interface AddListingModalProps {
   agentId: string;
 }
 
-const DEFAULT_FIVE_PHOTOS = [
+const DEFAULT_PHOTOS = [
   'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80',
   'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80',
   'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1200&q=80',
@@ -20,39 +35,84 @@ const DEFAULT_FIVE_PHOTOS = [
   'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80'
 ];
 
-const SAMPLE_360_VIDEO = 'https://assets.mixkit.co/videos/preview/mixkit-interior-of-a-modern-apartment-41552-large.mp4';
-
 export const AddListingModal: React.FC<AddListingModalProps> = ({
   universities,
   onClose,
   onSuccess,
   agentId
 }) => {
-  const [title, setTitle] = useState('');
-  const [hotelName, setHotelName] = useState('');
-  const [universityId, setUniversityId] = useState(universities[0]?.id || 'unilag');
-  const [propertyType, setPropertyType] = useState<PropertyType | 'hotel_suite' | 'hotel_lodge'>('hotel_suite');
-  const [pricePerYear, setPricePerYear] = useState(450000);
-  const [walkingDistanceMinutes, setWalkingDistanceMinutes] = useState(5);
-  const [vacanciesCount, setVacanciesCount] = useState(6);
-  const [address, setAddress] = useState('');
+  // Wizard Step Control (1 to 9)
+  const [currentStep, setCurrentStep] = useState<number>(1);
+
+  // STEP 1: Basic Information
+  const [hostelName, setHostelName] = useState('');
+  const [propertyType, setPropertyType] = useState<PropertyType>('self_contain');
   const [description, setDescription] = useState('');
-  const [facilitiesText, setFacilitiesText] = useState('24/7 Solar Power, Hotel Security, Free Wi-Fi, Borehole Water, Swimming Pool, Laundry Service');
-  
+
+  // STEP 2: Location
+  const [area, setArea] = useState('');
+  const [nearbyLandmark, setNearbyLandmark] = useState('');
+  const [universityId, setUniversityId] = useState(universities[0]?.id || 'unilag');
+  const [distanceKm, setDistanceKm] = useState(1.2);
+  const [walkingMinutes, setWalkingMinutes] = useState(5);
+
+  // STEP 3: Rooms
+  const [roomType, setRoomType] = useState('Single Studio Room');
+  const [availableRooms, setAvailableRooms] = useState(6);
+  const [roomCapacity, setRoomCapacity] = useState('1 Student');
+
+  // STEP 4: Pricing
+  const [price, setPrice] = useState(350000);
+  const [paymentPeriod, setPaymentPeriod] = useState<'year' | 'semester'>('year');
+
+  // STEP 5: Amenities
+  const [amenities, setAmenities] = useState<string[]>([
+    '24/7 Solar Power', 'Borehole Water', 'Gated Security', 'Prepaid Meter', 'Free Wi-Fi'
+  ]);
+  const [amenityInput, setAmenityInput] = useState('');
+
+  // STEP 6: Photos
+  const [photos, setPhotos] = useState<string[]>(DEFAULT_PHOTOS);
   const [photoUrlInput, setPhotoUrlInput] = useState('');
-  const [photos, setPhotos] = useState<string[]>(DEFAULT_FIVE_PHOTOS);
-  const [videoUrl, setVideoUrl] = useState(SAMPLE_360_VIDEO);
-  
+
+  // STEP 7: Rules & Additional Information
+  const [rules, setRules] = useState<string[]>([
+    'Student ID Clearance Required', 'No Smoking Indoors', 'Quiet Hours After 10 PM'
+  ]);
+  const [ruleInput, setRuleInput] = useState('');
+
+  // Submission State
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submissionResult, setSubmissionResult] = useState<'approved' | 'pending' | 'needs_changes' | null>(null);
 
   const selectedUni = universities.find(u => u.id === universityId);
 
+  // Amenity Handlers
+  const handleAddAmenity = () => {
+    if (!amenityInput.trim()) return;
+    setAmenities(prev => [...prev, amenityInput.trim()]);
+    setAmenityInput('');
+  };
+  const handleRemoveAmenity = (idx: number) => {
+    setAmenities(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Rule Handlers
+  const handleAddRule = () => {
+    if (!ruleInput.trim()) return;
+    setRules(prev => [...prev, ruleInput.trim()]);
+    setRuleInput('');
+  };
+  const handleRemoveRule = (idx: number) => {
+    setRules(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Photo Handlers
   const handleAddPhoto = () => {
     if (!photoUrlInput.trim()) return;
     setPhotos(prev => [...prev, photoUrlInput.trim()]);
     setPhotoUrlInput('');
-    setValidationError(null);
   };
 
   const handleDevicePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,221 +128,181 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
       };
       reader.readAsDataURL(file);
     });
-    setValidationError(null);
     e.target.value = '';
   };
 
-  const handleDeviceVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const videoObjectUrl = URL.createObjectURL(file as Blob);
-    setVideoUrl(videoObjectUrl);
-    setValidationError(null);
-    e.target.value = '';
-  };
-
-  const handleRemovePhoto = (idx: number) => {
-    setPhotos(prev => prev.filter((_, i) => i !== idx));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Step Validation logic before advancing
+  const handleNextStep = () => {
     setValidationError(null);
 
-    if (!title.trim()) {
-      setValidationError('Please enter the accommodation name / title.');
-      return;
-    }
-    if (!hotelName.trim()) {
-      setValidationError('Please enter the name of the hotel / building.');
-      return;
-    }
-    if (!address.trim()) {
-      setValidationError('Please enter the complete street address.');
-      return;
-    }
-    if (photos.length < 5) {
-      setValidationError(`You must provide at least 5 photos before publishing live. Currently uploaded: ${photos.length}/5.`);
-      return;
-    }
-    if (!videoUrl.trim()) {
-      setValidationError('A 360-degree video walkthrough URL is required so students can inspect the property before booking.');
-      return;
+    if (currentStep === 1) {
+      if (!hostelName.trim()) {
+        setValidationError('Please enter the hostel name.');
+        return;
+      }
+    } else if (currentStep === 2) {
+      if (!area.trim()) {
+        setValidationError('Please enter the area / street location.');
+        return;
+      }
+    } else if (currentStep === 3) {
+      if (availableRooms <= 0) {
+        setValidationError('Please specify the number of available rooms.');
+        return;
+      }
+    } else if (currentStep === 4) {
+      if (price <= 0) {
+        setValidationError('Please enter a valid price.');
+        return;
+      }
+    } else if (currentStep === 6) {
+      if (photos.length < 3) {
+        setValidationError('Please upload at least 3 photos of the property.');
+        return;
+      }
     }
 
+    setCurrentStep(prev => Math.min(9, prev + 1));
+  };
+
+  const handlePrevStep = () => {
+    setValidationError(null);
+    setCurrentStep(prev => Math.max(1, prev - 1));
+  };
+
+  // Final Submit Handler (Step 9)
+  const handleSubmitListing = async () => {
     setSubmitting(true);
-    const facilities = facilitiesText.split(',').map(s => s.trim()).filter(Boolean);
+    setValidationError(null);
 
     try {
       const created = await createListing({
-        title,
-        hotelName,
+        title: hostelName,
+        hotelName: hostelName,
         universityId,
-        universityName: selectedUni?.name || 'University Campus',
-        propertyType: propertyType as PropertyType,
-        pricePerYear,
-        pricePerMonth: Math.round(pricePerYear / 12),
-        pricePerWeek: Math.round(pricePerYear / 52),
+        universityName: selectedUni?.name || 'Campus',
+        propertyType,
+        pricePerYear: paymentPeriod === 'year' ? price : price * 2,
+        pricePerMonth: Math.round((paymentPeriod === 'year' ? price : price * 2) / 12),
+        pricePerWeek: Math.round((paymentPeriod === 'year' ? price : price * 2) / 52),
         currency: 'NGN',
         billsIncluded: true,
-        deposit: Math.round(pricePerYear * 0.1),
-        walkingDistanceMinutes,
-        walkingDistanceMeters: walkingDistanceMinutes * 80,
-        vacanciesCount,
-        address,
-        city: selectedUni?.city || 'Lagos',
+        deposit: Math.round(price * 0.1),
+        walkingDistanceMinutes: walkingMinutes,
+        walkingDistanceMeters: walkingMinutes * 80,
+        vacanciesCount: availableRooms,
+        address: `${area}, near ${nearbyLandmark || 'Campus Gate'}`,
+        city: selectedUni?.city || 'Campus Town',
         state: selectedUni?.state || 'Lagos State',
         lat: (selectedUni?.lat || 6.5158) + (Math.random() - 0.5) * 0.005,
         lng: (selectedUni?.lng || 3.3898) + (Math.random() - 0.5) * 0.005,
         photos,
-        videoUrl,
-        facilities,
-        genderPreference: 'any',
-        availableFrom: '2026-09-01',
-        minLeaseMonths: 12,
-        totalBedrooms: 1,
-        totalBathrooms: 1,
-        isVerified: true,
+        videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-interior-of-a-modern-apartment-41552-large.mp4',
+        facilities: amenities,
+        rules,
+        description: description || `${hostelName} is located in ${area}, just ${walkingMinutes} minutes walk to ${selectedUni?.name || 'campus'}. Features ${availableRooms} available ${roomType} units with ${amenities.join(', ')}.`,
         agentId,
         agent: {
           id: agentId,
           name: auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Verified Agent',
-          agencyName: 'Verified Student Housing Agency',
-          avatarUrl: auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
+          agencyName: 'Verified Accommodation Management',
+          avatarUrl: auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
           phone: '',
           email: auth.currentUser?.email || '',
           responseRate: '100%',
           responseTime: 'Under 15 mins',
           isVerified: true,
-          rating: 0,
-          totalReviews: 0
-        },
-        rules: ['Hotel Security Clearance Required', 'Student ID Verified at Check-in', 'No Smoking in Rooms'],
-        description: description || `${title} at ${hotelName}. A premium student accommodation situated just ${walkingDistanceMinutes} minutes walk to ${selectedUni?.name || 'campus'}. Features ${vacanciesCount} available rooms, full 24/7 solar backup light, and verified 360° video walkthrough.`
-      });
-
-      setSubmitting(false);
-
-      if (created.status === 'banned' || created.isAiBanned) {
-        const banReason = created.aiBanReason || 'UNAPPROVED BY AI: Duplicate property listing detected by another agent. Multiple agents cannot list identical properties.';
-        
-        // Notify agent directly of unapproved listing with clear reasons
-        await notifyAgentListingReviewComplete({
-          agentId,
-          listingTitle: title,
-          isApproved: false,
-          rejectionReason: banReason,
-          listingId: created.id,
-          universityId
-        });
-
-        setValidationError(`🚨 ${banReason}`);
-        return;
-      }
-
-      // Notify agent of successful AI approval
-      await notifyAgentListingReviewComplete({
-        agentId,
-        listingTitle: title,
-        isApproved: true,
-        listingId: created.id,
-        universityId
-      });
-
-      // Broadcast real-time notification to students around this campus
-      sendNotification({
-        userId: 'all',
-        title: `🏠 New Campus Lodge: ${title}`,
-        body: `New ${propertyType.replace('_', ' ')} listed ${walkingDistanceMinutes} mins from ${selectedUni?.name || 'campus'} at ₦${pricePerYear.toLocaleString()}/yr.`,
-        type: 'listing',
-        universityId,
-        metadata: {
-          listingId: created.id
+          rating: 5.0,
+          totalReviews: 1
         }
       });
 
-      onSuccess(created);
-    } catch (err) {
-      console.error(err);
       setSubmitting(false);
-      setValidationError('Failed to publish listing. Please check connection and retry.');
+
+      if (created.status === 'banned') {
+        setSubmissionResult('needs_changes');
+        setValidationError('Property listing flag: Duplicate details detected. Please review listing and resubmit.');
+        return;
+      }
+
+      setSubmissionResult('approved');
+      onSuccess(created);
+
+    } catch (err: any) {
+      console.error('Submit Hostel Error:', err);
+      setSubmitting(false);
+      setValidationError('Failed to submit hostel listing. Please try again.');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in overflow-y-auto">
-      <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-neutral-200 p-6 relative my-auto max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white dark:bg-neutral-900 w-full max-w-2xl rounded-3xl shadow-2xl border border-neutral-200 dark:border-neutral-800 p-6 sm:p-8 relative my-auto max-h-[90vh] overflow-y-auto">
+        
+        {/* Header Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-lg border border-neutral-200 text-neutral-400 hover:text-neutral-900 transition-colors"
+          className="absolute top-5 right-5 p-2 rounded-xl border border-neutral-200 dark:border-neutral-700 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="mb-6">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md w-fit mb-2 border border-emerald-200">
-            <Building2 className="w-3.5 h-3.5" /> Agent Publisher Portal
+        {/* Wizard Progress Indicator */}
+        <div className="mb-6 space-y-2">
+          <div className="flex items-center justify-between text-xs font-bold text-neutral-500 dark:text-neutral-400">
+            <span className="text-emerald-600 dark:text-emerald-400 uppercase tracking-wider font-extrabold flex items-center gap-1.5">
+              <Building2 className="w-4 h-4" /> Add Hostel Workflow
+            </span>
+            <span>Step {currentStep} of 9</span>
           </div>
-          <h2 className="text-2xl font-extrabold text-neutral-900">List Hotel / Student Accommodation</h2>
-          <p className="text-xs text-neutral-500 mt-0.5">
-            Provide full hotel details, 5 required photos, and a 360° video walkthrough so students can inspect the environment before publishing live.
-          </p>
+
+          <div className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-emerald-600 transition-all duration-300" 
+              style={{ width: `${(currentStep / 9) * 100}%` }}
+            />
+          </div>
         </div>
 
         {validationError && (
-          <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-2.5 text-rose-800 text-xs font-bold animate-in fade-in">
-            <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
+          <div className="mb-4 p-3.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-2xl flex items-center gap-2 text-xs text-rose-800 dark:text-rose-300 font-bold">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>{validationError}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          
-          {/* 1. Name of accommodation type & 2. Name of hotel */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* ==========================================
+            STEP 1: BASIC INFORMATION
+           ========================================== */}
+        {currentStep === 1 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white">
+              STEP 1: Basic Information
+            </h2>
+
             <div>
-              <label className="text-xs font-bold text-neutral-900 uppercase block mb-1">
-                Name of Accommodation Type <span className="text-rose-500">*</span>
+              <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                Hostel Name *
               </label>
               <input
                 type="text"
                 required
-                placeholder="e.g. Deluxe Executive Studio Room"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-900 bg-neutral-50 focus:bg-white focus:outline-none"
+                placeholder="e.g. Peace Haven Hostel"
+                value={hostelName}
+                onChange={(e) => setHostelName(e.target.value)}
+                className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-neutral-900 uppercase block mb-1">
-                Name of Hotel / Lodge <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Royal Palms Student Hotel"
-                value={hotelName}
-                onChange={(e) => setHotelName(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-900 bg-neutral-50 focus:bg-white focus:outline-none"
-              />
-            </div>
-          </div>
-
-          {/* 3. Property Type & 4. Name of Institution */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-bold text-neutral-900 uppercase block mb-1">
-                Property Type <span className="text-rose-500">*</span>
+              <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                Property Type *
               </label>
               <select
                 value={propertyType}
-                onChange={(e) => setPropertyType(e.target.value as any)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-900 bg-neutral-50"
+                onChange={(e) => setPropertyType(e.target.value as PropertyType)}
+                className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
               >
-                <option value="hotel_suite">Hotel Suite / Luxury Lodge</option>
-                <option value="hotel_lodge">Student Hotel Lodge</option>
                 <option value="self_contain">Self-Contain Studio</option>
                 <option value="single_room">Single Room</option>
                 <option value="one_bedroom">1 Bedroom Flat</option>
@@ -293,274 +313,424 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
             </div>
 
             <div>
-              <label className="text-xs font-bold text-neutral-900 uppercase block mb-1">
-                Name of Institution <span className="text-rose-500">*</span>
+              <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                Property Description
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Describe hostel security, building features, environment..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            STEP 2: LOCATION
+           ========================================== */}
+        {currentStep === 2 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white">
+              STEP 2: Location
+            </h2>
+
+            <div>
+              <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                Serviced Institution / Campus *
               </label>
               <select
                 value={universityId}
                 onChange={(e) => setUniversityId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-900 bg-neutral-50"
+                className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
               >
-                {Object.entries(
-                  universities.reduce((acc, u) => {
-                    const st = u.state || 'Other State';
-                    if (!acc[st]) acc[st] = [];
-                    acc[st].push(u);
-                    return acc;
-                  }, {} as Record<string, University[]>)
-                ).map(([stateName, unis]) => (
-                  <optgroup key={stateName} label={`📍 ${stateName}`}>
-                    {(unis as University[]).map(u => (
-                      <option key={u.id} value={u.id}>{u.name} ({u.city})</option>
-                    ))}
-                  </optgroup>
+                {universities.map(u => (
+                  <option key={u.id} value={u.id}>{u.name} ({u.city})</option>
                 ))}
               </select>
             </div>
-          </div>
 
-          {/* 5. Annual Rent, 6. WALK Time, 7. Vacancies */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="text-xs font-bold text-neutral-900 uppercase block mb-1">
-                Annual Rent (₦/yr) <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="number"
-                required
-                step={5000}
-                value={pricePerYear}
-                onChange={(e) => setPricePerYear(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-900 bg-neutral-50"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-neutral-900 uppercase block mb-1">
-                WALK Time to Gate <span className="text-rose-500">*</span>
-              </label>
-              <div className="flex items-center gap-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                  Area / Street Location *
+                </label>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  min={1}
-                  max={60}
-                  value={walkingDistanceMinutes}
-                  onChange={(e) => setWalkingDistanceMinutes(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-900 bg-neutral-50"
+                  placeholder="e.g. Oke-Baale Area"
+                  value={area}
+                  onChange={(e) => setArea(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
                 />
-                <span className="text-[11px] text-neutral-500 font-bold shrink-0">mins</span>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                  Nearby Landmark
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Opposite Main Campus Gate"
+                  value={nearbyLandmark}
+                  onChange={(e) => setNearbyLandmark(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
               </div>
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                  Distance from Campus (km)
+                </label>
+                <input
+                  type="number"
+                  step={0.1}
+                  value={distanceKm}
+                  onChange={(e) => setDistanceKm(Number(e.target.value))}
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                  Walking Distance (Minutes)
+                </label>
+                <input
+                  type="number"
+                  value={walkingMinutes}
+                  onChange={(e) => setWalkingMinutes(Number(e.target.value))}
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            STEP 3: ROOMS
+           ========================================== */}
+        {currentStep === 3 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white">
+              STEP 3: Rooms & Capacity
+            </h2>
+
             <div>
-              <label className="text-xs font-bold text-neutral-900 uppercase block mb-1">
-                Vacancies / Rooms <span className="text-rose-500">*</span>
+              <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                Room Type Category *
+              </label>
+              <input
+                type="text"
+                value={roomType}
+                onChange={(e) => setRoomType(e.target.value)}
+                placeholder="e.g. Self-Contain Studio Room"
+                className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                  Number of Available Rooms *
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={availableRooms}
+                  onChange={(e) => setAvailableRooms(Number(e.target.value))}
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                  Room Capacity
+                </label>
+                <select
+                  value={roomCapacity}
+                  onChange={(e) => setRoomCapacity(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                >
+                  <option value="1 Student">1 Student (Single Occupancy)</option>
+                  <option value="2 Students">2 Students (Double Share)</option>
+                  <option value="4 Students">4 Students (Room Share)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            STEP 4: PRICING
+           ========================================== */}
+        {currentStep === 4 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white">
+              STEP 4: Pricing & Rent
+            </h2>
+
+            <div>
+              <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                Rental Amount (₦ NGN) *
               </label>
               <input
                 type="number"
-                required
-                min={1}
-                max={500}
-                value={vacanciesCount}
-                onChange={(e) => setVacanciesCount(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-900 bg-neutral-50"
-              />
-            </div>
-          </div>
-
-          {/* 8. Street Address */}
-          <div>
-            <label className="text-xs font-bold text-neutral-900 uppercase block mb-1">
-              Street Address <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. 14 Akoka Commercial Avenue, Opposite UNILAG Main Gate"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-900 bg-neutral-50"
-            />
-          </div>
-
-          {/* Facilities & Description */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-bold text-neutral-900 uppercase block mb-1">Facilities / Services</label>
-              <input
-                type="text"
-                value={facilitiesText}
-                onChange={(e) => setFacilitiesText(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-900 bg-neutral-50"
+                step={5000}
+                value={price}
+                onChange={(e) => setPrice(Number(e.target.value))}
+                className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-bold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-neutral-900 uppercase block mb-1">Description</label>
-              <input
-                type="text"
-                placeholder="Describe hotel environment, safety & amenities..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-900 bg-neutral-50"
-              />
-            </div>
-          </div>
-
-          {/* 9. Five Photos (Mandatory) */}
-          <div className="pt-3 border-t border-neutral-200 space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-neutral-900 uppercase flex items-center gap-1.5">
-                <Camera className="w-4 h-4 text-emerald-600" />
-                Hotel Photos (Required Minimum: 5 Photos) <span className="text-rose-500">*</span>
+              <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                Payment Period *
               </label>
-              <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-md ${
-                photos.length >= 5 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-              }`}>
-                {photos.length} / 5 Photos Uploaded
-              </span>
-            </div>
-
-            <p className="text-[11px] text-neutral-500">
-              Select high-resolution photos directly from your phone/computer storage showing room layout, bathroom, exterior, and reception.
-            </p>
-
-            {/* Device Storage Upload Button for Photos */}
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="file"
-                id="device-photo-upload"
-                accept="image/*"
-                multiple
-                onChange={handleDevicePhotoUpload}
-                className="hidden"
-              />
-              <label
-                htmlFor="device-photo-upload"
-                className="cursor-pointer py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all shadow-sm shrink-0"
-              >
-                <Upload className="w-4 h-4 text-emerald-100" />
-                <span>Upload Photos from Device Storage</span>
-              </label>
-
-              <div className="flex-1 flex gap-1.5">
-                <input
-                  type="url"
-                  placeholder="Or paste image URL..."
-                  value={photoUrlInput}
-                  onChange={(e) => setPhotoUrlInput(e.target.value)}
-                  className="flex-1 px-3 py-2 rounded-xl border border-neutral-200 text-xs font-medium"
-                />
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={handleAddPhoto}
-                  className="px-3 py-2 bg-neutral-900 text-white rounded-xl text-xs font-bold flex items-center gap-1 shrink-0"
+                  onClick={() => setPaymentPeriod('year')}
+                  className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                    paymentPeriod === 'year'
+                      ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 border-neutral-900'
+                      : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'
+                  }`}
                 >
-                  <Plus className="w-3.5 h-3.5" /> Add
+                  Per Year (Annual)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentPeriod('semester')}
+                  className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                    paymentPeriod === 'semester'
+                      ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 border-neutral-900'
+                      : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'
+                  }`}
+                >
+                  Per Semester
                 </button>
               </div>
             </div>
+          </div>
+        )}
 
-            <div className="grid grid-cols-5 gap-2 pt-1">
+        {/* ==========================================
+            STEP 5: AMENITIES
+           ========================================== */}
+        {currentStep === 5 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white">
+              STEP 5: Amenities
+            </h2>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Add amenity (e.g. Solar Light, Water Tank)..."
+                value={amenityInput}
+                onChange={(e) => setAmenityInput(e.target.value)}
+                className="flex-1 px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              />
+              <button
+                type="button"
+                onClick={handleAddAmenity}
+                className="px-4 py-2.5 bg-neutral-900 hover:bg-black dark:bg-white dark:text-neutral-900 text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                + Add
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-2">
+              {amenities.map((item, idx) => (
+                <span key={idx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-semibold">
+                  <span>✓ {item}</span>
+                  <button type="button" onClick={() => handleRemoveAmenity(idx)} className="text-emerald-600 hover:text-rose-600 font-bold ml-1">×</button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            STEP 6: PHOTOS
+           ========================================== */}
+        {currentStep === 6 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white">
+              STEP 6: Photos
+            </h2>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <label className="cursor-pointer px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shrink-0">
+                <Upload className="w-4 h-4" />
+                <span>Upload Photos</span>
+                <input type="file" accept="image/*" multiple onChange={handleDevicePhotoUpload} className="hidden" />
+              </label>
+
+              <div className="flex-1 flex gap-2">
+                <input
+                  type="url"
+                  placeholder="Or paste photo URL..."
+                  value={photoUrlInput}
+                  onChange={(e) => setPhotoUrlInput(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-medium"
+                />
+                <button type="button" onClick={handleAddPhoto} className="px-3 py-2 bg-neutral-900 text-white text-xs font-bold rounded-xl">Add</button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 pt-2">
               {photos.map((p, i) => (
-                <div key={i} className="relative aspect-video rounded-xl overflow-hidden border border-neutral-300 group">
+                <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700">
                   <img src={p} alt="" className="w-full h-full object-cover" />
-                  <span className="absolute top-1 left-1 bg-slate-900/80 text-white text-[9px] font-bold px-1 rounded">
-                    #{i + 1}
-                  </span>
                   <button
                     type="button"
-                    onClick={() => handleRemovePhoto(i)}
-                    className="absolute top-1 right-1 bg-rose-600 text-white w-4 h-4 rounded-md text-[10px] font-bold flex items-center justify-center opacity-80 hover:opacity-100"
+                    onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}
+                    className="absolute top-1 right-1 bg-rose-600 text-white w-4 h-4 rounded text-[10px] font-bold flex items-center justify-center"
                   >
                     ×
                   </button>
                 </div>
               ))}
-              {Array.from({ length: Math.max(0, 5 - photos.length) }).map((_, idx) => (
-                <div
-                  key={idx}
-                  className="aspect-video rounded-xl border-2 border-dashed border-rose-300 bg-rose-50/50 flex flex-col items-center justify-center text-center p-1 text-rose-500"
-                >
-                  <Camera className="w-4 h-4 mb-0.5 opacity-60" />
-                  <span className="text-[9px] font-bold">Slot #{photos.length + idx + 1} Needed</span>
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            STEP 7: RULES & ADDITIONAL INFO
+           ========================================== */}
+        {currentStep === 7 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white">
+              STEP 7: Rules & Additional Information
+            </h2>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Add hostel rule (e.g. Student ID Clearance Required)..."
+                value={ruleInput}
+                onChange={(e) => setRuleInput(e.target.value)}
+                className="flex-1 px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white"
+              />
+              <button type="button" onClick={handleAddRule} className="px-4 py-2.5 bg-neutral-900 text-white text-xs font-bold rounded-xl">+ Add</button>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              {rules.map((r, idx) => (
+                <div key={idx} className="flex items-center justify-between p-2.5 bg-neutral-50 dark:bg-neutral-800 rounded-xl text-xs font-medium">
+                  <span>• {r}</span>
+                  <button type="button" onClick={() => handleRemoveRule(idx)} className="text-rose-600 font-bold">Remove</button>
                 </div>
               ))}
             </div>
           </div>
+        )}
 
-          {/* 10. 360-Degree Video Walkthrough (Mandatory) */}
-          <div className="pt-3 border-t border-neutral-200 space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-neutral-900 uppercase flex items-center gap-1.5">
-                <Video className="w-4 h-4 text-purple-600" />
-                360-Degree Video Walkthrough <span className="text-rose-500">*</span>
-              </label>
-              <button
-                type="button"
-                onClick={() => setVideoUrl(SAMPLE_360_VIDEO)}
-                className="text-[10px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-lg border border-purple-200"
-              >
-                + Use Sample 360° Walkthrough Video
-              </button>
-            </div>
+        {/* ==========================================
+            STEP 8: REVIEW LISTING
+           ========================================== */}
+        {currentStep === 8 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white">
+              STEP 8: Review Listing
+            </h2>
 
-            <p className="text-[11px] text-neutral-500">
-              Upload a 360° video file directly from your local storage/camera gallery so students can inspect the property interior.
-            </p>
-
-            <div className="space-y-2">
-              <input
-                type="file"
-                id="device-video-upload"
-                accept="video/*"
-                onChange={handleDeviceVideoUpload}
-                className="hidden"
-              />
-              <label
-                htmlFor="device-video-upload"
-                className="cursor-pointer w-full py-3 px-4 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all shadow-sm"
-              >
-                <Upload className="w-4 h-4 text-purple-100" />
-                <span>Upload 360° Video Walkthrough from Device Storage</span>
-              </label>
-
-              <div className="flex items-center gap-2 text-xs text-neutral-500">
-                <span className="shrink-0 text-[10px] font-bold uppercase text-neutral-400">Or Paste Video Web Link:</span>
-                <input
-                  type="text"
-                  placeholder="Paste 360° video MP4 link or embed URL..."
-                  value={videoUrl}
-                  onChange={(e) => {
-                    setVideoUrl(e.target.value);
-                    setValidationError(null);
-                  }}
-                  className="flex-1 px-3 py-1.5 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-900 bg-neutral-50"
-                />
+            <div className="p-4 bg-neutral-50 dark:bg-neutral-800/80 rounded-2xl border border-neutral-200 dark:border-neutral-700 text-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-700 pb-2">
+                <span className="font-extrabold text-neutral-900 dark:text-white text-sm">{hostelName}</span>
+                <span className="font-black text-emerald-600 dark:text-emerald-400">₦{price.toLocaleString()} / {paymentPeriod}</span>
               </div>
-            </div>
 
-            {videoUrl && (
-              <div className="bg-slate-900 rounded-2xl overflow-hidden aspect-video relative max-h-48 border border-neutral-800 flex items-center justify-center">
-                <video src={videoUrl} controls autoPlay muted loop className="w-full h-full object-cover" />
-                <span className="absolute top-2 left-2 bg-purple-600 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-md">
-                  <Video className="w-3 h-3" />
-                  360° Interactive Walkthrough Preview
-                </span>
+              <div className="grid grid-cols-2 gap-2 text-neutral-600 dark:text-neutral-300">
+                <div><strong>Property Type:</strong> {propertyType.replace('_', ' ')}</div>
+                <div><strong>Location:</strong> {area}, {selectedUni?.name}</div>
+                <div><strong>Available Rooms:</strong> {availableRooms}</div>
+                <div><strong>Walking Distance:</strong> {walkingMinutes} mins</div>
+              </div>
+
+              <p className="text-[11px] text-neutral-500 border-t border-neutral-200 dark:border-neutral-700 pt-2">
+                <strong>Amenities:</strong> {amenities.join(', ')}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            STEP 9: SUBMIT & VERIFICATION RESULT
+           ========================================== */}
+        {currentStep === 9 && (
+          <div className="space-y-4 text-center">
+            {submissionResult === 'approved' ? (
+              <div className="p-6 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 rounded-3xl space-y-3">
+                <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
+                <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-200">
+                  Hostel Submitted Successfully!
+                </h3>
+                <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium max-w-md mx-auto">
+                  Your hostel listing has passed initial validation and is now LIVE for students to view and request inspections.
+                </p>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl cursor-pointer"
+                >
+                  Done & Close
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="w-12 h-12 bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white rounded-2xl flex items-center justify-center mx-auto">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white">
+                  STEP 9: Final Submission
+                </h2>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
+                  Click below to submit your hostel for listing verification.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleSubmitListing}
+                  disabled={submitting}
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
+                >
+                  {submitting ? 'Submitting Hostel Listing...' : 'Submit Hostel for Verification'}
+                </button>
               </div>
             )}
           </div>
+        )}
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={submitting || photos.length < 5 || !videoUrl.trim()}
-            className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl text-xs uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md mt-6 flex items-center justify-center gap-2"
-          >
-            {submitting ? '⚡ AI Inspecting & Verifying Listing (Takes 2s)...' : 'Publish Hotel Accommodation Live'}
-          </button>
-        </form>
+        {/* Wizard Controls Bottom Bar */}
+        {submissionResult !== 'approved' && (
+          <div className="mt-8 pt-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={handlePrevStep}
+              disabled={currentStep === 1}
+              className="px-4 py-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-neutral-800 dark:text-neutral-200 font-bold text-xs rounded-xl transition-colors disabled:opacity-40 cursor-pointer flex items-center gap-1.5"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Previous
+            </button>
+
+            {currentStep < 9 && (
+              <button
+                type="button"
+                onClick={handleNextStep}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+              >
+                <span>Next Step</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   );
