@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Shield, Lock, X, ArrowRight, AlertCircle, Loader2, Mail } from 'lucide-react';
+import { Shield, X, ArrowRight, AlertCircle, Loader2, Mail } from 'lucide-react';
 import { adminLogin } from '../services/api';
+import { AdminRole } from '../types';
 
 interface AdminLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (email: string, role: AdminRole) => void;
 }
 
 export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
@@ -13,29 +14,18 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   onClose,
   onSuccess
 }) => {
-  const [email, setEmail] = useState('buildsafe247@gmail.com');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [trialsLeft, setTrialsLeft] = useState<number | null>(5);
-  const [isLocked, setIsLocked] = useState(false);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLocked) {
-      setError('Maximum 5 passcode trials exceeded. Access locked.');
-      return;
-    }
+    const cleanEmail = email.trim().toLowerCase();
 
-    if (!email.trim()) {
-      setError('Please enter your authorized admin email.');
-      return;
-    }
-
-    if (!password.trim()) {
-      setError('Please enter the admin passcode.');
+    if (!cleanEmail) {
+      setError('Please enter your authorized administrator email address.');
       return;
     }
 
@@ -43,25 +33,17 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
     setError(null);
 
     try {
-      const response = await adminLogin(email.trim(), password.trim());
-      if (response.success) {
-        setPassword('');
+      // Verify Administrator Authorization directly by email
+      const response = await adminLogin(cleanEmail);
+      if (response.success && response.authorized) {
         setError(null);
-        setTrialsLeft(5);
-        setIsLocked(false);
-        onSuccess();
+        onSuccess(response.email || cleanEmail, response.role || 'ADMIN');
         onClose();
       } else {
-        if (response.attemptsLeft !== undefined) {
-          setTrialsLeft(response.attemptsLeft);
-          if (response.attemptsLeft <= 0) {
-            setIsLocked(true);
-          }
-        }
-        setError(response.message || 'Incorrect credentials. Access denied.');
+        setError(response.message || "You don't have permission to access the Admin Portal.");
       }
     } catch (err: any) {
-      setError(err.message || 'Authentication failed. Please try again.');
+      setError(err.message || 'Authentication failed. Please check your network connection.');
     } finally {
       setIsLoading(false);
     }
@@ -81,10 +63,10 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-black text-neutral-900 dark:text-white tracking-tight">
-                Secure Access
+                Admin Authentication
               </h2>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
-                Dormiqa internal system authentication
+                Dormiqa Email Verification
               </p>
             </div>
           </div>
@@ -108,68 +90,42 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           <div className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-xs font-extrabold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 block">
-                Admin Email
+                Administrator Email
               </label>
               <div className="relative flex items-center">
                 <Mail className="w-4 h-4 text-neutral-400 absolute left-3.5" />
                 <input
                   type="email"
                   value={email}
-                  disabled={isLocked}
                   onChange={(e) => {
                     setEmail(e.target.value);
                     if (error) setError(null);
                   }}
-                  placeholder="buildsafe247@gmail.com"
+                  placeholder="admin@dormiqa.com"
                   required
-                  className="w-full pl-10 pr-4 py-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/80 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full pl-10 pr-4 py-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/80 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500 transition-colors"
                 />
               </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-extrabold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 block">
-                  Admin Passcode
-                </label>
-                {trialsLeft !== null && (
-                  <span className={`text-[10px] font-bold ${trialsLeft <= 2 ? 'text-rose-500' : 'text-neutral-400'}`}>
-                    {trialsLeft} trial{trialsLeft === 1 ? '' : 's'} remaining
-                  </span>
-                )}
-              </div>
-              <div className="relative flex items-center">
-                <Lock className="w-4 h-4 text-neutral-400 absolute left-3.5" />
-                <input
-                  type="password"
-                  value={password}
-                  disabled={isLocked}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (error) setError(null);
-                  }}
-                  placeholder="Enter passcode"
-                  required
-                  className="w-full pl-10 pr-4 py-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/80 text-neutral-900 dark:text-white font-mono text-sm focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-              </div>
+              <p className="text-[11px] text-neutral-400 font-medium pt-1">
+                Enter your authorized administrator email address to verify access.
+              </p>
             </div>
           </div>
 
           <div className="pt-2">
             <button
               type="submit"
-              disabled={isLoading || !password.trim() || isLocked}
+              disabled={isLoading || !email.trim()}
               className="w-full py-3.5 px-4 rounded-2xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Verifying Credentials...</span>
+                  <span>Verifying Administrator Email...</span>
                 </>
               ) : (
                 <>
-                  <span>Continue</span>
+                  <span>Verify & Open Admin Portal</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -177,9 +133,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           </div>
         </form>
 
-        <div className="px-6 py-3 bg-neutral-50 dark:bg-neutral-800/50 border-t border-neutral-100 dark:border-neutral-800 text-center">
-          <span className="text-[11px] text-neutral-400 font-medium">
-            🔒 Protected by Dormiqa Rate Limiter & Security Gateway
+        <div className="px-6 py-3.5 bg-neutral-50 dark:bg-neutral-800/50 border-t border-neutral-100 dark:border-neutral-800 text-center">
+          <span className="text-[11px] text-neutral-500 font-medium block">
+            🔒 Protected Portal • Authorized Administrator Accounts Only
           </span>
         </div>
       </div>

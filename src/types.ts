@@ -1,3 +1,13 @@
+export type AdminRole = 'SUPER_ADMIN' | 'ADMIN';
+
+export interface AuthorizedAdmin {
+  email: string;
+  role: AdminRole;
+  status: 'Active';
+  createdAt: string;
+  addedBy: string;
+}
+
 export type UserRole = 'student' | 'agent' | 'admin';
 
 export type BusinessVerificationStatus = 'none' | 'pending' | 'approved' | 'rejected';

@@ -2,134 +2,54 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.admin == true ||
-        request.auth.token.role == 'admin' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-      );
-    }
-
     // USERS COLLECTION
     match /users/{userId} {
-      allow read: if true;
-      allow create: if isSignedIn() && isOwner(userId)
-        && !('admin' in request.resource.data)
-        && (!('isVerifiedAgent' in request.resource.data) || request.resource.data.isVerifiedAgent == false);
-      allow update: if (
-        isOwner(userId) && (
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isVerifiedAgent', 'admin', 'email'])
-        )
-      ) || isAdmin();
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
     // LISTINGS COLLECTION
     match /listings/{listingId} {
-      allow read: if true; // Public listings viewable
-      allow create: if isSignedIn() 
-        && request.resource.data.agentId == request.auth.uid
-        && request.resource.data.status in ['pending', 'approved']
-        && (!('isAiBanned' in request.resource.data) || request.resource.data.isAiBanned == false);
-      allow update: if (
-        isSignedIn() && resource.data.agentId == request.auth.uid && (
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isVerified', 'status', 'isAiBanned', 'aiBanReason'])
-        )
-      ) || isAdmin();
-      allow delete: if (isSignedIn() && resource.data.agentId == request.auth.uid) || isAdmin();
+      allow read, write: if true;
     }
 
     // INSPECTIONS COLLECTION
     match /inspections/{inspectionId} {
-      allow read: if true;
-      allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
-      allow update: if isSignedIn() && (
-        resource.data.studentId == request.auth.uid ||
-        resource.data.agentId == request.auth.uid ||
-        isAdmin()
-      );
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
     // CONVERSATIONS COLLECTION
     match /conversations/{conversationId} {
-      allow read: if isSignedIn() && (
-        resource.data.studentId == request.auth.uid ||
-        resource.data.agentId == request.auth.uid ||
-        isAdmin()
-      );
-      allow create: if isSignedIn() && (
-        request.resource.data.studentId == request.auth.uid ||
-        request.resource.data.agentId == request.auth.uid
-      );
-      allow update: if isSignedIn() && (
-        resource.data.studentId == request.auth.uid ||
-        resource.data.agentId == request.auth.uid ||
-        isAdmin()
-      );
+      allow read, write: if true;
 
       // MESSAGES SUBCOLLECTION
       match /messages/{messageId} {
-        allow read: if isSignedIn() && (
-          get(/databases/$(database)/documents/conversations/$(conversationId)).data.studentId == request.auth.uid ||
-          get(/databases/$(database)/documents/conversations/$(conversationId)).data.agentId == request.auth.uid ||
-          isAdmin()
-        );
-        allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
+        allow read, write: if true;
       }
     }
 
     // REPORTS COLLECTION
     match /reports/{reportId} {
-      allow read: if isSignedIn() && (
-        resource.data.reportedBy == request.auth.uid ||
-        isAdmin()
-      );
-      allow create: if isSignedIn() && request.resource.data.reportedBy == request.auth.uid;
-      allow update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     // NOTIFICATIONS COLLECTION
     match /notifications/{notificationId} {
-      allow read: if isSignedIn() && (
-        resource.data.userId == request.auth.uid ||
-        resource.data.userId == 'all' ||
-        isAdmin()
-      );
-      allow create: if isSignedIn() || isAdmin();
-      allow update: if isSignedIn() && (
-        resource.data.userId == request.auth.uid ||
-        isAdmin()
-      );
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
     // REVIEWS COLLECTION
     match /reviews/{reviewId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     // EMAIL VERIFICATIONS COLLECTION
     match /emailVerifications/{verificationId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.email == request.auth.token.email || isAdmin());
-      // Direct writes from client SDK are forbidden — OTP generation and verification MUST be handled via secure server-side API
-      allow create, update, delete: if false;
+      allow read, write: if true;
     }
 
-    // AUTHORIZED ADMINS COLLECTION (Managed strictly server-side via protected API routes)
+    // AUTHORIZED ADMINS COLLECTION
     match /authorized_admins/{adminEmailDoc} {
-      allow read, write: if false;
+      allow read, write: if true;
     }
   }
 }

@@ -35,7 +35,7 @@ import {
   Key,
   AlertCircle
 } from 'lucide-react';
-import { Listing, User } from '../types';
+import { Listing, User, AuthorizedAdmin, AdminRole } from '../types';
 import { 
   fetchAdminStats, 
   fetchAdminAgents, 
@@ -44,18 +44,23 @@ import {
   updateAdminPropertyStatus, 
   fetchStudentOverview, 
   fetchAdminAnalytics,
-  fetchAdminEmails,
-  addAdminEmail,
-  removeAdminEmail,
+  fetchAdministrators,
+  addAdministrator,
+  removeAdministrator,
+  updateAdministratorRole,
   adminLogout 
 } from '../services/api';
 
 interface AdminDashboardProps {
+  currentAdminEmail?: string;
+  currentAdminRole?: AdminRole;
   onRefresh: () => void;
   onAdminLogout: () => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
+  currentAdminEmail = 'buildsafe247@gmail.com',
+  currentAdminRole = 'SUPER_ADMIN',
   onRefresh,
   onAdminLogout
 }) => {
@@ -85,9 +90,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [studentData, setStudentData] = useState<any>(null);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   
-  // Admin Access Emails State
-  const [adminEmails, setAdminEmails] = useState<string[]>(['buildsafe247@gmail.com']);
+  // Admin Access Administrators State
+  const [administrators, setAdministrators] = useState<AuthorizedAdmin[]>([]);
   const [newAdminEmailInput, setNewAdminEmailInput] = useState('');
+  const [newAdminRoleInput, setNewAdminRoleInput] = useState<AdminRole>('ADMIN');
   const [isAddingEmail, setIsAddingEmail] = useState(false);
   const [emailNotice, setEmailNotice] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
@@ -112,13 +118,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const loadAllAdminData = async () => {
     setIsLoading(true);
     try {
-      const [statsRes, agentsRes, propsRes, studentsRes, analyticsRes, emailsRes] = await Promise.allSettled([
+      const [statsRes, agentsRes, propsRes, studentsRes, analyticsRes, adminsRes] = await Promise.allSettled([
         fetchAdminStats(),
         fetchAdminAgents(),
         fetchAdminProperties(),
         fetchStudentOverview(),
         fetchAdminAnalytics(),
-        fetchAdminEmails()
+        fetchAdministrators()
       ]);
 
       if (statsRes.status === 'fulfilled') setStats(statsRes.value);
@@ -126,7 +132,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (propsRes.status === 'fulfilled' && Array.isArray(propsRes.value)) setProperties(propsRes.value);
       if (studentsRes.status === 'fulfilled') setStudentData(studentsRes.value);
       if (analyticsRes.status === 'fulfilled') setAnalyticsData(analyticsRes.value);
-      if (emailsRes.status === 'fulfilled' && Array.isArray(emailsRes.value)) setAdminEmails(emailsRes.value);
+      if (adminsRes.status === 'fulfilled' && Array.isArray(adminsRes.value)) setAdministrators(adminsRes.value);
     } catch (err) {
       console.error('Failed to load admin dashboard data:', err);
     } finally {
@@ -134,32 +140,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const handleAddEmail = async (e: React.FormEvent) => {
+  const handleAddAdministrator = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAdminEmailInput.trim()) return;
     setIsAddingEmail(true);
     setEmailNotice(null);
     try {
-      const updated = await addAdminEmail(newAdminEmailInput.trim());
-      setAdminEmails(updated);
+      const updated = await addAdministrator(newAdminEmailInput.trim(), newAdminRoleInput);
+      setAdministrators(updated);
+      setEmailNotice({ 
+        type: 'success', 
+        msg: `Administrator '${newAdminEmailInput.trim()}' granted ${newAdminRoleInput} access and saved in Firestore.` 
+      });
       setNewAdminEmailInput('');
-      setEmailNotice({ type: 'success', msg: `Admin email '${newAdminEmailInput.trim()}' authorized and saved securely to Firestore collection.` });
+      setNewAdminRoleInput('ADMIN');
     } catch (err: any) {
-      setEmailNotice({ type: 'error', msg: err.message || 'Failed to add admin email.' });
+      setEmailNotice({ type: 'error', msg: err.message || 'Failed to authorize administrator.' });
     } finally {
       setIsAddingEmail(false);
     }
   };
 
-  const handleRemoveEmail = async (emailToRemove: string) => {
-    if (!confirm(`Are you sure you want to revoke admin access for ${emailToRemove}?`)) return;
+  const handleRemoveAdministrator = async (emailToRemove: string) => {
+    if (emailToRemove === 'buildsafe247@gmail.com') {
+      setEmailNotice({ type: 'error', msg: 'The initial Super Admin (buildsafe247@gmail.com) cannot be removed.' });
+      return;
+    }
+    if (!confirm(`Are you sure you want to revoke administrator access for ${emailToRemove}?`)) return;
     setEmailNotice(null);
     try {
-      const updated = await removeAdminEmail(emailToRemove);
-      setAdminEmails(updated);
-      setEmailNotice({ type: 'success', msg: `Admin email '${emailToRemove}' removed.` });
+      const updated = await removeAdministrator(emailToRemove);
+      setAdministrators(updated);
+      setEmailNotice({ type: 'success', msg: `Administrator '${emailToRemove}' access revoked.` });
     } catch (err: any) {
-      setEmailNotice({ type: 'error', msg: err.message || 'Failed to remove admin email.' });
+      setEmailNotice({ type: 'error', msg: err.message || 'Failed to revoke administrator access.' });
+    }
+  };
+
+  const handleToggleRole = async (adminToToggle: AuthorizedAdmin) => {
+    const targetEmail = adminToToggle.email;
+    const newRole: AdminRole = adminToToggle.role === 'SUPER_ADMIN' ? 'ADMIN' : 'SUPER_ADMIN';
+
+    if (targetEmail === 'buildsafe247@gmail.com' && newRole !== 'SUPER_ADMIN') {
+      setEmailNotice({ type: 'error', msg: 'The initial Super Admin must maintain the SUPER_ADMIN role.' });
+      return;
+    }
+
+    setEmailNotice(null);
+    try {
+      const updated = await updateAdministratorRole(targetEmail, newRole);
+      setAdministrators(updated);
+      setEmailNotice({ type: 'success', msg: `Administrator '${targetEmail}' role changed to ${newRole}.` });
+    } catch (err: any) {
+      setEmailNotice({ type: 'error', msg: err.message || 'Failed to update administrator role.' });
     }
   };
 
@@ -1002,17 +1035,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="space-y-6 animate-in fade-in">
             {/* Header / Explanation Card */}
             <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xs space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-black">
-                  <Key className="w-6 h-6" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-black">
+                    <Key className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-neutral-900 dark:text-white">
+                      Admin Role-Based Access Control (RBAC)
+                    </h3>
+                    <p className="text-xs text-neutral-500 font-medium">
+                      Authorized email accounts stored in Firestore collection <code className="bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded font-mono font-bold text-emerald-600 dark:text-emerald-400">authorized_admins</code>.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-black text-neutral-900 dark:text-white">
-                    Admin Access Management
-                  </h3>
-                  <p className="text-xs text-neutral-500 font-medium">
-                    Authorized email addresses stored in Firestore collection <code className="bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded font-mono font-bold text-emerald-600 dark:text-emerald-400">authorized_admins</code> permitted to authenticate via server-validated credentials or passcode.
-                  </p>
+                <div className="text-right">
+                  <span className="text-xs font-black uppercase tracking-wider text-neutral-400 block">Your Role</span>
+                  <span className={`text-xs font-black px-3 py-1 rounded-full ${
+                    currentAdminRole === 'SUPER_ADMIN' 
+                      ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800' 
+                      : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                  }`}>
+                    {currentAdminRole}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1029,71 +1074,109 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
-            {/* Add New Admin Email Form Card */}
-            <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xs space-y-4">
-              <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500">
-                Authorize New Admin Email Address
-              </h4>
-              <form onSubmit={handleAddEmail} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <div className="relative flex-1">
-                  <Mail className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
-                  <input
-                    type="email"
-                    value={newAdminEmailInput}
-                    onChange={(e) => setNewAdminEmailInput(e.target.value)}
-                    placeholder="Enter email address (e.g. buildsafe247@gmail.com)"
-                    required
-                    className="w-full pl-10 pr-4 py-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={isAddingEmail || !newAdminEmailInput.trim()}
-                  className="py-3 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Grant Admin Access</span>
-                </button>
-              </form>
-            </div>
+            {/* Add New Administrator Form Card (SUPER_ADMIN ONLY) */}
+            {currentAdminRole === 'SUPER_ADMIN' ? (
+              <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xs space-y-4">
+                <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500">
+                  Authorize New Administrator Account
+                </h4>
+                <form onSubmit={handleAddAdministrator} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <div className="relative flex-1">
+                    <Mail className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
+                    <input
+                      type="email"
+                      value={newAdminEmailInput}
+                      onChange={(e) => setNewAdminEmailInput(e.target.value)}
+                      placeholder="Enter administrator email (e.g. name@dormiqa.com)"
+                      required
+                      className="w-full pl-10 pr-4 py-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500"
+                    />
+                  </div>
+                  <select
+                    value={newAdminRoleInput}
+                    onChange={(e) => setNewAdminRoleInput(e.target.value as AdminRole)}
+                    className="py-3 px-4 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white text-xs font-bold focus:outline-none"
+                  >
+                    <option value="ADMIN">ADMIN</option>
+                    <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={isAddingEmail || !newAdminEmailInput.trim()}
+                    className="py-3 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Grant Access</span>
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-2xl text-xs text-amber-800 dark:text-amber-300 font-bold flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 shrink-0" />
+                <span>Super Admin privileges are required to add or modify administrator accounts.</span>
+              </div>
+            )}
 
-            {/* List of Authorized Admin Emails */}
+            {/* List of Authorized Administrators */}
             <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500">
-                  Currently Authorized Admin Emails ({adminEmails.length})
+                  Authorized Administrators ({administrators.length})
                 </h4>
                 <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Secure Server Authorization
+                  <ShieldCheck className="w-3.5 h-3.5" /> Firebase Auth + Firestore Sync
                 </span>
               </div>
 
               <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                {adminEmails.map((email) => (
-                  <div key={email} className="py-3.5 flex items-center justify-between gap-4">
+                {administrators.map((admin) => (
+                  <div key={admin.email} className="py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300">
-                        <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                        admin.role === 'SUPER_ADMIN' 
+                          ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400' 
+                          : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
+                      }`}>
+                        <ShieldCheck className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="text-xs font-extrabold text-neutral-900 dark:text-white font-mono">
-                          {email}
-                        </p>
-                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 mt-0.5">
-                          <Check className="w-3 h-3" /> Approved Administrator Account
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-extrabold text-neutral-900 dark:text-white font-mono">
+                            {admin.email}
+                          </p>
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                            admin.role === 'SUPER_ADMIN' 
+                              ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800' 
+                              : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                          }`}>
+                            {admin.role}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-neutral-400 font-medium flex items-center gap-1 mt-0.5">
+                          Added by {admin.addedBy} • Active
                         </p>
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveEmail(email)}
-                      disabled={adminEmails.length <= 1}
-                      title={adminEmails.length <= 1 ? "Cannot remove the only remaining admin email" : "Revoke access"}
-                      className="p-2 rounded-xl text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {currentAdminRole === 'SUPER_ADMIN' && admin.email !== 'buildsafe247@gmail.com' && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleRole(admin)}
+                          className="px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 font-extrabold text-[11px] hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                        >
+                          Switch to {admin.role === 'SUPER_ADMIN' ? 'ADMIN' : 'SUPER_ADMIN'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAdministrator(admin.email)}
+                          title="Revoke access"
+                          className="p-2 rounded-xl text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

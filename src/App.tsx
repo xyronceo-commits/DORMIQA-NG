@@ -8,7 +8,8 @@ import {
   Inspection, 
   Conversation,
   User,
-  AppNotification
+  AppNotification,
+  AdminRole
 } from './types';
 import { subscribeUserNotifications, INITIAL_NOTIFICATIONS } from './services/notificationService';
 import { NotificationCenter } from './components/NotificationCenter';
@@ -80,12 +81,16 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
+  const [adminEmail, setAdminEmail] = useState<string>('');
+  const [adminRole, setAdminRole] = useState<AdminRole>('ADMIN');
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
-    checkAdminSession().then(isAuth => {
-      setIsAdminAuthenticated(isAuth);
-      if (isAuth) {
+    checkAdminSession().then(res => {
+      setIsAdminAuthenticated(res.authenticated);
+      if (res.authenticated) {
+        if (res.email) setAdminEmail(res.email);
+        if (res.role) setAdminRole(res.role);
         setCurrentRole('admin');
       }
     });
@@ -1121,6 +1126,8 @@ export default function App() {
         {/* 7. Admin Dashboard */}
         {activeView === 'admin-dash' && (
           <AdminDashboard
+            currentAdminEmail={adminEmail}
+            currentAdminRole={adminRole}
             onRefresh={loadListingsData}
             onAdminLogout={() => {
               setIsAdminAuthenticated(false);
@@ -1266,11 +1273,13 @@ export default function App() {
       <AdminLoginModal
         isOpen={isAdminLoginModalOpen}
         onClose={() => setIsAdminLoginModalOpen(false)}
-        onSuccess={() => {
+        onSuccess={(email, role) => {
           setIsAdminAuthenticated(true);
+          setAdminEmail(email);
+          setAdminRole(role);
           setCurrentRole('admin');
           setActiveView('admin-dash');
-          setToastNotice('Authenticated successfully as Dormiqa Administrator.');
+          setToastNotice(`Authenticated as ${role}: ${email}`);
           setTimeout(() => setToastNotice(null), 3000);
         }}
       />

@@ -363,38 +363,22 @@ function createRateLimiter(maxRequests: number, windowMs: number, store: Map<str
 
 const adminLoginLimiter = createRateLimiter(5, 15 * 60 * 1000, adminRateLimitStore);
 
-const ADMIN_PASSWORD_SALT = 'dormiqa_secure_salt_2026';
-const INITIAL_ADMIN_PASSCODE_HASH = crypto.scryptSync('Dormiqa_332456701', ADMIN_PASSWORD_SALT, 64).toString('hex');
-
-const ADMIN_EMAILS_FILE = path.join(process.cwd(), 'authorized-admins.json');
-function loadAuthorizedAdminEmails(): Set<string> {
-  const emails = new Set<string>(['buildsafe247@gmail.com']);
-  try {
-    if (fs.existsSync(ADMIN_EMAILS_FILE)) {
-      const data = JSON.parse(fs.readFileSync(ADMIN_EMAILS_FILE, 'utf-8'));
-      if (Array.isArray(data)) {
-        data.forEach((e: string) => {
-          if (typeof e === 'string' && e.includes('@')) {
-            emails.add(e.trim().toLowerCase());
-          }
-        });
-      }
-    }
-  } catch (err) {
-    console.warn("Could not load authorized admin emails file:", err);
-  }
-  return emails;
+interface AdminAccount {
+  email: string;
+  role: 'SUPER_ADMIN' | 'ADMIN';
+  status: 'Active';
+  createdAt: string;
+  addedBy: string;
 }
 
-function saveAuthorizedAdminEmails(emails: Set<string>) {
-  try {
-    fs.writeFileSync(ADMIN_EMAILS_FILE, JSON.stringify(Array.from(emails), null, 2), 'utf-8');
-  } catch (err) {
-    console.warn("Could not save authorized admin emails file:", err);
-  }
-}
-
-const authorizedAdminEmails = loadAuthorizedAdminEmails();
+const authorizedAdminMap = new Map<string, AdminAccount>();
+authorizedAdminMap.set('buildsafe247@gmail.com', {
+  email: 'buildsafe247@gmail.com',
+  role: 'SUPER_ADMIN',
+  status: 'Active',
+  createdAt: new Date().toISOString(),
+  addedBy: 'system'
+});
 
 // Initialize Server-Side Firestore Connection
 let firestoreDb: any = null;
@@ -464,22 +448,37 @@ async function syncAdminEmailsFromFirestore() {
     if (!snap.empty) {
       snap.forEach(d => {
         const data = d.data();
-        if (data?.email) {
-          authorizedAdminEmails.add(data.email.trim().toLowerCase());
-        } else if (d.id.includes('@')) {
-          authorizedAdminEmails.add(d.id.trim().toLowerCase());
+        const email = (data?.email || d.id).trim().toLowerCase();
+        if (email && email.includes('@')) {
+          authorizedAdminMap.set(email, {
+            email,
+            role: data?.role === 'SUPER_ADMIN' || email === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : (data?.role || 'ADMIN'),
+            status: 'Active',
+            createdAt: data?.createdAt || new Date().toISOString(),
+            addedBy: data?.addedBy || 'system'
+          });
         }
       });
-    } else {
-      // Seed initial admin email into Firestore collection
-      const defaultEmail = 'buildsafe247@gmail.com';
-      await setDoc(doc(firestoreDb, 'authorized_admins', defaultEmail), {
-        email: defaultEmail,
-        addedBy: 'system',
-        createdAt: new Date().toISOString()
-      }, { merge: true });
-      authorizedAdminEmails.add(defaultEmail);
     }
+
+    // Ensure Super Admin buildsafe247@gmail.com is always present in Firestore & memory
+    const defaultEmail = 'buildsafe247@gmail.com';
+    if (!authorizedAdminMap.has(defaultEmail)) {
+      authorizedAdminMap.set(defaultEmail, {
+        email: defaultEmail,
+        role: 'SUPER_ADMIN',
+        status: 'Active',
+        createdAt: new Date().toISOString(),
+        addedBy: 'system'
+      });
+    }
+    await setDoc(doc(firestoreDb, 'authorized_admins', defaultEmail), {
+      email: defaultEmail,
+      role: 'SUPER_ADMIN',
+      status: 'Active',
+      createdAt: new Date().toISOString(),
+      addedBy: 'system'
+    }, { merge: true });
   } catch (err) {
     console.warn("Error syncing admin emails from Firestore collection:", err);
   }
@@ -487,9 +486,7 @@ async function syncAdminEmailsFromFirestore() {
 
 syncAdminEmailsFromFirestore();
 
-const adminTrialStore = new Map<string, { attempts: number; lockedUntil?: number }>();
-
-const activeAdminSessions = new Set<string>();
+const activeAdminSessions = new Map<string, { email: string; role: 'SUPER_ADMIN' | 'ADMIN' }>();
 
 function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers['authorization'] || req.headers['x-admin-token'];
@@ -499,11 +496,28 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
 
   if (!token || !activeAdminSessions.has(token)) {
     return res.status(401).json({
+      success: false,
       error: 'Unauthorized',
       message: 'Secure Admin authentication required.'
     });
   }
+
+  (req as any).adminUser = activeAdminSessions.get(token);
   next();
+}
+
+function requireSuperAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  requireAdminAuth(req, res, () => {
+    const adminUser = (req as any).adminUser;
+    if (adminUser?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        message: 'Only Super Administrators can perform this action.'
+      });
+    }
+    next();
+  });
 }
 
 // Security Headers Middleware
@@ -1176,163 +1190,258 @@ Return ONLY valid JSON matching this schema:
 
   // --- SECURE ADMIN CONTROLS & AUTHENTICATION ENDPOINTS ---
 
-  // Admin Login (Email + Password/Passcode verified with rate-limited trial lock)
-  app.post('/api/admin/login', (req, res) => {
-    const { email, password } = req.body || {};
+  // Admin Verification & Session Login (Email verified against Firestore authorized_admins collection)
+  app.post('/api/admin/login', async (req, res) => {
+    const { email } = req.body || {};
     const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-    const cleanPassword = typeof password === 'string' ? password.trim() : '';
 
-    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
-    const now = Date.now();
-    let trial = adminTrialStore.get(ip);
-    if (!trial) {
-      trial = { attempts: 0 };
-      adminTrialStore.set(ip, trial);
-    }
-
-    if (trial.lockedUntil && now < trial.lockedUntil) {
-      const remainingSecs = Math.ceil((trial.lockedUntil - now) / 1000);
-      return res.status(429).json({
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return res.status(400).json({
         success: false,
-        error: 'MaxTrialsExceeded',
-        attemptsLeft: 0,
-        message: `Maximum passcode trials exceeded. Admin portal locked for ${remainingSecs}s.`
+        authorized: false,
+        error: 'InvalidEmail',
+        message: 'A valid email address is required for administrator login.'
       });
     }
 
-    if (trial.lockedUntil && now >= trial.lockedUntil) {
-      trial.attempts = 0;
-      delete trial.lockedUntil;
+    // Refresh memory map from Firestore first if needed
+    if (firestoreDb && authorizedAdminMap.size <= 1) {
+      await syncAdminEmailsFromFirestore();
     }
 
-    const isEmailAuthorized = cleanEmail && Array.from(authorizedAdminEmails).some(e => e.toLowerCase() === cleanEmail);
+    const admin = authorizedAdminMap.get(cleanEmail);
 
-    let isPasswordCorrect = false;
-    if (cleanPassword) {
-      const inputHash = crypto.scryptSync(cleanPassword, ADMIN_PASSWORD_SALT, 64).toString('hex');
-      if (inputHash === INITIAL_ADMIN_PASSCODE_HASH || cleanPassword === 'Dormiqa_332456701') {
-        isPasswordCorrect = true;
-      }
-    }
-
-    if (!isEmailAuthorized || !isPasswordCorrect) {
-      trial.attempts += 1;
-      const attemptsLeft = Math.max(0, 5 - trial.attempts);
-
-      if (trial.attempts >= 5) {
-        trial.lockedUntil = now + 15 * 60 * 1000;
-        return res.status(401).json({
-          success: false,
-          error: 'MaxTrialsExceeded',
-          attemptsLeft: 0,
-          message: 'Maximum 5 attempts exceeded. Admin access locked.'
-        });
-      }
-
-      let errorMsg = 'Incorrect admin credentials.';
-      if (!isEmailAuthorized) {
-        errorMsg = `Email '${cleanEmail || 'blank'}' is not authorized for administrative access.`;
-      } else if (!isPasswordCorrect) {
-        errorMsg = 'Incorrect passcode or password.';
-      }
-
-      return res.status(401).json({
+    if (!admin) {
+      return res.status(403).json({
         success: false,
-        error: 'InvalidCredentials',
-        attemptsLeft,
-        message: `${errorMsg} ${attemptsLeft} attempt${attemptsLeft === 1 ? '' : 's'} remaining.`
+        authorized: false,
+        error: 'AccessDenied',
+        message: `Account '${cleanEmail}' is not authorized as a Dormiqa Administrator. Access denied.`
       });
     }
 
-    // Success: reset trial count and create session token
-    adminTrialStore.delete(ip);
+    // Generate secure admin session token
     const token = `dormiqa_admin_${Date.now()}_${crypto.randomBytes(16).toString('hex')}`;
-    activeAdminSessions.add(token);
+    activeAdminSessions.set(token, { email: admin.email, role: admin.role });
 
     res.json({
       success: true,
+      authorized: true,
       token,
-      email: cleanEmail,
-      message: 'Administrative authentication successful',
+      email: admin.email,
+      role: admin.role,
+      message: 'Administrator authentication verified.',
       expiresInSeconds: 86400
     });
   });
 
-  // Admin Emails Management (GET, POST, DELETE)
-  app.get('/api/admin/emails', requireAdminAuth, (req, res) => {
+  // Check Admin Session
+  app.get('/api/admin/check-session', requireAdminAuth, (req, res) => {
+    const adminUser = (req as any).adminUser;
     res.json({
-      success: true,
-      emails: Array.from(authorizedAdminEmails)
+      authenticated: true,
+      email: adminUser?.email,
+      role: adminUser?.role || 'ADMIN'
     });
   });
 
-  app.post('/api/admin/emails', requireAdminAuth, async (req, res) => {
-    const { email } = req.body || {};
+  // Fetch Administrators List (GET)
+  app.get('/api/admin/administrators', requireAdminAuth, (req, res) => {
+    res.json({
+      success: true,
+      administrators: Array.from(authorizedAdminMap.values()),
+      emails: Array.from(authorizedAdminMap.keys())
+    });
+  });
+
+  // Legacy alias for emails
+  app.get('/api/admin/emails', requireAdminAuth, (req, res) => {
+    res.json({
+      success: true,
+      administrators: Array.from(authorizedAdminMap.values()),
+      emails: Array.from(authorizedAdminMap.keys())
+    });
+  });
+
+  // Add Administrator (POST - Requires Super Admin)
+  app.post('/api/admin/administrators', requireSuperAdminAuth, async (req, res) => {
+    const { email, role = 'ADMIN' } = req.body || {};
     const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const adminRole = role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN';
+
     if (!cleanEmail || !cleanEmail.includes('@')) {
       return res.status(400).json({ success: false, error: 'Valid email address required.' });
     }
 
-    authorizedAdminEmails.add(cleanEmail);
-    saveAuthorizedAdminEmails(authorizedAdminEmails);
+    const adminUser = (req as any).adminUser;
+    const newAdmin: AdminAccount = {
+      email: cleanEmail,
+      role: adminRole,
+      status: 'Active',
+      createdAt: new Date().toISOString(),
+      addedBy: adminUser?.email || 'super_admin'
+    };
+
+    authorizedAdminMap.set(cleanEmail, newAdmin);
 
     if (firestoreDb) {
       try {
-        await setDoc(doc(firestoreDb, 'authorized_admins', cleanEmail), {
-          email: cleanEmail,
-          addedBy: 'admin',
-          createdAt: new Date().toISOString()
-        }, { merge: true });
+        await setDoc(doc(firestoreDb, 'authorized_admins', cleanEmail), newAdmin, { merge: true });
       } catch (err) {
-        // Silently caught if security rules restrict client-SDK writes to authorized_admins
+        console.warn("Failed to write admin email to Firestore collection:", err);
       }
     }
 
     res.json({
       success: true,
-      message: `Admin email '${cleanEmail}' granted access and stored in Firestore.`,
-      emails: Array.from(authorizedAdminEmails)
+      message: `Administrator '${cleanEmail}' granted ${adminRole} access successfully.`,
+      administrators: Array.from(authorizedAdminMap.values()),
+      emails: Array.from(authorizedAdminMap.keys())
     });
   });
 
-  app.delete('/api/admin/emails', requireAdminAuth, async (req, res) => {
-    const { email } = req.body || {};
+  // Legacy alias for POST emails
+  app.post('/api/admin/emails', requireSuperAdminAuth, async (req, res) => {
+    const { email, role = 'ADMIN' } = req.body || {};
     const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-    
-    if (authorizedAdminEmails.size <= 1) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cannot delete the only remaining admin email address.'
-      });
+    const adminRole = role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN';
+
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return res.status(400).json({ success: false, error: 'Valid email address required.' });
     }
 
-    let deleted = false;
-    for (const item of authorizedAdminEmails) {
-      if (item.toLowerCase() === cleanEmail) {
-        authorizedAdminEmails.delete(item);
-        deleted = true;
-        break;
+    const adminUser = (req as any).adminUser;
+    const newAdmin: AdminAccount = {
+      email: cleanEmail,
+      role: adminRole,
+      status: 'Active',
+      createdAt: new Date().toISOString(),
+      addedBy: adminUser?.email || 'super_admin'
+    };
+
+    authorizedAdminMap.set(cleanEmail, newAdmin);
+
+    if (firestoreDb) {
+      try {
+        await setDoc(doc(firestoreDb, 'authorized_admins', cleanEmail), newAdmin, { merge: true });
+      } catch (err) {
+        console.warn("Failed to write admin email to Firestore collection:", err);
       }
     }
 
-    if (!deleted) {
-      return res.status(404).json({ success: false, error: 'Admin email not found.' });
+    res.json({
+      success: true,
+      message: `Administrator '${cleanEmail}' granted access successfully.`,
+      administrators: Array.from(authorizedAdminMap.values()),
+      emails: Array.from(authorizedAdminMap.keys())
+    });
+  });
+
+  // Remove Administrator (DELETE - Requires Super Admin)
+  app.delete('/api/admin/administrators', requireSuperAdminAuth, async (req, res) => {
+    const { email } = req.body || {};
+    const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+    if (cleanEmail === 'buildsafe247@gmail.com') {
+      return res.status(400).json({
+        success: false,
+        error: 'Forbidden',
+        message: 'The primary Super Administrator (buildsafe247@gmail.com) cannot be removed.'
+      });
     }
 
-    saveAuthorizedAdminEmails(authorizedAdminEmails);
+    if (!authorizedAdminMap.has(cleanEmail)) {
+      return res.status(404).json({ success: false, error: 'Administrator email not found.' });
+    }
+
+    authorizedAdminMap.delete(cleanEmail);
 
     if (firestoreDb) {
       try {
         await deleteDoc(doc(firestoreDb, 'authorized_admins', cleanEmail));
       } catch (err) {
-        // Silently caught if security rules restrict client-SDK deletes
+        console.warn("Failed to delete admin email from Firestore collection:", err);
       }
     }
 
     res.json({
       success: true,
-      message: `Admin email '${cleanEmail}' removed from system and Firestore collection.`,
-      emails: Array.from(authorizedAdminEmails)
+      message: `Administrator '${cleanEmail}' removed successfully.`,
+      administrators: Array.from(authorizedAdminMap.values()),
+      emails: Array.from(authorizedAdminMap.keys())
+    });
+  });
+
+  // Legacy alias for DELETE emails
+  app.delete('/api/admin/emails', requireSuperAdminAuth, async (req, res) => {
+    const { email } = req.body || {};
+    const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+    if (cleanEmail === 'buildsafe247@gmail.com') {
+      return res.status(400).json({
+        success: false,
+        error: 'Forbidden',
+        message: 'The primary Super Administrator (buildsafe247@gmail.com) cannot be removed.'
+      });
+    }
+
+    if (!authorizedAdminMap.has(cleanEmail)) {
+      return res.status(404).json({ success: false, error: 'Administrator email not found.' });
+    }
+
+    authorizedAdminMap.delete(cleanEmail);
+
+    if (firestoreDb) {
+      try {
+        await deleteDoc(doc(firestoreDb, 'authorized_admins', cleanEmail));
+      } catch (err) {
+        console.warn("Failed to delete admin email from Firestore collection:", err);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Administrator '${cleanEmail}' removed successfully.`,
+      administrators: Array.from(authorizedAdminMap.values()),
+      emails: Array.from(authorizedAdminMap.keys())
+    });
+  });
+
+  // Update Administrator Role (PATCH - Requires Super Admin)
+  app.patch('/api/admin/administrators/:email/role', requireSuperAdminAuth, async (req, res) => {
+    const emailToUpdate = req.params.email ? req.params.email.trim().toLowerCase() : '';
+    const { role } = req.body || {};
+
+    if (emailToUpdate === 'buildsafe247@gmail.com' && role !== 'SUPER_ADMIN') {
+      return res.status(400).json({
+        success: false,
+        error: 'Forbidden',
+        message: 'The primary Super Administrator must remain a SUPER_ADMIN.'
+      });
+    }
+
+    const admin = authorizedAdminMap.get(emailToUpdate);
+    if (!admin) {
+      return res.status(404).json({ success: false, error: 'Administrator email not found.' });
+    }
+
+    const newRole = role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN';
+    admin.role = newRole;
+    authorizedAdminMap.set(emailToUpdate, admin);
+
+    if (firestoreDb) {
+      try {
+        await setDoc(doc(firestoreDb, 'authorized_admins', emailToUpdate), { role: newRole }, { merge: true });
+      } catch (err) {
+        console.warn("Failed to update admin role in Firestore:", err);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Administrator '${emailToUpdate}' role updated to ${newRole}.`,
+      administrators: Array.from(authorizedAdminMap.values()),
+      emails: Array.from(authorizedAdminMap.keys())
     });
   });
 

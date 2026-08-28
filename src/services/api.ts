@@ -1,4 +1,4 @@
-import { Listing, University, Inspection, Conversation, ChatMessage, Report, User } from '../types';
+import { Listing, University, Inspection, Conversation, ChatMessage, Report, User, AuthorizedAdmin, AdminRole } from '../types';
 
 const API_BASE = '/api';
 
@@ -364,15 +364,12 @@ function getAdminAuthHeaders() {
   };
 }
 
-export async function adminLogin(emailOrPassword: string, pass?: string): Promise<{ success: boolean; token?: string; message?: string; attemptsLeft?: number }> {
-  const email = pass ? emailOrPassword : 'buildsafe247@gmail.com';
-  const password = pass ? pass : emailOrPassword;
-
+export async function adminLogin(email: string): Promise<{ success: boolean; authorized?: boolean; token?: string; email?: string; role?: AdminRole; message?: string }> {
   try {
-    const data = await safeFetchJson<{ success: boolean; token?: string; message?: string; attemptsLeft?: number; error?: string }>(`${API_BASE}/admin/login`, {
+    const data = await safeFetchJson<{ success: boolean; authorized?: boolean; token?: string; email?: string; role?: AdminRole; message?: string }>(`${API_BASE}/admin/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.trim(), password: password.trim() })
+      body: JSON.stringify({ email: email.trim().toLowerCase() })
     });
 
     if (data.success && data.token) {
@@ -382,41 +379,71 @@ export async function adminLogin(emailOrPassword: string, pass?: string): Promis
   } catch (err: any) {
     return {
       success: false,
-      message: err.message || 'Authentication request failed. Please check backend connection.'
+      message: err.message || 'Authentication request failed. Please check connection.'
     };
+  }
+}
+
+export async function fetchAdministrators(): Promise<AuthorizedAdmin[]> {
+  try {
+    const data = await safeFetchJson<{ success: boolean; administrators: AuthorizedAdmin[] }>(`${API_BASE}/admin/administrators`, {
+      headers: getAdminAuthHeaders()
+    });
+    return data.administrators || [];
+  } catch (err) {
+    console.warn("Backend fetchAdministrators error:", err);
+    return [];
   }
 }
 
 export async function fetchAdminEmails(): Promise<string[]> {
   try {
-    const data = await safeFetchJson<{ success: boolean; emails: string[] }>(`${API_BASE}/admin/emails`, {
-      headers: getAdminAuthHeaders()
-    });
-    return data.emails || [];
+    const admins = await fetchAdministrators();
+    return admins.map(a => a.email);
   } catch (err) {
     console.warn("Backend fetchAdminEmails error:", err);
     return ['buildsafe247@gmail.com'];
   }
 }
 
-export async function addAdminEmail(email: string): Promise<string[]> {
+export async function addAdministrator(email: string, role: AdminRole = 'ADMIN'): Promise<AuthorizedAdmin[]> {
   const cleanEmail = email.trim().toLowerCase();
-  const data = await safeFetchJson<{ success: boolean; emails: string[]; message?: string }>(`${API_BASE}/admin/emails`, {
+  const data = await safeFetchJson<{ success: boolean; administrators: AuthorizedAdmin[]; message?: string }>(`${API_BASE}/admin/administrators`, {
     method: 'POST',
     headers: getAdminAuthHeaders(),
-    body: JSON.stringify({ email: cleanEmail })
+    body: JSON.stringify({ email: cleanEmail, role })
   });
-  return data.emails || [];
+  return data.administrators || [];
 }
 
-export async function removeAdminEmail(email: string): Promise<string[]> {
+export async function addAdminEmail(email: string): Promise<string[]> {
+  const list = await addAdministrator(email, 'ADMIN');
+  return list.map(a => a.email);
+}
+
+export async function removeAdministrator(email: string): Promise<AuthorizedAdmin[]> {
   const cleanEmail = email.trim().toLowerCase();
-  const data = await safeFetchJson<{ success: boolean; emails: string[]; message?: string }>(`${API_BASE}/admin/emails`, {
+  const data = await safeFetchJson<{ success: boolean; administrators: AuthorizedAdmin[]; message?: string }>(`${API_BASE}/admin/administrators`, {
     method: 'DELETE',
     headers: getAdminAuthHeaders(),
     body: JSON.stringify({ email: cleanEmail })
   });
-  return data.emails || [];
+  return data.administrators || [];
+}
+
+export async function removeAdminEmail(email: string): Promise<string[]> {
+  const list = await removeAdministrator(email);
+  return list.map(a => a.email);
+}
+
+export async function updateAdministratorRole(email: string, role: AdminRole): Promise<AuthorizedAdmin[]> {
+  const cleanEmail = email.trim().toLowerCase();
+  const data = await safeFetchJson<{ success: boolean; administrators: AuthorizedAdmin[]; message?: string }>(`${API_BASE}/admin/administrators/${encodeURIComponent(cleanEmail)}/role`, {
+    method: 'PATCH',
+    headers: getAdminAuthHeaders(),
+    body: JSON.stringify({ role })
+  });
+  return data.administrators || [];
 }
 
 export async function adminLogout(): Promise<void> {
@@ -430,16 +457,20 @@ export async function adminLogout(): Promise<void> {
   clearAdminToken();
 }
 
-export async function checkAdminSession(): Promise<boolean> {
+export async function checkAdminSession(): Promise<{ authenticated: boolean; email?: string; role?: AdminRole }> {
   const token = getAdminToken();
-  if (!token) return false;
+  if (!token) return { authenticated: false };
   try {
-    const data = await safeFetchJson<{ authenticated: boolean }>(`${API_BASE}/admin/check-session`, {
+    const data = await safeFetchJson<{ authenticated: boolean; email?: string; role?: AdminRole }>(`${API_BASE}/admin/check-session`, {
       headers: getAdminAuthHeaders()
     });
-    return Boolean(data.authenticated);
+    return {
+      authenticated: Boolean(data.authenticated),
+      email: data.email,
+      role: data.role || 'ADMIN'
+    };
   } catch {
-    return false;
+    return { authenticated: false };
   }
 }
 
