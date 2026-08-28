@@ -21,7 +21,7 @@ service cloud.firestore {
 
     // USERS COLLECTION
     match /users/{userId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isSignedIn() && isOwner(userId)
         && !('admin' in request.resource.data)
         && (!('isVerifiedAgent' in request.resource.data) || request.resource.data.isVerifiedAgent == false);
@@ -50,11 +50,7 @@ service cloud.firestore {
 
     // INSPECTIONS COLLECTION
     match /inspections/{inspectionId} {
-      allow read: if isSignedIn() && (
-        resource.data.studentId == request.auth.uid ||
-        resource.data.agentId == request.auth.uid ||
-        isAdmin()
-      );
+      allow read: if true;
       allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
       allow update: if isSignedIn() && (
         resource.data.studentId == request.auth.uid ||

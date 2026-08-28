@@ -2,9 +2,86 @@ import { Listing, University, Inspection, Conversation, ChatMessage, Report, Use
 
 const API_BASE = '/api';
 
+export interface SafeParseResult<T = any> {
+  ok: boolean;
+  status: number;
+  data?: T;
+  error?: string;
+  rawText?: string;
+}
+
 /**
- * Robust, safe JSON response parser.
- * Prevents 'Unexpected end of JSON input' or HTML error page crash.
+ * Safely parses a Response object, verifying content-type header and JSON validity.
+ * Returns a structured SafeParseResult object containing ok status, data or error message.
+ */
+export async function safeParseResponse<T = any>(res: Response): Promise<SafeParseResult<T>> {
+  const contentType = res.headers.get('content-type') || '';
+  let text = '';
+  try {
+    text = await res.text();
+  } catch (err: any) {
+    return {
+      ok: false,
+      status: res.status,
+      error: `Failed to read response body: ${err.message || 'Stream read error'}`
+    };
+  }
+
+  if (!text || text.trim() === '') {
+    if (!res.ok) {
+      return {
+        ok: false,
+        status: res.status,
+        error: `Server returned HTTP ${res.status}: ${res.statusText || 'Empty response'}`
+      };
+    }
+    return {
+      ok: true,
+      status: res.status,
+      data: {} as T
+    };
+  }
+
+  const isJsonLike = contentType.includes('application/json') || text.trim().startsWith('{') || text.trim().startsWith('[');
+
+  if (!isJsonLike) {
+    return {
+      ok: false,
+      status: res.status,
+      rawText: text,
+      error: res.ok
+        ? 'Unexpected non-JSON response format from server.'
+        : `Server error (${res.status}): ${text.slice(0, 150)}`
+    };
+  }
+
+  try {
+    const data = JSON.parse(text);
+    if (!res.ok) {
+      return {
+        ok: false,
+        status: res.status,
+        data,
+        error: data.error || data.message || `Server returned error (${res.status})`
+      };
+    }
+    return {
+      ok: true,
+      status: res.status,
+      data: data as T
+    };
+  } catch (parseErr: any) {
+    return {
+      ok: false,
+      status: res.status,
+      rawText: text,
+      error: `Invalid JSON response: ${parseErr.message}`
+    };
+  }
+}
+
+/**
+ * Robust, safe JSON fetch wrapper using safeParseResponse.
  */
 export async function safeFetchJson<T = any>(url: string, options?: RequestInit): Promise<T> {
   let res: Response;
@@ -14,38 +91,11 @@ export async function safeFetchJson<T = any>(url: string, options?: RequestInit)
     throw new Error(`Network connection error: ${err.message || 'Unable to connect to server'}`);
   }
 
-  const contentType = res.headers.get('content-type') || '';
-  const text = await res.text();
-
-  if (!text || text.trim() === '') {
-    if (!res.ok) {
-      throw new Error(`Server returned error (${res.status}): ${res.statusText || 'No response body'}`);
-    }
-    return {} as T;
+  const parsed = await safeParseResponse<T>(res);
+  if (!parsed.ok) {
+    throw new Error(parsed.error || `Server request failed with status ${res.status}`);
   }
-
-  const isJsonLike = contentType.includes('application/json') || text.trim().startsWith('{') || text.trim().startsWith('[');
-
-  if (isJsonLike) {
-    try {
-      const data = JSON.parse(text);
-      if (!res.ok) {
-        throw new Error(data.error || data.message || `Server error (${res.status})`);
-      }
-      return data as T;
-    } catch (parseErr: any) {
-      if (!res.ok) {
-        throw new Error(`Server returned error (${res.status}): ${text.slice(0, 150)}`);
-      }
-      throw new Error(`Invalid JSON response: ${parseErr.message}`);
-    }
-  }
-
-  if (!res.ok) {
-    throw new Error(`Server error (${res.status}): ${text.slice(0, 150)}`);
-  }
-
-  throw new Error(`Unexpected non-JSON response format from server.`);
+  return parsed.data as T;
 }
 
 export async function fetchUniversities(): Promise<University[]> {
@@ -67,8 +117,11 @@ export async function fetchListings(params: Record<string, any> = {}): Promise<L
       }
     });
     const res = await fetch(`${API_BASE}/listings?${query.toString()}`);
-    if (!res.ok) throw new Error('Failed to fetch listings');
-    return await res.json();
+    const parsed = await safeParseResponse<Listing[]>(res);
+    if (!parsed.ok || !parsed.data) {
+      throw new Error(parsed.error || 'Failed to fetch listings');
+    }
+    return parsed.data;
   } catch (err) {
     console.warn('API error, using fallback data:', err);
     const { MOCK_LISTINGS } = await import('../data/mockData');
@@ -84,8 +137,9 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
   let apiFailed = false;
   try {
     const res = await fetch(`${API_BASE}/listings/${encodeURIComponent(cleanId)}`);
-    if (res.ok) {
-      return await res.json();
+    const parsed = await safeParseResponse<Listing>(res);
+    if (parsed.ok && parsed.data) {
+      return parsed.data;
     }
     if (res.status === 404) {
       apiFailed = true;
@@ -118,8 +172,11 @@ export async function createListing(listingData: Partial<Listing>): Promise<List
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(listingData)
   });
-  if (!res.ok) throw new Error('Failed to create listing');
-  return await res.json();
+  const parsed = await safeParseResponse<Listing>(res);
+  if (!parsed.ok || !parsed.data) {
+    throw new Error(parsed.error || 'Failed to create listing');
+  }
+  return parsed.data;
 }
 
 export async function updateListingStatusAndSales(
@@ -143,8 +200,11 @@ export async function updateListingStatusAndSales(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updateData)
   });
-  if (!res.ok) throw new Error('Failed to update listing unit status and sales info');
-  return await res.json();
+  const parsed = await safeParseResponse<Listing>(res);
+  if (!parsed.ok || !parsed.data) {
+    throw new Error(parsed.error || 'Failed to update listing unit status and sales info');
+  }
+  return parsed.data;
 }
 
 export async function submitListingReview(
@@ -156,8 +216,11 @@ export async function submitListingReview(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(reviewData)
   });
-  if (!res.ok) throw new Error('Failed to submit review');
-  return await res.json();
+  const parsed = await safeParseResponse<Listing>(res);
+  if (!parsed.ok || !parsed.data) {
+    throw new Error(parsed.error || 'Failed to submit review');
+  }
+  return parsed.data;
 }
 
 export async function bookInspection(data: Partial<Inspection>): Promise<Inspection> {
@@ -166,16 +229,20 @@ export async function bookInspection(data: Partial<Inspection>): Promise<Inspect
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   });
-  if (!res.ok) throw new Error('Failed to book inspection');
-  return await res.json();
+  const parsed = await safeParseResponse<Inspection>(res);
+  if (!parsed.ok || !parsed.data) {
+    throw new Error(parsed.error || 'Failed to book inspection');
+  }
+  return parsed.data;
 }
 
 export async function fetchInspections(query: { studentId?: string; agentId?: string } = {}): Promise<Inspection[]> {
   try {
     const params = new URLSearchParams(query as any);
     const res = await fetch(`${API_BASE}/inspections?${params.toString()}`);
-    if (!res.ok) throw new Error('Failed to fetch inspections');
-    return await res.json();
+    const parsed = await safeParseResponse<Inspection[]>(res);
+    if (!parsed.ok || !parsed.data) throw new Error(parsed.error || 'Failed to fetch inspections');
+    return parsed.data;
   } catch (err) {
     const { MOCK_INSPECTIONS } = await import('../data/mockData');
     return MOCK_INSPECTIONS;
@@ -188,15 +255,17 @@ export async function updateInspectionStatus(id: string, status: string): Promis
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status })
   });
-  if (!res.ok) throw new Error('Failed to update inspection status');
-  return await res.json();
+  const parsed = await safeParseResponse<Inspection>(res);
+  if (!parsed.ok || !parsed.data) throw new Error(parsed.error || 'Failed to update inspection status');
+  return parsed.data;
 }
 
 export async function fetchConversations(userId: string): Promise<Conversation[]> {
   try {
     const res = await fetch(`${API_BASE}/conversations?userId=${userId}`);
-    if (!res.ok) throw new Error('Failed to fetch conversations');
-    return await res.json();
+    const parsed = await safeParseResponse<Conversation[]>(res);
+    if (!parsed.ok || !parsed.data) throw new Error(parsed.error || 'Failed to fetch conversations');
+    return parsed.data;
   } catch (err) {
     const { MOCK_CONVERSATIONS } = await import('../data/mockData');
     return MOCK_CONVERSATIONS;
@@ -215,15 +284,17 @@ export async function startConversation(data: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   });
-  if (!res.ok) throw new Error('Failed to start conversation');
-  return await res.json();
+  const parsed = await safeParseResponse<Conversation>(res);
+  if (!parsed.ok || !parsed.data) throw new Error(parsed.error || 'Failed to start conversation');
+  return parsed.data;
 }
 
 export async function fetchMessages(conversationId: string): Promise<ChatMessage[]> {
   try {
     const res = await fetch(`${API_BASE}/conversations/${conversationId}/messages`);
-    if (!res.ok) throw new Error('Failed to fetch messages');
-    return await res.json();
+    const parsed = await safeParseResponse<ChatMessage[]>(res);
+    if (!parsed.ok || !parsed.data) throw new Error(parsed.error || 'Failed to fetch messages');
+    return parsed.data;
   } catch (err) {
     const { MOCK_CHAT_MESSAGES } = await import('../data/mockData');
     return MOCK_CHAT_MESSAGES.filter(m => m.conversationId === conversationId);
@@ -236,8 +307,9 @@ export async function sendMessage(conversationId: string, data: { senderId: stri
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   });
-  if (!res.ok) throw new Error('Failed to send message');
-  return await res.json();
+  const parsed = await safeParseResponse<ChatMessage>(res);
+  if (!parsed.ok || !parsed.data) throw new Error(parsed.error || 'Failed to send message');
+  return parsed.data;
 }
 
 export async function submitReport(data: Partial<Report>): Promise<Report> {
@@ -246,8 +318,9 @@ export async function submitReport(data: Partial<Report>): Promise<Report> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   });
-  if (!res.ok) throw new Error('Failed to submit report');
-  return await res.json();
+  const parsed = await safeParseResponse<Report>(res);
+  if (!parsed.ok || !parsed.data) throw new Error(parsed.error || 'Failed to submit report');
+  return parsed.data;
 }
 
 export function getAdminToken(): string | null {
@@ -419,8 +492,9 @@ export async function fetchAdminAnalytics() {
 export async function fetchReports(): Promise<Report[]> {
   try {
     const res = await fetch(`${API_BASE}/reports`);
-    if (!res.ok) throw new Error('Failed to fetch reports');
-    return await res.json();
+    const parsed = await safeParseResponse<Report[]>(res);
+    if (!parsed.ok || !parsed.data) throw new Error(parsed.error || 'Failed to fetch reports');
+    return parsed.data;
   } catch (err) {
     const { MOCK_REPORTS } = await import('../data/mockData');
     return MOCK_REPORTS;
@@ -433,7 +507,9 @@ export async function updateReportStatus(id: string, status: string): Promise<Re
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status })
   });
-  return await res.json();
+  const parsed = await safeParseResponse<Report>(res);
+  if (!parsed.ok || !parsed.data) throw new Error(parsed.error || 'Failed to update report status');
+  return parsed.data;
 }
 
 export async function updateListingStatus(id: string, status: string): Promise<Listing> {
@@ -442,7 +518,9 @@ export async function updateListingStatus(id: string, status: string): Promise<L
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status })
   });
-  return await res.json();
+  const parsed = await safeParseResponse<Listing>(res);
+  if (!parsed.ok || !parsed.data) throw new Error(parsed.error || 'Failed to update listing status');
+  return parsed.data;
 }
 
 export async function verifyAgentBusiness(payload: {
@@ -460,10 +538,11 @@ export async function verifyAgentBusiness(payload: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to analyze business verification with AI');
+  const parsed = await safeParseResponse(res);
+  if (!parsed.ok || !parsed.data) {
+    throw new Error(parsed.error || 'Failed to analyze business verification with AI');
   }
-  return await res.json();
+  return parsed.data;
 }
+
 

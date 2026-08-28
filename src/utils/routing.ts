@@ -6,6 +6,7 @@ export interface ParsedRoute {
   type: 'property' | 'view' | '404';
   propertyId?: string;
   view?: 'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon';
+  adminTab?: 'agents' | 'properties' | 'students' | 'analytics' | 'access';
 }
 
 const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
@@ -23,6 +24,17 @@ const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
   '/student-dashboard': 'student-dash',
   '/agent-dashboard': 'agent-dash',
   '/admin-dashboard': 'admin-dash',
+  '/admin': 'admin-dash',
+  '/admin/dashboard': 'admin-dash',
+  '/admin/agents': 'admin-dash',
+  '/admin/students': 'admin-dash',
+  '/admin/hostels': 'admin-dash',
+  '/admin/properties': 'admin-dash',
+  '/admin/verifications': 'admin-dash',
+  '/admin/messages': 'admin-dash',
+  '/admin/analytics': 'admin-dash',
+  '/admin/settings': 'admin-dash',
+  '/admin/access': 'admin-dash',
   '/coming-soon': 'coming-soon',
 };
 
@@ -49,17 +61,32 @@ export function parseRouteFromUrl(): ParsedRoute {
     return { type: 'property', propertyId: decodeURIComponent(propertyMatch[2].trim()) };
   }
 
-  // 3. Check known top-level view paths
+  // 3. Check admin routes
+  if (pathname.startsWith('/admin')) {
+    let adminTab: ParsedRoute['adminTab'] = 'agents';
+    if (pathname.includes('/hostels') || pathname.includes('/properties') || pathname.includes('/verifications')) {
+      adminTab = 'properties';
+    } else if (pathname.includes('/students')) {
+      adminTab = 'students';
+    } else if (pathname.includes('/analytics')) {
+      adminTab = 'analytics';
+    } else if (pathname.includes('/access') || pathname.includes('/settings')) {
+      adminTab = 'access';
+    }
+    return { type: 'view', view: 'admin-dash', adminTab };
+  }
+
+  // 4. Check known top-level view paths
   if (KNOWN_VIEW_PATHS[pathname]) {
     return { type: 'view', view: KNOWN_VIEW_PATHS[pathname] };
   }
 
-  // 4. Default root path /
+  // 5. Default root path /
   if (pathname === '/') {
     return { type: 'view', view: 'landing' };
   }
 
-  // 5. Unknown route -> 404
+  // 6. Unknown route -> 404
   return { type: '404' };
 }
 
@@ -89,7 +116,7 @@ export function pushPropertyUrl(propertyId: string, replace = false) {
 /**
  * Pushes or replaces window.history for view route
  */
-export function pushViewUrl(view: string, replace = false) {
+export function pushViewUrl(view: string, replace = false, subTab?: string) {
   if (typeof window === 'undefined') return;
   const pathMap: Record<string, string> = {
     'landing': '/',
@@ -100,16 +127,24 @@ export function pushViewUrl(view: string, replace = false) {
     'business-verification': '/business-verification',
     'student-dash': '/student-dashboard',
     'agent-dash': '/agent-dashboard',
-    'admin-dash': '/admin-dashboard',
+    'admin-dash': '/admin/dashboard',
     'coming-soon': '/coming-soon'
   };
 
-  const targetPath = pathMap[view] || '/';
+  let targetPath = pathMap[view] || '/';
+  if (view === 'admin-dash' && subTab) {
+    if (subTab === 'properties') targetPath = '/admin/hostels';
+    else if (subTab === 'students') targetPath = '/admin/students';
+    else if (subTab === 'analytics') targetPath = '/admin/analytics';
+    else if (subTab === 'access') targetPath = '/admin/access';
+    else if (subTab === 'agents') targetPath = '/admin/agents';
+  }
+
   if (window.location.pathname !== targetPath) {
     if (replace) {
-      window.history.replaceState({ type: 'view', view }, '', targetPath);
+      window.history.replaceState({ type: 'view', view, subTab }, '', targetPath);
     } else {
-      window.history.pushState({ type: 'view', view }, '', targetPath);
+      window.history.pushState({ type: 'view', view, subTab }, '', targetPath);
     }
   }
 }

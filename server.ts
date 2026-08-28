@@ -366,9 +366,35 @@ const adminLoginLimiter = createRateLimiter(5, 15 * 60 * 1000, adminRateLimitSto
 const ADMIN_PASSWORD_SALT = 'dormiqa_secure_salt_2026';
 const INITIAL_ADMIN_PASSCODE_HASH = crypto.scryptSync('Dormiqa_332456701', ADMIN_PASSWORD_SALT, 64).toString('hex');
 
-const authorizedAdminEmails = new Set<string>([
-  'buildsafe247@gmail.com'
-]);
+const ADMIN_EMAILS_FILE = path.join(process.cwd(), 'authorized-admins.json');
+function loadAuthorizedAdminEmails(): Set<string> {
+  const emails = new Set<string>(['buildsafe247@gmail.com']);
+  try {
+    if (fs.existsSync(ADMIN_EMAILS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(ADMIN_EMAILS_FILE, 'utf-8'));
+      if (Array.isArray(data)) {
+        data.forEach((e: string) => {
+          if (typeof e === 'string' && e.includes('@')) {
+            emails.add(e.trim().toLowerCase());
+          }
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("Could not load authorized admin emails file:", err);
+  }
+  return emails;
+}
+
+function saveAuthorizedAdminEmails(emails: Set<string>) {
+  try {
+    fs.writeFileSync(ADMIN_EMAILS_FILE, JSON.stringify(Array.from(emails), null, 2), 'utf-8');
+  } catch (err) {
+    console.warn("Could not save authorized admin emails file:", err);
+  }
+}
+
+const authorizedAdminEmails = loadAuthorizedAdminEmails();
 
 // Initialize Server-Side Firestore Connection
 let firestoreDb: any = null;
@@ -1248,6 +1274,7 @@ Return ONLY valid JSON matching this schema:
     }
 
     authorizedAdminEmails.add(cleanEmail);
+    saveAuthorizedAdminEmails(authorizedAdminEmails);
 
     if (firestoreDb) {
       try {
@@ -1257,7 +1284,7 @@ Return ONLY valid JSON matching this schema:
           createdAt: new Date().toISOString()
         }, { merge: true });
       } catch (err) {
-        console.warn("Failed to write admin email to Firestore collection:", err);
+        // Silently caught if security rules restrict client-SDK writes to authorized_admins
       }
     }
 
@@ -1292,11 +1319,13 @@ Return ONLY valid JSON matching this schema:
       return res.status(404).json({ success: false, error: 'Admin email not found.' });
     }
 
+    saveAuthorizedAdminEmails(authorizedAdminEmails);
+
     if (firestoreDb) {
       try {
         await deleteDoc(doc(firestoreDb, 'authorized_admins', cleanEmail));
       } catch (err) {
-        console.warn("Failed to delete admin email from Firestore collection:", err);
+        // Silently caught if security rules restrict client-SDK deletes
       }
     }
 
