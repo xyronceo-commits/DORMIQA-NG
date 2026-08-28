@@ -29,7 +29,8 @@ import {
   resendVerificationEmail, 
   checkEmailVerified,
   saveUserToFirestore,
-  fetchUserProfileFromFirestore
+  fetchUserProfileFromFirestore,
+  logoutFirebase
 } from '../services/firebase';
 
 const GoogleIcon = () => (
@@ -122,16 +123,24 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     try {
       const fbUser = await signInWithGoogle();
       const displayName = fbUser.displayName || '';
-      const email = fbUser.email || '';
+      const email = fbUser.email?.toLowerCase() || '';
       const photoURL = fbUser.photoURL || undefined;
       const uid = fbUser.uid;
 
-      // Check if existing user account in Firestore or if authMode === 'signin'
-      const existingProfile = await fetchUserProfileFromFirestore(uid) || await fetchUserProfileFromFirestore(email);
+      // Check if existing user account in Firestore
+      const existingProfile = await fetchUserProfileFromFirestore(uid) || (email ? await fetchUserProfileFromFirestore(email) : null);
 
-      if (existingProfile || authMode === 'signin') {
-        // EXISTING USER GOOGLE SIGN IN -> Bypass onboarding page, take straight to Explore!
+      if (authMode === 'signin') {
+        if (!existingProfile) {
+          // User signed into Google Auth but has NEVER registered a Dormiqa account profile
+          // Reject sign in per requirement!
+          await logoutFirebase();
+          setAuthError("Account not found. Please sign up first.");
+          return;
+        }
+
         const fullData = {
+          id: uid,
           role: (existingProfile?.role || selectedRole || 'student') as UserRole,
           name: existingProfile?.name || displayName || email.split('@')[0] || 'User',
           email: email,
@@ -139,6 +148,26 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           universityName: existingProfile?.universityName || '',
           agencyName: existingProfile?.agencyName || '',
           avatarUrl: existingProfile?.avatarUrl || photoURL,
+          isSignup: false,
+          isEmailVerified: true
+        };
+        await saveUserToFirestore(fullData);
+        onCompleteOnboarding(fullData);
+        return;
+      }
+
+      // authMode === 'signup'
+      if (existingProfile) {
+        // User already has a profile! Sign them in directly
+        const fullData = {
+          id: uid,
+          role: existingProfile.role as UserRole,
+          name: existingProfile.name || displayName || email.split('@')[0] || 'User',
+          email: email,
+          phone: existingProfile.phone || '',
+          universityName: existingProfile.universityName || '',
+          agencyName: existingProfile.agencyName || '',
+          avatarUrl: existingProfile.avatarUrl || photoURL,
           isSignup: false,
           isEmailVerified: true
         };
@@ -197,7 +226,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
       universityName: uni,
       agencyName: selectedRole === 'agent' ? (agencyName || `${name} Housing`) : undefined,
       avatarUrl: googleAuthData.photoURL,
-      isSignup: authMode === 'signup',
+      isSignup: true,
       isEmailVerified: true
     };
 
@@ -211,92 +240,98 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     setIsLoading(true);
     setAuthError(null);
 
-    const studentData = {
-      role: 'student' as UserRole,
-      name: studentName || studentEmail.split('@')[0],
-      email: studentEmail,
-      phone: studentPhone,
-      universityName: studentUni,
-      isSignup: authMode === 'signup',
-      isEmailVerified: false
-    };
-
     try {
       if (authMode === 'signup') {
         // 1. Create a new Firebase Authentication account
-        await registerWithEmail(studentEmail, studentPassword);
+        await registerWithEmail(studentEmail.trim().toLowerCase(), studentPassword);
 
-        // 2. Immediately check the newly created Firebase Auth user
+        // 2. Refresh current Firebase user
         if (auth.currentUser) {
           await auth.currentUser.reload();
         }
 
-        const isVerified = auth.currentUser?.emailVerified === true;
+        const fbUser = auth.currentUser;
+        if (!fbUser) throw new Error("Firebase account creation failed.");
+
+        const isVerified = fbUser.emailVerified === true;
+
+        const studentData = {
+          id: fbUser.uid,
+          role: 'student' as UserRole,
+          name: studentName || studentEmail.split('@')[0],
+          email: studentEmail.trim().toLowerCase(),
+          phone: studentPhone,
+          universityName: studentUni,
+          isSignup: true,
+          isEmailVerified: isVerified
+        };
 
         // 3. Save initial profile to Firestore
-        await saveUserToFirestore({
-          ...studentData,
-          isEmailVerified: isVerified
-        });
+        await saveUserToFirestore(studentData);
 
-        // 4. If emailVerified === false: send to verification screen & block dashboard access
-        if (!isVerified) {
-          setPendingUserOnboardingData({
-            ...studentData,
-            isEmailVerified: false
-          });
-          setShowEmailVerificationScreen(true);
-        } else {
-          onCompleteOnboarding({
-            ...studentData,
-            isEmailVerified: true
-          });
-        }
+        // 4. Send to verification screen & block access until verified
+        setPendingUserOnboardingData(studentData);
+        setShowEmailVerificationScreen(true);
       } else {
-        // RETURNING USER LOGIN
-        // 1. Get the authenticated Firebase user
-        await loginWithEmail(studentEmail, studentPassword);
+        // SIGN IN
+        // 1. Authenticate with Firebase Auth
+        await loginWithEmail(studentEmail.trim().toLowerCase(), studentPassword);
 
-        // 2. Call auth.currentUser.reload()
         if (auth.currentUser) {
           await auth.currentUser.reload();
         }
 
-        // 3. Read the refreshed Firebase Authentication state
-        const isVerified = auth.currentUser?.emailVerified === true;
+        const fbUser = auth.currentUser;
+        if (!fbUser) throw new Error("Authentication failed.");
 
-        // 4. Update Firestore user profile
+        const isVerified = fbUser.emailVerified === true;
+
+        // 2. Fetch profile from Firestore
+        const existingProfile = await fetchUserProfileFromFirestore(fbUser.uid) || await fetchUserProfileFromFirestore(fbUser.email || studentEmail.trim().toLowerCase());
+
+        const studentData = {
+          id: fbUser.uid,
+          role: (existingProfile?.role || selectedRole || 'student') as UserRole,
+          name: existingProfile?.name || fbUser.displayName || studentEmail.split('@')[0],
+          email: fbUser.email || studentEmail.trim().toLowerCase(),
+          phone: existingProfile?.phone || '',
+          universityName: existingProfile?.universityName || studentUni,
+          avatarUrl: existingProfile?.avatarUrl || fbUser.photoURL,
+          isSignup: false,
+          isEmailVerified: isVerified
+        };
+
+        // Update verification status in Firestore
         await saveUserToFirestore({
-          ...studentData,
+          id: fbUser.uid,
+          name: studentData.name,
+          email: studentData.email,
           isEmailVerified: isVerified
         });
 
-        // 5. If false: redirect to verification screen. If true: allow access.
-        if (isVerified) {
-          onCompleteOnboarding({
-            ...studentData,
-            isEmailVerified: true
-          });
-        } else {
-          setPendingUserOnboardingData({
-            ...studentData,
-            isEmailVerified: false
-          });
+        // 3. If email is not verified, show verification screen
+        if (!isVerified) {
+          setPendingUserOnboardingData(studentData);
           setShowEmailVerificationScreen(true);
+        } else {
+          onCompleteOnboarding(studentData);
         }
       }
     } catch (err: any) {
       console.error("Firebase Student Auth Error:", err);
       let errorMsg = err?.message || "Authentication failed. Please check your credentials and try again.";
-      if (err?.code === 'auth/unauthorized-domain') {
-        const currentHostname = typeof window !== 'undefined' ? window.location.hostname : 'dormiqa-ng.vercel.app';
-        errorMsg = `Firebase Auth Error (auth/unauthorized-domain): The domain '${currentHostname}' is not authorized for Firebase Authentication. Please add '${currentHostname}' to Authorized Domains under Firebase Console -> Authentication -> Settings.`;
+      if (err?.code === 'auth/user-not-found') {
+        errorMsg = "Account not found. Please sign up first.";
+      } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
+        errorMsg = "Incorrect email or password.";
+      } else if (err?.code === 'auth/user-disabled') {
+        errorMsg = "This account has been disabled. Please contact support.";
       } else if (err?.code === 'auth/email-already-in-use') {
         errorMsg = "An account with this email address already exists. Please click 'Sign In' or use a different email.";
-      } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
-        errorMsg = "Incorrect email address or password. Please try again.";
-      } else if (err?.code === 'auth/user-not-found') {
-        errorMsg = "No account found with this email. Please click 'Create Account (Sign Up)' to register.";
+      } else if (err?.code === 'auth/invalid-email') {
+        errorMsg = "Invalid email address format. Please check your email.";
+      } else if (err?.code === 'auth/weak-password') {
+        errorMsg = "Password is too weak. Please use at least 6 characters.";
       }
       setAuthError(errorMsg);
     } finally {
@@ -309,95 +344,103 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     setIsLoading(true);
     setAuthError(null);
 
-    const agentData = {
-      role: 'agent' as UserRole,
-      name: agentName || agentEmail.split('@')[0],
-      email: agentEmail,
-      agencyName: agencyName || `${agentName || 'Agent'} Housing`,
-      phone: agentPhoneWA,
-      universityName: agentUni,
-      isSignup: authMode === 'signup',
-      isEmailVerified: false
-    };
-
     try {
       if (authMode === 'signup') {
         // 1. Create a new Firebase Authentication account
-        await registerWithEmail(agentEmail, agentPassword);
+        await registerWithEmail(agentEmail.trim().toLowerCase(), agentPassword);
 
-        // 2. Immediately check the newly created Firebase Auth user
         if (auth.currentUser) {
           await auth.currentUser.reload();
         }
 
-        const isVerified = auth.currentUser?.emailVerified === true;
+        const fbUser = auth.currentUser;
+        if (!fbUser) throw new Error("Firebase account creation failed.");
 
-        // 3. Save profile to Firestore
-        await saveUserToFirestore({
-          ...agentData,
+        const isVerified = fbUser.emailVerified === true;
+
+        const agentData = {
+          id: fbUser.uid,
+          role: 'agent' as UserRole,
+          name: agentName || agentEmail.split('@')[0],
+          email: agentEmail.trim().toLowerCase(),
+          agencyName: agencyName || `${agentName || 'Agent'} Housing`,
+          phone: agentPhoneWA,
+          universityName: agentUni,
+          isSignup: true,
           isEmailVerified: isVerified
-        });
+        };
 
-        // 4. If emailVerified === false: send to verification screen & block access
-        if (!isVerified) {
-          setPendingUserOnboardingData({
-            ...agentData,
-            isEmailVerified: false
-          });
-          setShowEmailVerificationScreen(true);
-        } else {
-          onCompleteOnboarding({
-            ...agentData,
-            isEmailVerified: true
-          });
-        }
+        // 2. Save profile to Firestore
+        await saveUserToFirestore(agentData);
+
+        // 3. Send to verification screen & block access until verified
+        setPendingUserOnboardingData(agentData);
+        setShowEmailVerificationScreen(true);
       } else {
-        // RETURNING AGENT LOGIN
-        await loginWithEmail(agentEmail, agentPassword);
+        // SIGN IN
+        await loginWithEmail(agentEmail.trim().toLowerCase(), agentPassword);
 
         if (auth.currentUser) {
           await auth.currentUser.reload();
         }
 
-        const isVerified = auth.currentUser?.emailVerified === true;
+        const fbUser = auth.currentUser;
+        if (!fbUser) throw new Error("Authentication failed.");
+
+        const isVerified = fbUser.emailVerified === true;
+
+        const existingProfile = await fetchUserProfileFromFirestore(fbUser.uid) || await fetchUserProfileFromFirestore(fbUser.email || agentEmail.trim().toLowerCase());
+
+        const agentData = {
+          id: fbUser.uid,
+          role: (existingProfile?.role || selectedRole || 'agent') as UserRole,
+          name: existingProfile?.name || fbUser.displayName || agentEmail.split('@')[0],
+          email: fbUser.email || agentEmail.trim().toLowerCase(),
+          agencyName: existingProfile?.agencyName || agencyName,
+          phone: existingProfile?.phone || agentPhoneWA,
+          universityName: existingProfile?.universityName || agentUni,
+          avatarUrl: existingProfile?.avatarUrl || fbUser.photoURL,
+          businessVerificationStatus: existingProfile?.businessVerificationStatus || 'none',
+          isVerifiedAgent: existingProfile?.isVerifiedAgent || false,
+          isSignup: false,
+          isEmailVerified: isVerified
+        };
 
         await saveUserToFirestore({
-          ...agentData,
+          id: fbUser.uid,
+          name: agentData.name,
+          email: agentData.email,
           isEmailVerified: isVerified
         });
 
-        if (isVerified) {
-          onCompleteOnboarding({
-            ...agentData,
-            isEmailVerified: true
-          });
-        } else {
-          setPendingUserOnboardingData({
-            ...agentData,
-            isEmailVerified: false
-          });
+        if (!isVerified) {
+          setPendingUserOnboardingData(agentData);
           setShowEmailVerificationScreen(true);
+        } else {
+          onCompleteOnboarding(agentData);
         }
       }
     } catch (err: any) {
       console.error("Firebase Agent Auth Error:", err);
       let errorMsg = err?.message || "Authentication failed. Please check your credentials and try again.";
-      if (err?.code === 'auth/unauthorized-domain') {
-        const currentHostname = typeof window !== 'undefined' ? window.location.hostname : 'dormiqa-ng.vercel.app';
-        errorMsg = `Firebase Auth Error (auth/unauthorized-domain): The domain '${currentHostname}' is not authorized for Firebase Authentication. Please add '${currentHostname}' to Authorized Domains under Firebase Console -> Authentication -> Settings.`;
+      if (err?.code === 'auth/user-not-found') {
+        errorMsg = "Account not found. Please sign up first.";
+      } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
+        errorMsg = "Incorrect email or password.";
+      } else if (err?.code === 'auth/user-disabled') {
+        errorMsg = "This account has been disabled. Please contact support.";
       } else if (err?.code === 'auth/email-already-in-use') {
         errorMsg = "An account with this email address already exists. Please click 'Sign In' or use a different email.";
-      } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
-        errorMsg = "Incorrect email address or password. Please try again.";
-      } else if (err?.code === 'auth/user-not-found') {
-        errorMsg = "No account found with this email. Please click 'Create Account (Sign Up)' to register.";
+      } else if (err?.code === 'auth/invalid-email') {
+        errorMsg = "Invalid email address format. Please check your email.";
+      } else if (err?.code === 'auth/weak-password') {
+        errorMsg = "Password is too weak. Please use at least 6 characters.";
       }
       setAuthError(errorMsg);
     } finally {
       setIsLoading(false);
     }
   };
-
 
   if (showEmailVerificationScreen) {
     return (
@@ -409,30 +452,17 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
             if (auth.currentUser) {
               await auth.currentUser.reload();
             }
+            const isVerified = auth.currentUser?.emailVerified === true;
+            if (!isVerified) return;
+
             const verifiedData = {
               ...pendingUserOnboardingData,
-              isEmailVerified: auth.currentUser?.emailVerified === true
+              isEmailVerified: true
             };
             await saveUserToFirestore(verifiedData);
             onCompleteOnboarding(verifiedData);
           }}
         />
-
-        <button
-          onClick={() => {
-            onCompleteOnboarding({
-              ...pendingUserOnboardingData,
-              isEmailVerified: false,
-              isSignup: false
-            });
-          }}
-          type="button"
-          className="text-xs font-bold text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white underline cursor-pointer transition-colors"
-        >
-          {pendingUserOnboardingData?.role === 'agent' 
-            ? "Skip & Continue to Agent Dashboard without verifying now" 
-            : "Skip & Continue to Explore Page without verifying now"}
-        </button>
       </div>
     );
   }

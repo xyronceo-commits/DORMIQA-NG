@@ -22,6 +22,9 @@ import {
   createUserWithEmailAndPassword, 
   sendEmailVerification,
   sendPasswordResetEmail,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
   signOut,
   onAuthStateChanged,
   User as FirebaseUser
@@ -336,14 +339,173 @@ export const fetchUserProfileFromFirestore = async (uidOrEmail: string): Promise
 };
 
 /**
- * AUTHORIZED ADMINS HELPERS (Delegated to Backend Admin API)
+ * AUTHORIZED ADMINS HELPERS & MAGIC LINK AUTHENTICATION
  */
+
+// Ensure initial Super Admin is present in Firestore
+export const initializeSuperAdminInFirestore = async (): Promise<void> => {
+  const defaultEmail = 'buildsafe247@gmail.com';
+  try {
+    const adminRef = doc(db, 'authorized_admins', defaultEmail);
+    const snap = await getDoc(adminRef);
+    if (!snap.exists()) {
+      await setDoc(adminRef, {
+        email: defaultEmail,
+        role: 'SUPER_ADMIN',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        createdBy: 'system'
+      });
+    } else {
+      const data = snap.data();
+      if (data.role !== 'SUPER_ADMIN' || data.status !== 'active') {
+        await setDoc(adminRef, {
+          role: 'SUPER_ADMIN',
+          status: 'active'
+        }, { merge: true });
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to initialize super admin in firestore:", err);
+  }
+};
+
+export const checkAdminAuthorizedInFirestore = async (emailOrUid: string): Promise<{ authorized: boolean; role?: 'SUPER_ADMIN' | 'ADMIN'; message?: string; data?: any }> => {
+  const cleanInput = emailOrUid.trim().toLowerCase();
+  if (!cleanInput) {
+    return { authorized: false, message: 'Invalid administrator identity.' };
+  }
+
+  // Initial Super Admin override
+  if (cleanInput === 'buildsafe247@gmail.com') {
+    return { authorized: true, role: 'SUPER_ADMIN' };
+  }
+
+  try {
+    // Check by email doc ID first
+    let adminRef = doc(db, 'authorized_admins', cleanInput);
+    let snap = await getDoc(adminRef);
+
+    if (!snap.exists()) {
+      // Query collection for email or uid match
+      const colRef = collection(db, 'authorized_admins');
+      const q = query(colRef, where('email', '==', cleanInput));
+      const qSnap = await getDocs(q);
+      if (!qSnap.empty) {
+        snap = qSnap.docs[0];
+      }
+    }
+
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.status === 'disabled') {
+        return { authorized: false, message: 'This administrator account has been disabled.' };
+      }
+      return { authorized: true, role: (data.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN'), data };
+    }
+
+    return { authorized: false, message: "This email doesn't have administrator access." };
+  } catch (err) {
+    console.warn("Firestore admin check error:", err);
+    // Fallback to initial super admin check
+    if (cleanInput === 'buildsafe247@gmail.com') {
+      return { authorized: true, role: 'SUPER_ADMIN' };
+    }
+    return { authorized: false, message: "This email doesn't have administrator access." };
+  }
+};
+
+export const sendAdminMagicLink = async (email: string): Promise<void> => {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    throw new Error('Please enter a valid administrator email address.');
+  }
+
+  // Check whether the email is an authorized administrator FIRST
+  const authCheck = await checkAdminAuthorizedInFirestore(cleanEmail);
+  if (!authCheck.authorized) {
+    throw new Error(authCheck.message || "This email doesn't have administrator access.");
+  }
+
+  const actionCodeSettings = {
+    url: typeof window !== 'undefined' ? `${window.location.origin}/?adminSignIn=true` : 'https://dormiqa.com/?adminSignIn=true',
+    handleCodeInApp: true,
+  };
+
+  await sendSignInLinkToEmail(auth, cleanEmail, actionCodeSettings);
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem('emailForSignIn', cleanEmail);
+  }
+};
+
+export const checkIsMagicLink = (url?: string): boolean => {
+  if (typeof window === 'undefined') return false;
+  return isSignInWithEmailLink(auth, url || window.location.href);
+};
+
+export const completeAdminMagicLink = async (emailOverride?: string): Promise<{ user: FirebaseUser; role: 'SUPER_ADMIN' | 'ADMIN' }> => {
+  const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+  if (!isSignInWithEmailLink(auth, currentUrl)) {
+    throw new Error('Invalid or expired sign-in link.');
+  }
+
+  let emailToUse = emailOverride?.trim().toLowerCase() || (typeof window !== 'undefined' ? window.localStorage.getItem('emailForSignIn') : null);
+  
+  if (!emailToUse) {
+    throw new Error('EMAIL_REQUIRED');
+  }
+
+  const result = await signInWithEmailLink(auth, emailToUse, currentUrl);
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem('emailForSignIn');
+  }
+
+  const fbUser = result.user;
+  const userEmail = (fbUser.email || emailToUse).trim().toLowerCase();
+
+  // Verify Admin authorization
+  const authCheck = await checkAdminAuthorizedInFirestore(userEmail);
+  if (!authCheck.authorized) {
+    await signOut(auth);
+    throw new Error("This email doesn't have administrator access.");
+  }
+
+  const role = authCheck.role || (userEmail === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN');
+
+  // Update authorized_admins document in Firestore with authenticated UID
+  try {
+    const adminRef = doc(db, 'authorized_admins', userEmail);
+    await setDoc(adminRef, {
+      email: userEmail,
+      uid: fbUser.uid,
+      role: role,
+      status: 'active',
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch (err) {
+    console.warn("Error linking UID to authorized_admins doc:", err);
+  }
+
+  return { user: fbUser, role };
+};
+
 export const fetchAuthorizedAdminEmailsFromFirestore = async (): Promise<string[]> => {
   try {
-    const data = await fetchAdminEmails();
-    return data;
+    const colRef = collection(db, 'authorized_admins');
+    const snap = await getDocs(colRef);
+    const emails: string[] = [];
+    snap.forEach(d => {
+      const data = d.data();
+      if (data.status !== 'disabled') {
+        emails.push((data.email || d.id).trim().toLowerCase());
+      }
+    });
+    if (!emails.includes('buildsafe247@gmail.com')) {
+      emails.unshift('buildsafe247@gmail.com');
+    }
+    return emails;
   } catch (err) {
-    return ['buildsafe247@gmail.com'];
+    return await fetchAdminEmails();
   }
 };
 
@@ -362,6 +524,150 @@ export const removeAuthorizedAdminEmailFromFirestore = async (email: string): Pr
 
 export const sendPasswordReset = async (email: string) => {
   return sendPasswordResetEmail(auth, email);
+};
+
+/**
+ * Perform real-time Agent verification status update & write notification document to Firestore
+ */
+export const updateAgentVerificationInFirestore = async (
+  agentId: string, 
+  status: 'approved' | 'rejected', 
+  adminEmail: string, 
+  reason?: string
+) => {
+  const isApproved = status === 'approved';
+  const now = new Date().toISOString();
+  
+  const agentRef = doc(db, 'users', agentId);
+  const updatePayload: Record<string, any> = {
+    verificationStatus: status,
+    businessVerificationStatus: status,
+    isVerifiedAgent: isApproved,
+    status: isApproved ? 'approved' : 'rejected',
+    verificationUpdatedAt: now
+  };
+  
+  if (isApproved) {
+    updatePayload.verifiedAt = now;
+    updatePayload.verifiedBy = adminEmail || 'buildsafe247@gmail.com';
+    updatePayload.rejectionReason = null;
+  } else {
+    updatePayload.rejectedAt = now;
+    updatePayload.rejectedBy = adminEmail || 'buildsafe247@gmail.com';
+    updatePayload.rejectionReason = reason || 'Verification documents require updating.';
+  }
+
+  await setDoc(agentRef, updatePayload, { merge: true });
+
+  try {
+    const agentColRef = doc(db, 'agents', agentId);
+    await setDoc(agentColRef, updatePayload, { merge: true });
+  } catch (err) {
+    // Ignore if optional collection
+  }
+
+  // Create real-time notification document in Firestore
+  const notifRef = collection(db, 'notifications');
+  const notifTitle = isApproved ? 'Agent verification approved' : 'Agent verification update';
+  const notifMsg = isApproved
+    ? 'Your Dormiqa agent account has been verified.'
+    : `Your agent verification was not approved.${reason ? ` Reason: ${reason}` : ''}`;
+
+  await addDoc(notifRef, {
+    recipientId: agentId,
+    userId: agentId,
+    type: 'agent_verification',
+    title: notifTitle,
+    message: notifMsg,
+    body: notifMsg,
+    read: false,
+    createdAt: now,
+    relatedId: agentId,
+    metadata: {
+      rejectionReason: isApproved ? null : (reason || null),
+      verificationStatus: status,
+      adminEmail: adminEmail || 'admin'
+    }
+  });
+
+  return { success: true, status, agentId };
+};
+
+/**
+ * Perform real-time Property verification status update & write notification document to Firestore
+ */
+export const updatePropertyVerificationInFirestore = async (
+  propertyId: string, 
+  status: 'approved' | 'rejected', 
+  adminEmail: string, 
+  reason?: string,
+  agentId?: string
+) => {
+  const isApproved = status === 'approved';
+  const now = new Date().toISOString();
+
+  let targetAgentId = agentId;
+  const listingRef = doc(db, 'listings', propertyId);
+  
+  if (!targetAgentId) {
+    try {
+      const snap = await getDoc(listingRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        targetAgentId = data.agentId || data.userId || data.ownerId;
+      }
+    } catch (e) {
+      console.warn("Could not fetch listing doc before status update:", e);
+    }
+  }
+
+  const updatePayload: Record<string, any> = {
+    verificationStatus: status,
+    status: isApproved ? 'approved' : 'rejected',
+    verificationUpdatedAt: now
+  };
+
+  if (isApproved) {
+    updatePayload.verifiedAt = now;
+    updatePayload.verifiedBy = adminEmail || 'buildsafe247@gmail.com';
+    updatePayload.rejectionReason = null;
+    updatePayload.aiBanReason = null;
+  } else {
+    updatePayload.rejectedAt = now;
+    updatePayload.rejectedBy = adminEmail || 'buildsafe247@gmail.com';
+    updatePayload.rejectionReason = reason || 'Listing details require update.';
+    updatePayload.aiBanReason = reason || 'Listing details require update.';
+  }
+
+  await setDoc(listingRef, updatePayload, { merge: true });
+
+  if (targetAgentId) {
+    const notifRef = collection(db, 'notifications');
+    const notifTitle = isApproved ? 'Hostel approved' : 'Hostel verification update';
+    const notifMsg = isApproved
+      ? 'Your hostel listing has been approved and is now eligible to appear on Dormiqa.'
+      : `Your hostel listing was not approved.${reason ? ` Reason: ${reason}` : ''}`;
+
+    await addDoc(notifRef, {
+      recipientId: targetAgentId,
+      userId: targetAgentId,
+      type: 'hostel_verification',
+      title: notifTitle,
+      message: notifMsg,
+      body: notifMsg,
+      read: false,
+      createdAt: now,
+      relatedId: propertyId,
+      metadata: {
+        rejectionReason: isApproved ? null : (reason || null),
+        verificationStatus: status,
+        propertyId,
+        adminEmail: adminEmail || 'admin'
+      }
+    });
+  }
+
+  return { success: true, status, propertyId };
 };
 
 export default app;

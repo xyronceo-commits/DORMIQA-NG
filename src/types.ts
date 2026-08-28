@@ -242,18 +242,21 @@ export interface Report {
   createdAt: string;
 }
 
-export type NotificationType = 'message' | 'inspection' | 'listing' | 'system';
+export type NotificationType = 'message' | 'inspection' | 'listing' | 'system' | 'agent_verification' | 'hostel_verification';
 
 export interface AppNotification {
   id: string;
   userId: string;
+  recipientId?: string;
   title: string;
   body: string;
+  message?: string;
   type: NotificationType;
   read: boolean;
   isPinned?: boolean;
   createdAt: string;
   universityId?: string;
+  relatedId?: string;
   linkUrl?: string;
   metadata?: {
     listingId?: string;
@@ -263,6 +266,9 @@ export interface AppNotification {
     senderAvatar?: string;
     status?: string;
     reason?: string;
+    rejectionReason?: string | null;
+    verificationStatus?: string;
+    adminEmail?: string;
   };
 }
 

@@ -27,7 +27,8 @@ import {
   registerWithEmail, 
   loginWithEmail, 
   resendVerificationEmail, 
-  saveUserToFirestore 
+  saveUserToFirestore,
+  fetchUserProfileFromFirestore
 } from '../services/firebase';
 
 interface AgentPortalLandingProps {
@@ -138,26 +139,34 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
     setUnverifiedEmail(null);
 
     try {
-      await loginWithEmail(agentEmail.trim(), agentPassword);
+      await loginWithEmail(agentEmail.trim().toLowerCase(), agentPassword);
 
       if (auth.currentUser) {
         await auth.currentUser.reload();
       }
 
-      const isVerified = auth.currentUser?.emailVerified === true;
+      const fbUser = auth.currentUser;
+      if (!fbUser) throw new Error("Authentication failed.");
+
+      const isVerified = fbUser.emailVerified === true;
+
+      // Fetch profile from Firestore
+      const existingProfile = await fetchUserProfileFromFirestore(fbUser.uid) || await fetchUserProfileFromFirestore(fbUser.email || agentEmail.trim().toLowerCase());
 
       const agentData: User = {
-        id: auth.currentUser?.uid || '',
-        name: auth.currentUser?.displayName || agentEmail.split('@')[0],
-        email: agentEmail.trim().toLowerCase(),
+        id: fbUser.uid,
+        name: existingProfile?.name || fbUser.displayName || agentEmail.split('@')[0],
+        email: fbUser.email || agentEmail.trim().toLowerCase(),
         role: 'agent',
-        phone: agentPhone,
-        agencyName: agencyName,
-        isVerifiedAgent: false,
+        phone: existingProfile?.phone || agentPhone,
+        agencyName: existingProfile?.agencyName || agencyName || `${existingProfile?.name || 'Agent'} Housing`,
+        universityName: existingProfile?.universityName || agentUni,
+        isVerifiedAgent: existingProfile?.isVerifiedAgent || false,
         isEmailVerified: isVerified,
-        businessVerificationStatus: 'none',
-        avatarUrl: auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
-        createdAt: new Date().toISOString().split('T')[0]
+        businessVerificationStatus: existingProfile?.businessVerificationStatus || 'none',
+        businessVerificationDetails: existingProfile?.businessVerificationDetails,
+        avatarUrl: existingProfile?.avatarUrl || fbUser.photoURL || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
+        createdAt: existingProfile?.createdAt || new Date().toISOString().split('T')[0]
       };
 
       if (!isVerified) {
@@ -168,11 +177,13 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
       }
     } catch (err: any) {
       console.error("Agent Sign In Error:", err);
-      let msg = err?.message || "Authentication failed. Please check your email and password.";
-      if (err?.code === 'auth/invalid-credential' || err?.code === 'auth/wrong-password') {
-        msg = "Incorrect email address or password. Please try again.";
-      } else if (err?.code === 'auth/user-not-found') {
-        msg = "No account found with this email. Click 'Sign Up' to create your caretaker account.";
+      let msg = err?.message || "Authentication failed. Please check your credentials and try again.";
+      if (err?.code === 'auth/user-not-found') {
+        msg = "Account not found. Please sign up first.";
+      } else if (err?.code === 'auth/invalid-credential' || err?.code === 'auth/wrong-password') {
+        msg = "Incorrect email or password.";
+      } else if (err?.code === 'auth/user-disabled') {
+        msg = "This account has been disabled. Please contact support.";
       }
       setAuthError(msg);
     } finally {

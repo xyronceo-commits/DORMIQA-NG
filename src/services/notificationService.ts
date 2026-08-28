@@ -86,45 +86,92 @@ export const subscribeUserNotifications = (
 
   // Firestore real-time listener
   let unsubscribeFirestore = () => {};
+  let isInitialLoad = true;
+  const knownDocIds = new Set<string>();
+
   try {
     const notifQuery = query(
       collection(db, 'notifications'),
       orderBy('createdAt', 'desc'),
-      limit(30)
+      limit(40)
     );
 
     unsubscribeFirestore = onSnapshot(
       notifQuery,
       (snapshot) => {
-        const firestoreNotifs: AppNotification[] = snapshot.docs
-          .map((docSnap) => {
-            const data = docSnap.data();
-            return {
-              id: docSnap.id,
-              userId: data.userId,
-              title: data.title,
-              body: data.body,
+        const firestoreNotifs: AppNotification[] = [];
+
+        snapshot.docChanges().forEach((change) => {
+          const data = change.doc.data();
+          const targetUserId = data.userId || data.recipientId;
+          const targetRecipientId = data.recipientId || data.userId;
+
+          const isForUser = 
+            targetUserId === userId || 
+            targetRecipientId === userId || 
+            targetUserId === 'all' || 
+            (universityId && data.universityId === universityId);
+
+          if (isForUser && change.type === 'added' && !knownDocIds.has(change.doc.id)) {
+            const newNotifItem: AppNotification = {
+              id: change.doc.id,
+              userId: targetUserId,
+              recipientId: targetRecipientId,
+              title: data.title || 'Notification',
+              body: data.body || data.message || '',
+              message: data.message || data.body || '',
               type: data.type || 'system',
-              read: data.read || false,
+              read: Boolean(data.read),
               createdAt: data.createdAt || new Date().toISOString(),
               universityId: data.universityId,
+              relatedId: data.relatedId,
               metadata: data.metadata || {}
             };
-          })
-          .filter(
-            (n) => n.userId === userId || n.userId === 'all' || (universityId && n.universityId === universityId)
-          );
 
-        if (firestoreNotifs.length > 0) {
-          // Merge with initial mock items to ensure full display
-          const existingIds = new Set(firestoreNotifs.map((n) => n.id));
-          const filteredInitial = localList.filter((n) => !existingIds.has(n.id));
-          const combined = [...firestoreNotifs, ...filteredInitial].sort(
-            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
-          localList = combined;
-          onNotificationsUpdated(combined);
-        }
+            // Trigger instant banner toast if notification arrives live after initial load
+            if (!isInitialLoad && !data.read && onNewNotificationBanner) {
+              onNewNotificationBanner(newNotifItem);
+            }
+          }
+        });
+
+        snapshot.docs.forEach((docSnap) => {
+          knownDocIds.add(docSnap.id);
+          const data = docSnap.data();
+          const targetUserId = data.userId || data.recipientId;
+          const targetRecipientId = data.recipientId || data.userId;
+
+          const isForUser = 
+            targetUserId === userId || 
+            targetRecipientId === userId || 
+            targetUserId === 'all' || 
+            (universityId && data.universityId === universityId);
+
+          if (isForUser) {
+            firestoreNotifs.push({
+              id: docSnap.id,
+              userId: targetUserId,
+              recipientId: targetRecipientId,
+              title: data.title || 'Notification',
+              body: data.body || data.message || '',
+              message: data.message || data.body || '',
+              type: data.type || 'system',
+              read: Boolean(data.read),
+              createdAt: data.createdAt || new Date().toISOString(),
+              universityId: data.universityId,
+              relatedId: data.relatedId,
+              metadata: data.metadata || {}
+            });
+          }
+        });
+
+        isInitialLoad = false;
+
+        const combined = [...firestoreNotifs].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        localList = combined;
+        onNotificationsUpdated(combined);
       },
       (err) => {
         console.warn("Firestore notification subscription fallback to local state:", err);

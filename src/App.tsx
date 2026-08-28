@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2, Shield } from 'lucide-react';
 import { 
   UserRole, 
   University, 
@@ -71,29 +71,70 @@ import { InfoPagesModal } from './components/InfoPagesModal';
 import { ComingSoonPage } from './components/ComingSoonPage';
 import { ListingGridSkeleton, ListItemRowSkeleton, DashboardSkeleton, ChatDrawerSkeleton } from './components/SkeletonLoader';
 import { checkAdminSession, clearAdminToken } from './services/api';
-import { auth, saveUserToFirestore, logoutFirebase, fetchUserProfileFromFirestore, resendVerificationEmail, db } from './services/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { 
+  auth, 
+  saveUserToFirestore, 
+  logoutFirebase, 
+  fetchUserProfileFromFirestore, 
+  resendVerificationEmail, 
+  db,
+  initializeSuperAdminInFirestore,
+  checkAdminAuthorizedInFirestore,
+  checkIsMagicLink,
+  completeAdminMagicLink
+} from './services/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, onSnapshot, collection } from 'firebase/firestore';
 
 export default function App() {
   const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections'>('landing');
   const [selectedComingSoonUniId, setSelectedComingSoonUniId] = useState<string>('unilag');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
+  const [adminAuthStatus, setAdminAuthStatus] = useState<'AUTH_LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED'>('AUTH_LOADING');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [adminEmail, setAdminEmail] = useState<string>('');
   const [adminRole, setAdminRole] = useState<AdminRole>('ADMIN');
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
-    checkAdminSession().then(res => {
-      setIsAdminAuthenticated(res.authenticated);
-      if (res.authenticated) {
-        if (res.email) setAdminEmail(res.email);
-        if (res.role) setAdminRole(res.role);
+    // 1. Initialize Super Admin in Firestore
+    initializeSuperAdminInFirestore();
+
+    // 2. Check if current URL is a Magic Link sign-in return
+    if (checkIsMagicLink()) {
+      setAdminAuthStatus('AUTH_LOADING');
+      setActiveView('admin-dash');
+
+      completeAdminMagicLink().then(({ user, role }) => {
+        const userEmail = user.email || 'buildsafe247@gmail.com';
+        setIsAdminAuthenticated(true);
+        setAdminEmail(userEmail);
+        setAdminRole(role);
+        setAdminAuthStatus('AUTHENTICATED');
         setCurrentRole('admin');
-      }
-    });
+        try {
+          localStorage.setItem('dormiqa_admin_email', userEmail);
+        } catch {}
+
+        if (typeof window !== 'undefined') {
+          const cleanUrl = window.location.origin + window.location.pathname;
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+        setToastNotice(`Authenticated as ${role}: ${userEmail}`);
+        setTimeout(() => setToastNotice(null), 4000);
+      }).catch((err: any) => {
+        console.warn('Magic link auth error:', err);
+        setAdminAuthStatus('UNAUTHENTICATED');
+        if (err.message === 'EMAIL_REQUIRED') {
+          setIsAdminLoginModalOpen(true);
+          setToastNotice('Please confirm your administrator email address.');
+        } else {
+          setToastNotice(err.message || 'Failed to complete sign-in link.');
+        }
+        setTimeout(() => setToastNotice(null), 5000);
+      });
+    }
   }, []);
 
   const navigateView = (view: 'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections') => {
@@ -102,8 +143,12 @@ export default function App() {
     setRoutePropertyUnavailableReason(null);
     setDetailListing(null);
 
-    if (view === 'admin-dash' && !isAdminAuthenticated) {
-      setIsAdminLoginModalOpen(true);
+    if (view === 'admin-dash') {
+      setActiveView('admin-dash');
+      pushViewUrl('admin-dash');
+      if (!isAdminAuthenticated && adminAuthStatus !== 'AUTH_LOADING') {
+        setIsAdminLoginModalOpen(true);
+      }
       return;
     }
     if (!isLoggedIn && view !== 'landing' && view !== 'onboarding' && view !== 'business-verification' && view !== 'search' && view !== 'coming-soon') {
@@ -113,18 +158,27 @@ export default function App() {
       setTimeout(() => setToastNotice(null), 4000);
       return;
     }
+
+    const isVerified = auth.currentUser ? (auth.currentUser.emailVerified || auth.currentUser.providerData.some(p => p.providerId === 'google.com')) : true;
+
+    if (isLoggedIn && !isVerified && (view === 'student-dash' || view === 'agent-dash' || view === 'saved' || view === 'messages' || view === 'inspections' || view === 'business-verification')) {
+      setActiveView('onboarding');
+      pushViewUrl('onboarding');
+      setToastNotice('Please verify your email address before accessing portal features.');
+      setTimeout(() => setToastNotice(null), 5000);
+      return;
+    }
+
     if (isLoggedIn && view === 'onboarding') {
-      // Existing logged-in user -> Do NOT show onboarding page, take straight to Explore page!
+      if (!isVerified) {
+        setActiveView('onboarding');
+        pushViewUrl('onboarding');
+        return;
+      }
       setActiveView('search');
       pushViewUrl('search');
-      const isVerified = auth.currentUser ? (auth.currentUser.emailVerified || auth.currentUser.providerData.some(p => p.providerId === 'google.com')) : true;
-      if (!isVerified && auth.currentUser?.email) {
-        setToastNotice(`Notice: Your email address (${auth.currentUser.email}) is not verified yet. Please check your inbox.`);
-        setTimeout(() => setToastNotice(null), 5000);
-      } else {
-        setToastNotice('You are already signed in!');
-        setTimeout(() => setToastNotice(null), 3000);
-      }
+      setToastNotice('You are already signed in!');
+      setTimeout(() => setToastNotice(null), 3000);
       return;
     }
     setActiveView(view);
@@ -190,6 +244,9 @@ export default function App() {
         localStorage.removeItem('campora_is_logged_in');
         localStorage.removeItem('dormiqa_user_accounts');
         localStorage.removeItem('dormiqa_active_account_id');
+        localStorage.removeItem('dormiqa_admin_email');
+        setIsAdminAuthenticated(false);
+        setAdminAuthStatus('UNAUTHENTICATED');
         return;
       }
 
@@ -201,6 +258,26 @@ export default function App() {
 
       const uid = fbUser.uid;
       const email = fbUser.email?.toLowerCase() || '';
+
+      // Check Admin authorization from Firestore
+      if (email) {
+        const adminCheck = await checkAdminAuthorizedInFirestore(email);
+        if (adminCheck.authorized) {
+          setIsAdminAuthenticated(true);
+          setAdminEmail(email);
+          setAdminRole(adminCheck.role || (email === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN'));
+          setAdminAuthStatus('AUTHENTICATED');
+          try {
+            localStorage.setItem('dormiqa_admin_email', email);
+          } catch {}
+        } else {
+          setIsAdminAuthenticated(false);
+          setAdminAuthStatus('UNAUTHENTICATED');
+          try {
+            localStorage.removeItem('dormiqa_admin_email');
+          } catch {}
+        }
+      }
 
       let profile = await fetchUserProfileFromFirestore(uid);
       if (!profile && email) {
@@ -226,6 +303,10 @@ export default function App() {
         createdAt: profile?.createdAt || new Date().toISOString().split('T')[0]
       };
 
+      if (profile?.savedListingIds && Array.isArray(profile.savedListingIds)) {
+        setSavedIds(profile.savedListingIds);
+      }
+
       setAccounts([userAccount]);
       setActiveAccountId(uid);
       setCurrentRole(userAccount.role);
@@ -245,6 +326,7 @@ export default function App() {
                 name: liveData.name || a.name,
                 agencyName: liveData.agencyName || a.agencyName,
                 phone: liveData.phone || a.phone,
+                universityName: liveData.universityName || a.universityName,
                 licenseNumber: liveData.licenseNumber || a.licenseNumber,
                 isVerifiedAgent: liveStatus === 'approved',
                 businessVerificationStatus: liveStatus,
@@ -255,6 +337,10 @@ export default function App() {
             }
             return a;
           }));
+
+          if (liveData.savedListingIds && Array.isArray(liveData.savedListingIds)) {
+            setSavedIds(liveData.savedListingIds);
+          }
         }
       }, (err) => console.warn('User doc snapshot error:', err));
 
@@ -552,6 +638,49 @@ export default function App() {
 
   useEffect(() => {
     loadListingsData();
+
+    // Real-Time Listener on Listings Collection in Firestore
+    const listingsCol = collection(db, 'listings');
+    const unsubscribeListings = onSnapshot(listingsCol, (snapshot) => {
+      if (!snapshot.empty) {
+        const liveListings: Listing[] = snapshot.docs.map(docSnap => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            title: data.title || 'Accommodation',
+            pricePerYear: data.pricePerYear || data.price || 0,
+            pricePeriod: data.pricePeriod || data.period || 'year',
+            universityId: data.universityId || '',
+            universityName: data.universityName || '',
+            state: data.state || '',
+            city: data.city || '',
+            area: data.area || '',
+            propertyType: data.propertyType || data.type || 'self-contain',
+            genderPreference: data.genderPreference || 'mixed',
+            distanceMinutesWalk: data.distanceMinutesWalk || 5,
+            vacanciesCount: data.vacanciesCount !== undefined ? data.vacanciesCount : (data.availableUnits !== undefined ? data.availableUnits : 1),
+            photos: data.photos || data.imageUrls || ['https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80'],
+            videoUrl: data.videoUrl,
+            facilities: data.facilities || data.features || [],
+            description: data.description || '',
+            address: data.address || '',
+            agentId: data.agentId || data.userId || '',
+            agentName: data.agentName || 'Agent',
+            agentPhone: data.agentPhone || '',
+            agentAvatar: data.agentAvatar || '',
+            isVerified: Boolean(data.isVerified || data.status === 'approved' || data.verificationStatus === 'approved'),
+            status: data.status || data.verificationStatus || 'pending',
+            verificationStatus: data.verificationStatus || data.status || 'pending',
+            rejectionReason: data.rejectionReason || data.aiBanReason || null,
+            createdAt: data.createdAt || new Date().toISOString()
+          } as unknown as Listing;
+        });
+
+        setListings(liveListings);
+      }
+    }, (err) => console.warn('Listings snapshot listener fallback:', err));
+
+    return () => unsubscribeListings();
   }, [filters]);
 
   useEffect(() => {
@@ -599,10 +728,26 @@ export default function App() {
     setConversations(data);
   };
 
-  const toggleSave = (listingId: string) => {
-    setSavedIds(prev => 
-      prev.includes(listingId) ? prev.filter(id => id !== listingId) : [...prev, listingId]
-    );
+  const toggleSave = async (listingId: string) => {
+    const newSavedIds = savedIds.includes(listingId)
+      ? savedIds.filter(id => id !== listingId)
+      : [...savedIds, listingId];
+
+    setSavedIds(newSavedIds);
+    try {
+      localStorage.setItem('dormiqa_saved_ids', JSON.stringify(newSavedIds));
+    } catch (e) {}
+
+    const uid = auth.currentUser?.uid || activeAccountId;
+    if (uid) {
+      try {
+        const { doc, setDoc } = await import('firebase/firestore');
+        const { db } = await import('./services/firebase');
+        await setDoc(doc(db, 'users', uid), { savedListingIds: newSavedIds }, { merge: true });
+      } catch (err) {
+        console.warn('Failed to sync saved hostels to Firestore:', err);
+      }
+    }
   };
 
   const handleSelectUniversity = (uniId: string) => {
@@ -1125,22 +1270,66 @@ export default function App() {
           );
         })()}
 
-        {/* 7. Admin Dashboard */}
-        {activeView === 'admin-dash' && (
-          <AdminDashboard
-            currentAdminEmail={adminEmail}
-            currentAdminRole={adminRole}
-            onRefresh={loadListingsData}
-            onAdminLogout={() => {
-              setIsAdminAuthenticated(false);
-              clearAdminToken();
-              setCurrentRole('student');
-              setActiveView('landing');
-              setToastNotice('Admin session logged out.');
-              setTimeout(() => setToastNotice(null), 3000);
-            }}
-          />
-        )}
+        {/* 7. Admin Dashboard Gate & View */}
+        {activeView === 'admin-dash' && (() => {
+          if (adminAuthStatus === 'AUTH_LOADING') {
+            return (
+              <div className="min-h-[65vh] flex flex-col items-center justify-center p-8 bg-slate-50 dark:bg-neutral-950">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="w-8 h-8 animate-spin text-emerald-600 dark:text-emerald-400" />
+                  <p className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
+                    Checking your session...
+                  </p>
+                </div>
+              </div>
+            );
+          }
+
+          if (!isAdminAuthenticated || adminAuthStatus === 'UNAUTHENTICATED') {
+            return (
+              <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-neutral-950">
+                <div className="w-full max-w-md bg-white dark:bg-neutral-900 rounded-3xl p-8 border border-neutral-200 dark:border-neutral-800 shadow-xl text-center space-y-6">
+                  <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200/50">
+                    <Shield className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-xl font-black text-neutral-900 dark:text-white">Admin Access</h2>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                      Dormiqa Administrator authentication is required to access management controls.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsAdminLoginModalOpen(true)}
+                    className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+                  >
+                    Sign In with Magic Link
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <AdminDashboard
+              currentAdminEmail={adminEmail}
+              currentAdminRole={adminRole}
+              onRefresh={loadListingsData}
+              onAdminLogout={async () => {
+                await signOut(auth);
+                clearAdminToken();
+                try {
+                  localStorage.removeItem('dormiqa_admin_email');
+                } catch {}
+                setIsAdminAuthenticated(false);
+                setAdminAuthStatus('UNAUTHENTICATED');
+                setCurrentRole('student');
+                setActiveView('landing');
+                setToastNotice('Admin session logged out.');
+                setTimeout(() => setToastNotice(null), 3000);
+              }}
+            />
+          );
+        })()}
           </>
         )}
       </main>

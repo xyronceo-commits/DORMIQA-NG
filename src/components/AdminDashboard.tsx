@@ -51,6 +51,8 @@ import {
   updateAdministratorRole,
   adminLogout 
 } from '../services/api';
+import { updateAgentVerificationInFirestore, updatePropertyVerificationInFirestore, db } from '../services/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 
 interface AdminDashboardProps {
   currentAdminEmail?: string;
@@ -115,6 +117,127 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   useEffect(() => {
     loadAllAdminData();
   }, []);
+
+  // Real-time Firestore synchronization for Agents & Properties in Admin Dashboard
+  useEffect(() => {
+    let unsubUsers = () => {};
+    let unsubListings = () => {};
+
+    try {
+      // 1. Real-time Users / Agents listener
+      const usersCol = collection(db, 'users');
+      unsubUsers = onSnapshot(usersCol, (snapshot) => {
+        if (!snapshot.empty) {
+          const firestoreUsers = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+          const agentUsers = firestoreUsers.filter((u: any) => u.role === 'agent');
+
+          if (agentUsers.length > 0) {
+            setAgents(prevAgents => {
+              const fsMap = new Map<string, any>(agentUsers.map((a: any) => [a.id, a]));
+              const updated = prevAgents.map(prevA => {
+                if (fsMap.has(prevA.id)) {
+                  const fsA = fsMap.get(prevA.id)!;
+                  const isApproved = fsA.businessVerificationStatus === 'approved' || fsA.isVerifiedAgent === true;
+                  return {
+                    ...prevA,
+                    ...fsA,
+                    isVerifiedAgent: isApproved,
+                    status: fsA.status || (isApproved ? 'verified' : fsA.businessVerificationStatus === 'rejected' ? 'rejected' : 'pending'),
+                    businessVerificationStatus: fsA.businessVerificationStatus || (isApproved ? 'approved' : 'pending'),
+                    rejectionReason: fsA.rejectionReason || prevA.rejectionReason
+                  };
+                }
+                return prevA;
+              });
+
+              const existingIds = new Set(prevAgents.map(a => a.id));
+              const brandNew = agentUsers.filter((a: any) => !existingIds.has(a.id)).map((a: any) => {
+                const isApproved = a.businessVerificationStatus === 'approved' || a.isVerifiedAgent === true;
+                return {
+                  ...a,
+                  propertiesCount: 0,
+                  proofType: a.licenseNumber ? 'CAC Registration Proof' : 'Business Verification Proof',
+                  isVerifiedAgent: isApproved,
+                  status: a.status || (isApproved ? 'verified' : a.businessVerificationStatus === 'rejected' ? 'rejected' : 'pending'),
+                  businessVerificationStatus: a.businessVerificationStatus || (isApproved ? 'approved' : 'pending')
+                };
+              });
+
+              return [...updated, ...brandNew];
+            });
+          }
+        }
+      }, (err) => console.warn('Admin users snapshot listener error:', err));
+
+      // 2. Real-time Properties / Listings listener
+      const listingsCol = collection(db, 'listings');
+      unsubListings = onSnapshot(listingsCol, (snapshot) => {
+        if (!snapshot.empty) {
+          const liveProps: Listing[] = snapshot.docs.map(docSnap => {
+            const data = docSnap.data();
+            return {
+              id: docSnap.id,
+              title: data.title || 'Accommodation',
+              pricePerYear: data.pricePerYear || data.price || 0,
+              pricePeriod: data.pricePeriod || data.period || 'year',
+              universityId: data.universityId || '',
+              universityName: data.universityName || '',
+              state: data.state || '',
+              city: data.city || '',
+              area: data.area || '',
+              propertyType: data.propertyType || data.type || 'self-contain',
+              genderPreference: data.genderPreference || 'mixed',
+              distanceMinutesWalk: data.distanceMinutesWalk || 5,
+              vacanciesCount: data.vacanciesCount !== undefined ? data.vacanciesCount : (data.availableUnits !== undefined ? data.availableUnits : 1),
+              photos: data.photos || data.imageUrls || ['https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80'],
+              videoUrl: data.videoUrl,
+              facilities: data.facilities || data.features || [],
+              description: data.description || '',
+              address: data.address || '',
+              agentId: data.agentId || data.userId || '',
+              agentName: data.agentName || 'Agent',
+              agentPhone: data.agentPhone || '',
+              agentAvatar: data.agentAvatar || '',
+              isVerified: Boolean(data.isVerified || data.status === 'approved' || data.verificationStatus === 'approved'),
+              status: data.status || data.verificationStatus || 'pending',
+              verificationStatus: data.verificationStatus || data.status || 'pending',
+              rejectionReason: data.rejectionReason || data.aiBanReason || null,
+              createdAt: data.createdAt || new Date().toISOString()
+            } as unknown as Listing;
+          });
+
+          setProperties(liveProps);
+        }
+      }, (err) => console.warn('Admin listings snapshot listener error:', err));
+    } catch (err) {
+      console.warn('Real-time admin listeners setup error:', err);
+    }
+
+    return () => {
+      unsubUsers();
+      unsubListings();
+    };
+  }, []);
+
+  // Dynamically recalculate admin statistics whenever agents or properties change
+  useEffect(() => {
+    if (agents.length === 0 && properties.length === 0) return;
+
+    const verifiedA = agents.filter(a => a.isVerifiedAgent || a.businessVerificationStatus === 'approved').length;
+    const pendingA = agents.filter(a => !a.isVerifiedAgent && a.status !== 'rejected' && a.businessVerificationStatus !== 'rejected').length;
+    const approvedL = properties.filter(p => p.status === 'approved' || p.verificationStatus === 'approved').length;
+    const pendingL = properties.filter(p => p.status === 'pending' || p.verificationStatus === 'pending').length;
+
+    setStats(prev => ({
+      ...prev,
+      verifiedAgents: verifiedA,
+      pendingAgents: pendingA,
+      totalListings: properties.length,
+      approvedListings: approvedL,
+      pendingListings: pendingL,
+      pendingReviews: pendingA + pendingL
+    }));
+  }, [agents, properties]);
 
   const loadAllAdminData = async () => {
     setIsLoading(true);
@@ -199,8 +322,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleVerifyAgent = async (agentId: string) => {
     try {
+      const adminEmail = currentAdminEmail || 'buildsafe247@gmail.com';
+      await updateAgentVerificationInFirestore(agentId, 'approved', adminEmail);
       await updateAdminAgentStatus(agentId, 'verified');
-      setAgents(prev => prev.map(a => a.id === agentId ? { ...a, isVerifiedAgent: true, status: 'verified' } : a));
+      setAgents(prev => prev.map(a => a.id === agentId ? { ...a, isVerifiedAgent: true, status: 'approved', businessVerificationStatus: 'approved' } : a));
       setStats(prev => ({
         ...prev,
         verifiedAgents: prev.verifiedAgents + 1,
@@ -218,8 +343,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleRejectAgent = async (agentId: string, reason: string) => {
     try {
+      const adminEmail = currentAdminEmail || 'buildsafe247@gmail.com';
+      await updateAgentVerificationInFirestore(agentId, 'rejected', adminEmail, reason);
       await updateAdminAgentStatus(agentId, 'rejected', reason);
-      setAgents(prev => prev.map(a => a.id === agentId ? { ...a, isVerifiedAgent: false, status: 'rejected', rejectionReason: reason } : a));
+      setAgents(prev => prev.map(a => a.id === agentId ? { ...a, isVerifiedAgent: false, status: 'rejected', businessVerificationStatus: 'rejected', rejectionReason: reason } : a));
       setRejectionReasonModal(null);
       setRejectionReasonText('');
       if (selectedAgent && selectedAgent.id === agentId) {
@@ -233,6 +360,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleApproveProperty = async (propertyId: string) => {
     try {
+      const adminEmail = currentAdminEmail || 'buildsafe247@gmail.com';
+      const targetListing = properties.find(p => p.id === propertyId);
+      await updatePropertyVerificationInFirestore(propertyId, 'approved', adminEmail, undefined, targetListing?.agentId);
       await updateAdminPropertyStatus(propertyId, 'approved');
       setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, status: 'approved' } : p));
       setStats(prev => ({
@@ -252,8 +382,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleRejectProperty = async (propertyId: string, status: 'rejected' | 'changes_requested', reason: string) => {
     try {
+      const adminEmail = currentAdminEmail || 'buildsafe247@gmail.com';
+      const targetListing = properties.find(p => p.id === propertyId);
+      await updatePropertyVerificationInFirestore(propertyId, 'rejected', adminEmail, reason, targetListing?.agentId);
       await updateAdminPropertyStatus(propertyId, status, reason);
-      setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, status: status as any, aiBanReason: reason } : p));
+      setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, status: 'rejected', aiBanReason: reason } : p));
       setRejectionReasonModal(null);
       setRejectionReasonText('');
       if (selectedProperty && selectedProperty.id === propertyId) {

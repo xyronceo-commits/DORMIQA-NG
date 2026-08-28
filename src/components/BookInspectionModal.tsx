@@ -20,9 +20,9 @@ export const BookInspectionModal: React.FC<BookInspectionModalProps> = ({
   const [tourType, setTourType] = useState<'in_person' | 'virtual_video'>('in_person');
   const [selectedDate, setSelectedDate] = useState('2026-08-10');
   const [selectedTime, setSelectedTime] = useState('14:30 - 15:00');
-  const [studentName, setStudentName] = useState('Chinedu Okonkwo');
-  const [studentEmail, setStudentEmail] = useState('chinedu.o@student.unilag.edu.ng');
-  const [studentPhone, setStudentPhone] = useState('+234 812 345 6789');
+  const [studentName, setStudentName] = useState(auth.currentUser?.displayName || '');
+  const [studentEmail, setStudentEmail] = useState(auth.currentUser?.email || '');
+  const [studentPhone, setStudentPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [bookedSuccess, setBookedSuccess] = useState(false);
@@ -37,6 +37,11 @@ export const BookInspectionModal: React.FC<BookInspectionModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth.currentUser) {
+      alert("You must be signed in to request an inspection.");
+      return;
+    }
+    const currentUid = auth.currentUser.uid;
     setSubmitting(true);
     try {
       const inspection = await bookInspection({
@@ -45,9 +50,9 @@ export const BookInspectionModal: React.FC<BookInspectionModalProps> = ({
         listingAddress: listing.address,
         listingPhoto: listing.photos[0],
         pricePerWeek: listing.pricePerWeek,
-        studentId: auth.currentUser?.uid || 'guest_user',
-        studentName,
-        studentEmail,
+        studentId: currentUid,
+        studentName: studentName || auth.currentUser.displayName || studentEmail.split('@')[0],
+        studentEmail: studentEmail || auth.currentUser.email || '',
         studentPhone,
         agentId: listing.agentId,
         agentName: listing.agent.name,
@@ -60,19 +65,19 @@ export const BookInspectionModal: React.FC<BookInspectionModalProps> = ({
       // Send real-time notification to Agent
       sendNotification({
         userId: listing.agentId,
-        title: `📅 New Tour Request from ${studentName}`,
+        title: `📅 New Tour Request from ${studentName || 'Student'}`,
         body: `Inspection requested for "${listing.title}" on ${selectedDate} at ${selectedTime}.`,
         type: 'inspection',
         metadata: {
           inspectionId: inspection.id,
           listingId: listing.id,
-          senderName: studentName
+          senderName: studentName || 'Student'
         }
       });
 
       // Send confirmation notification to Student
       sendNotification({
-        userId: auth.currentUser?.uid || 'guest_user',
+        userId: currentUid,
         title: `✅ Inspection Requested Successfully`,
         body: `Your request to view "${listing.title}" with Agent ${listing.agent.name} on ${selectedDate} (${selectedTime}) has been sent.`,
         type: 'inspection',

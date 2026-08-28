@@ -23,7 +23,8 @@ import {
 import { Listing, Inspection, Conversation, User } from '../types';
 import { updateInspectionStatus, fetchInspections, fetchConversations, updateListingStatusAndSales } from '../services/api';
 import { sendNotification } from '../services/notificationService';
-import { auth } from '../services/firebase';
+import { auth, db } from '../services/firebase';
+import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { EditUnitStatusAndSalesModal } from './EditUnitStatusAndSalesModal';
 import { AgentProfilePage } from './AgentProfilePage';
 import { AgentCalendarPage } from './AgentCalendarPage';
@@ -80,22 +81,37 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
     return map;
   });
 
-  // Real-time sync for inspections & messages
+  // Real-time Firestore sync for inspections & conversations
   useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const [freshInsps, freshConvs] = await Promise.all([
-          fetchInspections({ agentId: activeAccountId }),
-          fetchConversations(activeAccountId)
-        ]);
-        setLocalInspections(freshInsps);
-        setLocalConversations(freshConvs);
-      } catch (err) {
-        console.error('Real-time agent sync error:', err);
-      }
-    }, 20000);
+    if (!activeAccountId) return;
 
-    return () => clearInterval(interval);
+    let unsubInsp = () => {};
+    let unsubConv = () => {};
+
+    try {
+      const inspQuery = query(collection(db, 'inspections'), where('agentId', '==', activeAccountId));
+      unsubInsp = onSnapshot(inspQuery, (snap) => {
+        if (!snap.empty) {
+          const fresh = snap.docs.map(d => ({ id: d.id, ...d.data() } as Inspection));
+          setLocalInspections(fresh);
+        }
+      }, (err) => console.warn('Inspections snapshot listener error:', err));
+
+      const convQuery = query(collection(db, 'conversations'), where('agentId', '==', activeAccountId));
+      unsubConv = onSnapshot(convQuery, (snap) => {
+        if (!snap.empty) {
+          const fresh = snap.docs.map(d => ({ id: d.id, ...d.data() } as Conversation));
+          setLocalConversations(fresh);
+        }
+      }, (err) => console.warn('Conversations snapshot listener error:', err));
+    } catch (err) {
+      console.warn('Real-time listener setup error:', err);
+    }
+
+    return () => {
+      unsubInsp();
+      unsubConv();
+    };
   }, [activeAccountId]);
 
   useEffect(() => {
@@ -129,9 +145,96 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
     }
   };
 
-  const activeUser = accounts.find(a => a.id === activeAccountId) || accounts[0];
+  const [liveAgentUser, setLiveAgentUser] = useState<User | null>(null);
+  const [liveAgentListings, setLiveAgentListings] = useState<Listing[]>([]);
+
+  // Real-time Firestore listener for Agent User verification status & Agent's Listings
+  useEffect(() => {
+    const targetUid = activeAccountId || auth.currentUser?.uid;
+    if (!targetUid) return;
+
+    let unsubUserDoc = () => {};
+    let unsubListings = () => {};
+
+    try {
+      // 1. Listen to Agent User Document in real-time
+      const userRef = doc(db, 'users', targetUid);
+      unsubUserDoc = onSnapshot(userRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const uData = docSnap.data();
+          setLiveAgentUser({
+            id: docSnap.id,
+            name: uData.name || uData.displayName || 'Agent',
+            email: uData.email || '',
+            role: 'agent',
+            phone: uData.phone || '',
+            avatar: uData.avatar || uData.photoURL || '',
+            agencyName: uData.agencyName || uData.businessName || '',
+            isVerifiedAgent: uData.isVerifiedAgent || uData.businessVerificationStatus === 'approved',
+            businessVerificationStatus: uData.businessVerificationStatus || (uData.isVerifiedAgent ? 'approved' : 'pending'),
+            rejectionReason: uData.rejectionReason,
+            verificationStatus: uData.verificationStatus || uData.businessVerificationStatus
+          } as unknown as User);
+        }
+      }, (err) => console.warn('Agent user doc snapshot listener error:', err));
+
+      // 2. Listen to Agent's Property Listings in real-time
+      const listingsCol = collection(db, 'listings');
+      const q = query(listingsCol, where('agentId', '==', targetUid));
+      unsubListings = onSnapshot(q, (snap) => {
+        if (!snap.empty) {
+          const freshListings: Listing[] = snap.docs.map(docSnap => {
+            const data = docSnap.data();
+            return {
+              id: docSnap.id,
+              title: data.title || 'Accommodation',
+              pricePerYear: data.pricePerYear || data.price || 0,
+              pricePeriod: data.pricePeriod || data.period || 'year',
+              universityId: data.universityId || '',
+              universityName: data.universityName || '',
+              state: data.state || '',
+              city: data.city || '',
+              area: data.area || '',
+              propertyType: data.propertyType || data.type || 'self-contain',
+              genderPreference: data.genderPreference || 'mixed',
+              distanceMinutesWalk: data.distanceMinutesWalk || 5,
+              vacanciesCount: data.vacanciesCount !== undefined ? data.vacanciesCount : (data.availableUnits !== undefined ? data.availableUnits : 1),
+              photos: data.photos || data.imageUrls || ['https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80'],
+              videoUrl: data.videoUrl,
+              facilities: data.facilities || data.features || [],
+              description: data.description || '',
+              address: data.address || '',
+              agentId: data.agentId || data.userId || targetUid,
+              agentName: data.agentName || 'Agent',
+              agentPhone: data.agentPhone || '',
+              agentAvatar: data.agentAvatar || '',
+              isVerified: Boolean(data.isVerified || data.status === 'approved' || data.verificationStatus === 'approved'),
+              status: data.status || data.verificationStatus || 'pending',
+              verificationStatus: data.verificationStatus || data.status || 'pending',
+              rejectionReason: data.rejectionReason || data.aiBanReason || null,
+              createdAt: data.createdAt || new Date().toISOString()
+            } as unknown as Listing;
+          });
+
+          setLiveAgentListings(freshListings);
+        }
+      }, (err) => console.warn('Agent listings query snapshot listener error:', err));
+
+    } catch (err) {
+      console.warn('Real-time agent listeners setup error:', err);
+    }
+
+    return () => {
+      unsubUserDoc();
+      unsubListings();
+    };
+  }, [activeAccountId]);
+
+  const baseUser = accounts.find(a => a.id === activeAccountId) || accounts[0];
+  const activeUser = liveAgentUser ? { ...baseUser, ...liveAgentUser } : baseUser;
   const currentAgentUid = activeAccountId || auth.currentUser?.uid;
-  const agentListings = listings.filter(l => Boolean(currentAgentUid && l.agentId === currentAgentUid));
+  const allListings = liveAgentListings.length > 0 ? liveAgentListings : listings;
+  const agentListings = allListings.filter(l => Boolean(currentAgentUid && (l.agentId === currentAgentUid || (l as any).userId === currentAgentUid)));
   const agentInspections = localInspections.filter(i => Boolean(currentAgentUid && i.agentId === currentAgentUid));
   const agentConversations = localConversations.filter(c => Boolean(currentAgentUid && c.agentId === currentAgentUid));
 
@@ -237,10 +340,22 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                   <h1 className="text-2xl sm:text-3xl font-black text-neutral-900 dark:text-white tracking-tight">
                     Welcome back, {activeUser?.name || auth.currentUser?.displayName || 'Agent'}
                   </h1>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    Verified Caretaker
-                  </span>
+                  {activeUser?.isVerifiedAgent || activeUser?.businessVerificationStatus === 'approved' ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      Verified Caretaker
+                    </span>
+                  ) : activeUser?.businessVerificationStatus === 'rejected' || (activeUser as any)?.verificationStatus === 'rejected' ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/80 px-2.5 py-0.5 rounded-full border border-rose-200 dark:border-rose-800">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                      Verification Rejected
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/80 px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
+                      <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      Verification Pending
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 font-medium">
                   Manage your hostels and accommodation listings.
@@ -255,6 +370,25 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                 <span>+ Add Hostel</span>
               </button>
             </div>
+
+            {/* Verification Alert Banner if Rejected */}
+            {(activeUser?.businessVerificationStatus === 'rejected' || (activeUser as any)?.verificationStatus === 'rejected') && (
+              <div className="bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 rounded-3xl p-5 space-y-2 text-xs">
+                <div className="flex items-center gap-2 text-rose-800 dark:text-rose-200 font-extrabold text-sm">
+                  <AlertCircle className="w-4 h-4 text-rose-600" />
+                  <span>Agent Verification Rejected</span>
+                </div>
+                <p className="text-rose-700 dark:text-rose-300 font-medium">
+                  <strong>Reason:</strong> {activeUser?.rejectionReason || (activeUser as any)?.rejectionReason || 'Submitted documents or business credentials require update.'}
+                </p>
+                <button
+                  onClick={() => setActiveNav('profile')}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs transition-all cursor-pointer mt-1"
+                >
+                  Update & Resubmit Verification
+                </button>
+              </div>
+            )}
 
             {/* Overview Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -333,6 +467,19 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                         <span className="absolute top-2 left-2 bg-slate-900/90 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md">
                           {item.vacanciesCount} Rooms Available
                         </span>
+                        {item.status === 'approved' || item.verificationStatus === 'approved' || item.isVerified ? (
+                          <span className="absolute top-2 right-2 bg-emerald-600/90 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Approved
+                          </span>
+                        ) : item.status === 'rejected' || item.verificationStatus === 'rejected' ? (
+                          <span className="absolute top-2 right-2 bg-rose-600/90 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" /> Rejected
+                          </span>
+                        ) : (
+                          <span className="absolute top-2 right-2 bg-amber-500/90 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> Under Review
+                          </span>
+                        )}
                       </div>
 
                       <div>
@@ -341,6 +488,11 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                           <MapPin className="w-3 h-3 text-neutral-400" />
                           <span>{item.address || 'Campus Area'}</span>
                         </p>
+                        {(item.status === 'rejected' || item.verificationStatus === 'rejected') && (item.rejectionReason || (item as any).aiBanReason) && (
+                          <div className="mt-2 p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-[11px] font-medium">
+                            <strong>Rejection Reason:</strong> {item.rejectionReason || (item as any).aiBanReason}
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between text-xs pt-2 border-t border-neutral-100 dark:border-neutral-800">

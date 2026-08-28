@@ -734,9 +734,16 @@ export function clearAdminToken() {
 
 function getAdminAuthHeaders() {
   const token = getAdminToken();
+  let adminEmail = '';
+  try {
+    const storedEmail = localStorage.getItem('dormiqa_admin_email') || sessionStorage.getItem('dormiqa_admin_email');
+    if (storedEmail) adminEmail = storedEmail;
+  } catch {}
+
   return {
     'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...(adminEmail ? { 'X-Admin-Email': adminEmail } : {})
   };
 }
 
