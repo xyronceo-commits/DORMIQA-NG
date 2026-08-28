@@ -130,6 +130,14 @@
         { "name": "used", "type": "boolean", "description": "Whether the OTP has been used or invalidated" },
         { "name": "verified", "type": "boolean", "description": "Whether email was successfully verified" }
       ]
+    },
+    {
+      "name": "authorized_admins",
+      "fields": [
+        { "name": "email", "type": "string", "description": "Authorized administrator email address" },
+        { "name": "addedBy", "type": "string", "description": "Email address of who granted authorization" },
+        { "name": "createdAt", "type": "string", "description": "Creation ISO date" }
+      ]
     }
   ],
   "rules": [
@@ -172,6 +180,11 @@
       "collection": "emailVerifications",
       "read": "true",
       "write": "false"
+    },
+    {
+      "collection": "authorized_admins",
+      "read": "true",
+      "write": "true"
     }
   ],
   "indexes": []

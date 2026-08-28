@@ -5,6 +5,7 @@ import {
   setDoc, 
   getDoc, 
   getDocs, 
+  deleteDoc,
   collection, 
   query, 
   where, 
@@ -329,6 +330,74 @@ export const fetchUserProfileFromFirestore = async (uidOrEmail: string): Promise
     console.warn("Failed to fetch user profile from Firestore:", err);
     handleFirestoreError(err, OperationType.GET, `users/${uidOrEmail}`, false);
     return null;
+  }
+};
+
+/**
+ * AUTHORIZED ADMINS FIRESTORE HELPERS
+ */
+export const fetchAuthorizedAdminEmailsFromFirestore = async (): Promise<string[]> => {
+  try {
+    const colRef = collection(db, 'authorized_admins');
+    const snapshot = await getDocs(colRef);
+    const emails: string[] = [];
+    
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data?.email) {
+        emails.push(data.email.trim().toLowerCase());
+      } else if (docSnap.id.includes('@')) {
+        emails.push(docSnap.id.trim().toLowerCase());
+      }
+    });
+
+    // Ensure default primary email buildsafe247@gmail.com is present
+    if (!emails.includes('buildsafe247@gmail.com')) {
+      await addAuthorizedAdminEmailToFirestore('buildsafe247@gmail.com', 'system');
+      emails.push('buildsafe247@gmail.com');
+    }
+
+    return Array.from(new Set(emails));
+  } catch (err) {
+    console.warn("Failed to fetch authorized admin emails from Firestore:", err);
+    handleFirestoreError(err, OperationType.LIST, 'authorized_admins', false);
+    return ['buildsafe247@gmail.com'];
+  }
+};
+
+export const addAuthorizedAdminEmailToFirestore = async (email: string, addedBy: string = 'admin'): Promise<string[]> => {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    throw new Error('Valid email address required.');
+  }
+
+  try {
+    const adminRef = doc(db, 'authorized_admins', cleanEmail);
+    await setDoc(adminRef, {
+      email: cleanEmail,
+      addedBy,
+      createdAt: new Date().toISOString()
+    }, { merge: true });
+
+    return await fetchAuthorizedAdminEmailsFromFirestore();
+  } catch (err) {
+    console.error("Failed to add authorized admin email to Firestore:", err);
+    handleFirestoreError(err, OperationType.WRITE, `authorized_admins/${cleanEmail}`, true);
+    throw err;
+  }
+};
+
+export const removeAuthorizedAdminEmailFromFirestore = async (email: string): Promise<string[]> => {
+  const cleanEmail = email.trim().toLowerCase();
+  try {
+    const adminRef = doc(db, 'authorized_admins', cleanEmail);
+    await deleteDoc(adminRef);
+
+    return await fetchAuthorizedAdminEmailsFromFirestore();
+  } catch (err) {
+    console.error("Failed to remove authorized admin email from Firestore:", err);
+    handleFirestoreError(err, OperationType.DELETE, `authorized_admins/${cleanEmail}`, true);
+    throw err;
   }
 };
 

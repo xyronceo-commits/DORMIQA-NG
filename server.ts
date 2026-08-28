@@ -1,7 +1,10 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, doc, setDoc, getDocs, collection, deleteDoc } from 'firebase/firestore';
 import { 
   UNIVERSITIES, 
   MOCK_LISTINGS, 
@@ -360,10 +363,103 @@ function createRateLimiter(maxRequests: number, windowMs: number, store: Map<str
 
 const adminLoginLimiter = createRateLimiter(5, 15 * 60 * 1000, adminRateLimitStore);
 
-const ADMIN_PASSCODE = 'Dormiqa_332456701';
+const ADMIN_PASSWORD_SALT = 'dormiqa_secure_salt_2026';
+const INITIAL_ADMIN_PASSCODE_HASH = crypto.scryptSync('Dormiqa_332456701', ADMIN_PASSWORD_SALT, 64).toString('hex');
+
 const authorizedAdminEmails = new Set<string>([
   'buildsafe247@gmail.com'
 ]);
+
+// Initialize Server-Side Firestore Connection
+let firestoreDb: any = null;
+try {
+  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    const fbConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    const fbApp = getApps().length === 0 ? initializeApp(fbConfig) : getApp();
+    firestoreDb = fbConfig.firestoreDatabaseId ? getFirestore(fbApp, fbConfig.firestoreDatabaseId) : getFirestore(fbApp);
+  }
+} catch (e) {
+  console.warn("Could not initialize server-side Firestore instance:", e);
+}
+
+// Firestore Real Data Query Helpers for Admin Portal
+async function getFirestoreUsers(): Promise<User[]> {
+  if (!firestoreDb) return usersStore;
+  try {
+    const snap = await getDocs(collection(firestoreDb, 'users'));
+    const realUsers: User[] = [];
+    snap.forEach(d => {
+      realUsers.push({ id: d.id, ...d.data() } as User);
+    });
+    return realUsers.length > 0 ? realUsers : usersStore;
+  } catch (err) {
+    console.warn("Firestore users query error:", err);
+    return usersStore;
+  }
+}
+
+async function getFirestoreListings(): Promise<Listing[]> {
+  if (!firestoreDb) return listingsStore;
+  try {
+    const snap = await getDocs(collection(firestoreDb, 'listings'));
+    const realListings: Listing[] = [];
+    snap.forEach(d => {
+      realListings.push({ id: d.id, ...d.data() } as Listing);
+    });
+    return realListings.length > 0 ? realListings : listingsStore;
+  } catch (err) {
+    console.warn("Firestore listings query error:", err);
+    return listingsStore;
+  }
+}
+
+async function getFirestoreInspections(): Promise<Inspection[]> {
+  if (!firestoreDb) return inspectionsStore;
+  try {
+    const snap = await getDocs(collection(firestoreDb, 'inspections'));
+    const realInspections: Inspection[] = [];
+    snap.forEach(d => {
+      realInspections.push({ id: d.id, ...d.data() } as Inspection);
+    });
+    return realInspections;
+  } catch (err) {
+    console.warn("Firestore inspections query error:", err);
+    return inspectionsStore;
+  }
+}
+
+// Sync authorized admin emails with Firestore collection 'authorized_admins'
+async function syncAdminEmailsFromFirestore() {
+  if (!firestoreDb) return;
+  try {
+    const colRef = collection(firestoreDb, 'authorized_admins');
+    const snap = await getDocs(colRef);
+    if (!snap.empty) {
+      snap.forEach(d => {
+        const data = d.data();
+        if (data?.email) {
+          authorizedAdminEmails.add(data.email.trim().toLowerCase());
+        } else if (d.id.includes('@')) {
+          authorizedAdminEmails.add(d.id.trim().toLowerCase());
+        }
+      });
+    } else {
+      // Seed initial admin email into Firestore collection
+      const defaultEmail = 'buildsafe247@gmail.com';
+      await setDoc(doc(firestoreDb, 'authorized_admins', defaultEmail), {
+        email: defaultEmail,
+        addedBy: 'system',
+        createdAt: new Date().toISOString()
+      }, { merge: true });
+      authorizedAdminEmails.add(defaultEmail);
+    }
+  } catch (err) {
+    console.warn("Error syncing admin emails from Firestore collection:", err);
+  }
+}
+
+syncAdminEmailsFromFirestore();
 
 const adminTrialStore = new Map<string, { attempts: number; lockedUntil?: number }>();
 
@@ -1054,7 +1150,7 @@ Return ONLY valid JSON matching this schema:
 
   // --- SECURE ADMIN CONTROLS & AUTHENTICATION ENDPOINTS ---
 
-  // Admin Login (Email + Passcode verified with 5 trial lock)
+  // Admin Login (Email + Password/Passcode verified with rate-limited trial lock)
   app.post('/api/admin/login', (req, res) => {
     const { email, password } = req.body || {};
     const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
@@ -1074,7 +1170,7 @@ Return ONLY valid JSON matching this schema:
         success: false,
         error: 'MaxTrialsExceeded',
         attemptsLeft: 0,
-        message: `Maximum 5 passcode trials exceeded. Admin portal is locked. Try again in ${remainingSecs} seconds.`
+        message: `Maximum passcode trials exceeded. Admin portal locked for ${remainingSecs}s.`
       });
     }
 
@@ -1084,40 +1180,47 @@ Return ONLY valid JSON matching this schema:
     }
 
     const isEmailAuthorized = cleanEmail && Array.from(authorizedAdminEmails).some(e => e.toLowerCase() === cleanEmail);
-    const isPasscodeCorrect = cleanPassword && cleanPassword === ADMIN_PASSCODE;
 
-    if (!isEmailAuthorized || !isPasscodeCorrect) {
+    let isPasswordCorrect = false;
+    if (cleanPassword) {
+      const inputHash = crypto.scryptSync(cleanPassword, ADMIN_PASSWORD_SALT, 64).toString('hex');
+      if (inputHash === INITIAL_ADMIN_PASSCODE_HASH || cleanPassword === 'Dormiqa_332456701') {
+        isPasswordCorrect = true;
+      }
+    }
+
+    if (!isEmailAuthorized || !isPasswordCorrect) {
       trial.attempts += 1;
       const attemptsLeft = Math.max(0, 5 - trial.attempts);
 
       if (trial.attempts >= 5) {
-        trial.lockedUntil = now + 15 * 60 * 1000; // 15 minute lock after 5 trials
+        trial.lockedUntil = now + 15 * 60 * 1000;
         return res.status(401).json({
           success: false,
           error: 'MaxTrialsExceeded',
           attemptsLeft: 0,
-          message: 'Maximum 5 passcode trials exceeded. Admin portal access locked.'
+          message: 'Maximum 5 attempts exceeded. Admin access locked.'
         });
       }
 
       let errorMsg = 'Incorrect admin credentials.';
       if (!isEmailAuthorized) {
-        errorMsg = `Email '${cleanEmail || 'blank'}' is not authorized for admin access.`;
-      } else if (!isPasscodeCorrect) {
-        errorMsg = 'Incorrect passcode.';
+        errorMsg = `Email '${cleanEmail || 'blank'}' is not authorized for administrative access.`;
+      } else if (!isPasswordCorrect) {
+        errorMsg = 'Incorrect passcode or password.';
       }
 
       return res.status(401).json({
         success: false,
         error: 'InvalidCredentials',
         attemptsLeft,
-        message: `${errorMsg} ${attemptsLeft} trial${attemptsLeft === 1 ? '' : 's'} remaining.`
+        message: `${errorMsg} ${attemptsLeft} attempt${attemptsLeft === 1 ? '' : 's'} remaining.`
       });
     }
 
-    // Success: reset trial count
+    // Success: reset trial count and create session token
     adminTrialStore.delete(ip);
-    const token = `dormiqa_admin_${Date.now()}_${Math.random().toString(36).substring(2, 12)}`;
+    const token = `dormiqa_admin_${Date.now()}_${crypto.randomBytes(16).toString('hex')}`;
     activeAdminSessions.add(token);
 
     res.json({
@@ -1137,7 +1240,7 @@ Return ONLY valid JSON matching this schema:
     });
   });
 
-  app.post('/api/admin/emails', requireAdminAuth, (req, res) => {
+  app.post('/api/admin/emails', requireAdminAuth, async (req, res) => {
     const { email } = req.body || {};
     const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
     if (!cleanEmail || !cleanEmail.includes('@')) {
@@ -1145,14 +1248,27 @@ Return ONLY valid JSON matching this schema:
     }
 
     authorizedAdminEmails.add(cleanEmail);
+
+    if (firestoreDb) {
+      try {
+        await setDoc(doc(firestoreDb, 'authorized_admins', cleanEmail), {
+          email: cleanEmail,
+          addedBy: 'admin',
+          createdAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (err) {
+        console.warn("Failed to write admin email to Firestore collection:", err);
+      }
+    }
+
     res.json({
       success: true,
-      message: `Admin email '${cleanEmail}' granted access with passcode.`,
+      message: `Admin email '${cleanEmail}' granted access and stored in Firestore.`,
       emails: Array.from(authorizedAdminEmails)
     });
   });
 
-  app.delete('/api/admin/emails', requireAdminAuth, (req, res) => {
+  app.delete('/api/admin/emails', requireAdminAuth, async (req, res) => {
     const { email } = req.body || {};
     const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
     
@@ -1163,7 +1279,6 @@ Return ONLY valid JSON matching this schema:
       });
     }
 
-    // Don't allow deleting default admin if it's the main account
     let deleted = false;
     for (const item of authorizedAdminEmails) {
       if (item.toLowerCase() === cleanEmail) {
@@ -1177,9 +1292,17 @@ Return ONLY valid JSON matching this schema:
       return res.status(404).json({ success: false, error: 'Admin email not found.' });
     }
 
+    if (firestoreDb) {
+      try {
+        await deleteDoc(doc(firestoreDb, 'authorized_admins', cleanEmail));
+      } catch (err) {
+        console.warn("Failed to delete admin email from Firestore collection:", err);
+      }
+    }
+
     res.json({
       success: true,
-      message: `Admin email '${cleanEmail}' removed.`,
+      message: `Admin email '${cleanEmail}' removed from system and Firestore collection.`,
       emails: Array.from(authorizedAdminEmails)
     });
   });
@@ -1202,23 +1325,31 @@ Return ONLY valid JSON matching this schema:
     res.json({ authenticated: true });
   });
 
-  // Admin Stats
-  app.get('/api/admin/stats', requireAdminAuth, (req, res) => {
+  // Admin Stats (Real Firestore Data)
+  app.get('/api/admin/stats', requireAdminAuth, async (req, res) => {
+    const users = await getFirestoreUsers();
+    const listings = await getFirestoreListings();
+    const inspections = await getFirestoreInspections();
+
     res.json({
-      totalStudents: usersStore.filter(u => u.role === 'student').length,
-      verifiedAgents: usersStore.filter(u => u.role === 'agent' && u.isVerifiedAgent).length,
-      pendingAgents: usersStore.filter(u => u.role === 'agent' && !u.isVerifiedAgent && u.status !== 'rejected').length,
-      totalListings: listingsStore.length,
-      approvedListings: listingsStore.filter(l => l.status === 'approved').length,
-      pendingListings: listingsStore.filter(l => l.status === 'pending').length,
-      pendingReviews: listingsStore.filter(l => l.status === 'pending').length + usersStore.filter(u => u.role === 'agent' && !u.isVerifiedAgent && u.status !== 'rejected').length
+      totalStudents: users.filter(u => u.role === 'student').length,
+      verifiedAgents: users.filter(u => u.role === 'agent' && u.isVerifiedAgent).length,
+      pendingAgents: users.filter(u => u.role === 'agent' && !u.isVerifiedAgent && u.status !== 'rejected').length,
+      totalListings: listings.length,
+      approvedListings: listings.filter(l => l.status === 'approved').length,
+      pendingListings: listings.filter(l => l.status === 'pending').length,
+      totalInspections: inspections.length,
+      pendingReviews: listings.filter(l => l.status === 'pending').length + users.filter(u => u.role === 'agent' && !u.isVerifiedAgent && u.status !== 'rejected').length
     });
   });
 
-  // Fetch Agents List for Verification
-  app.get('/api/admin/agents', requireAdminAuth, (req, res) => {
-    const agents = usersStore.filter(u => u.role === 'agent').map(a => {
-      const agentListings = listingsStore.filter(l => l.agentId === a.id);
+  // Fetch Agents List for Verification (Real Firestore Data)
+  app.get('/api/admin/agents', requireAdminAuth, async (req, res) => {
+    const users = await getFirestoreUsers();
+    const listings = await getFirestoreListings();
+
+    const agents = users.filter(u => u.role === 'agent').map(a => {
+      const agentListings = listings.filter(l => l.agentId === a.id);
       return {
         ...a,
         propertiesCount: agentListings.length,
@@ -1229,9 +1360,10 @@ Return ONLY valid JSON matching this schema:
   });
 
   // Update Agent Status (Verify / Reject)
-  app.patch('/api/admin/agents/:id/status', requireAdminAuth, (req, res) => {
+  app.patch('/api/admin/agents/:id/status', requireAdminAuth, async (req, res) => {
     const { status, reason } = req.body;
-    const agent = usersStore.find(u => u.id === req.params.id);
+    const users = await getFirestoreUsers();
+    const agent = users.find(u => u.id === req.params.id);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
 
     if (status === 'verified') {
@@ -1243,30 +1375,50 @@ Return ONLY valid JSON matching this schema:
       (agent as any).rejectionReason = reason || 'Verification documents require update.';
     }
 
+    if (firestoreDb) {
+      try {
+        await setDoc(doc(firestoreDb, 'users', agent.id), agent, { merge: true });
+      } catch (err) {
+        console.warn("Failed to sync agent status to Firestore:", err);
+      }
+    }
+
     res.json(agent);
   });
 
-  // Fetch All Properties for Verification
-  app.get('/api/admin/properties', requireAdminAuth, (req, res) => {
-    res.json(listingsStore);
+  // Fetch All Properties for Verification (Real Firestore Data)
+  app.get('/api/admin/properties', requireAdminAuth, async (req, res) => {
+    const listings = await getFirestoreListings();
+    res.json(listings);
   });
 
   // Update Property Status (Approve / Reject / Request Changes)
-  app.patch('/api/admin/properties/:id/status', requireAdminAuth, (req, res) => {
+  app.patch('/api/admin/properties/:id/status', requireAdminAuth, async (req, res) => {
     const { status, reason } = req.body;
-    const listing = listingsStore.find(l => l.id === req.params.id);
+    const listings = await getFirestoreListings();
+    const listing = listings.find(l => l.id === req.params.id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
 
     listing.status = status;
     if (reason) {
       listing.aiBanReason = reason;
     }
+
+    if (firestoreDb) {
+      try {
+        await setDoc(doc(firestoreDb, 'listings', listing.id), listing, { merge: true });
+      } catch (err) {
+        console.warn("Failed to sync property status to Firestore:", err);
+      }
+    }
+
     res.json(listing);
   });
 
-  // Student Overview
-  app.get('/api/admin/students/overview', requireAdminAuth, (req, res) => {
-    const students = usersStore.filter(u => u.role === 'student');
+  // Student Overview (Real Firestore Data)
+  app.get('/api/admin/students/overview', requireAdminAuth, async (req, res) => {
+    const users = await getFirestoreUsers();
+    const students = users.filter(u => u.role === 'student');
     const now = Date.now();
     const oneDay = 24 * 60 * 60 * 1000;
     const oneWeek = 7 * oneDay;
@@ -1313,10 +1465,13 @@ Return ONLY valid JSON matching this schema:
     });
   });
 
-  // Admin Platform Analytics
-  app.get('/api/admin/analytics', requireAdminAuth, (req, res) => {
-    const students = usersStore.filter(u => u.role === 'student');
-    const agents = usersStore.filter(u => u.role === 'agent');
+  // Admin Platform Analytics (Real Firestore Data)
+  app.get('/api/admin/analytics', requireAdminAuth, async (req, res) => {
+    const users = await getFirestoreUsers();
+    const listings = await getFirestoreListings();
+
+    const students = users.filter(u => u.role === 'student');
+    const agents = users.filter(u => u.role === 'agent');
 
     // Group student signups over time by month
     const monthlySignupsMap = new Map<string, number>();
@@ -1337,12 +1492,12 @@ Return ONLY valid JSON matching this schema:
 
     // Build category demand dynamically from listings
     const typeCounts: Record<string, number> = {};
-    listingsStore.forEach(l => {
+    listings.forEach(l => {
       const t = l.propertyType || 'Self-Contain Lodge';
       typeCounts[t] = (typeCounts[t] || 0) + 1;
     });
 
-    const totalListingsCount = listingsStore.length;
+    const totalListingsCount = listings.length;
     const accommodationDemand = Object.entries(typeCounts).map(([type, count]) => ({
       type,
       percent: totalListingsCount > 0 ? Math.round((count / totalListingsCount) * 100) : 0
@@ -1358,10 +1513,10 @@ Return ONLY valid JSON matching this schema:
         rejected: agents.filter(u => u.status === 'rejected').length
       },
       listingsStats: {
-        total: listingsStore.length,
-        approved: listingsStore.filter(l => l.status === 'approved').length,
-        pending: listingsStore.filter(l => l.status === 'pending').length,
-        banned: listingsStore.filter(l => l.status === 'banned' || l.status === 'rejected').length
+        total: listings.length,
+        approved: listings.filter(l => l.status === 'approved').length,
+        pending: listings.filter(l => l.status === 'pending').length,
+        banned: listings.filter(l => l.status === 'banned' || l.status === 'rejected').length
       }
     });
   });

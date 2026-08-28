@@ -2,11 +2,55 @@ import { Listing, University, Inspection, Conversation, ChatMessage, Report, Use
 
 const API_BASE = '/api';
 
+/**
+ * Robust, safe JSON response parser.
+ * Prevents 'Unexpected end of JSON input' or HTML error page crash.
+ */
+export async function safeFetchJson<T = any>(url: string, options?: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(url, options);
+  } catch (err: any) {
+    throw new Error(`Network connection error: ${err.message || 'Unable to connect to server'}`);
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+  const text = await res.text();
+
+  if (!text || text.trim() === '') {
+    if (!res.ok) {
+      throw new Error(`Server returned error (${res.status}): ${res.statusText || 'No response body'}`);
+    }
+    return {} as T;
+  }
+
+  const isJsonLike = contentType.includes('application/json') || text.trim().startsWith('{') || text.trim().startsWith('[');
+
+  if (isJsonLike) {
+    try {
+      const data = JSON.parse(text);
+      if (!res.ok) {
+        throw new Error(data.error || data.message || `Server error (${res.status})`);
+      }
+      return data as T;
+    } catch (parseErr: any) {
+      if (!res.ok) {
+        throw new Error(`Server returned error (${res.status}): ${text.slice(0, 150)}`);
+      }
+      throw new Error(`Invalid JSON response: ${parseErr.message}`);
+    }
+  }
+
+  if (!res.ok) {
+    throw new Error(`Server error (${res.status}): ${text.slice(0, 150)}`);
+  }
+
+  throw new Error(`Unexpected non-JSON response format from server.`);
+}
+
 export async function fetchUniversities(): Promise<University[]> {
   try {
-    const res = await fetch(`${API_BASE}/universities`);
-    if (!res.ok) throw new Error('Failed to fetch universities');
-    return await res.json();
+    return await safeFetchJson<University[]>(`${API_BASE}/universities`);
   } catch (err) {
     console.warn('API error, using fallback data:', err);
     const { UNIVERSITIES } = await import('../data/mockData');
@@ -251,54 +295,61 @@ export async function adminLogin(emailOrPassword: string, pass?: string): Promis
   const email = pass ? emailOrPassword : 'buildsafe247@gmail.com';
   const password = pass ? pass : emailOrPassword;
 
-  const res = await fetch(`${API_BASE}/admin/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
-  });
+  try {
+    const data = await safeFetchJson<{ success: boolean; token?: string; message?: string; attemptsLeft?: number; error?: string }>(`${API_BASE}/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), password: password.trim() })
+    });
 
-  const data = await res.json();
-  if (res.ok && data.success && data.token) {
-    setAdminToken(data.token);
+    if (data.success && data.token) {
+      setAdminToken(data.token);
+    }
+    return data;
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err.message || 'Authentication request failed. Please check backend connection.'
+    };
   }
-  return data;
 }
 
 export async function fetchAdminEmails(): Promise<string[]> {
-  const res = await fetch(`${API_BASE}/admin/emails`, {
-    headers: getAdminAuthHeaders()
-  });
-  if (!res.ok) throw new Error('Failed to fetch admin emails');
-  const data = await res.json();
-  return data.emails || [];
+  try {
+    const data = await safeFetchJson<{ success: boolean; emails: string[] }>(`${API_BASE}/admin/emails`, {
+      headers: getAdminAuthHeaders()
+    });
+    return data.emails || [];
+  } catch (err) {
+    console.warn("Backend fetchAdminEmails error:", err);
+    return ['buildsafe247@gmail.com'];
+  }
 }
 
 export async function addAdminEmail(email: string): Promise<string[]> {
-  const res = await fetch(`${API_BASE}/admin/emails`, {
+  const cleanEmail = email.trim().toLowerCase();
+  const data = await safeFetchJson<{ success: boolean; emails: string[]; message?: string }>(`${API_BASE}/admin/emails`, {
     method: 'POST',
     headers: getAdminAuthHeaders(),
-    body: JSON.stringify({ email })
+    body: JSON.stringify({ email: cleanEmail })
   });
-  const data = await res.json();
-  if (!res.ok || !data.success) throw new Error(data.error || data.message || 'Failed to add admin email');
   return data.emails || [];
 }
 
 export async function removeAdminEmail(email: string): Promise<string[]> {
-  const res = await fetch(`${API_BASE}/admin/emails`, {
+  const cleanEmail = email.trim().toLowerCase();
+  const data = await safeFetchJson<{ success: boolean; emails: string[]; message?: string }>(`${API_BASE}/admin/emails`, {
     method: 'DELETE',
     headers: getAdminAuthHeaders(),
-    body: JSON.stringify({ email })
+    body: JSON.stringify({ email: cleanEmail })
   });
-  const data = await res.json();
-  if (!res.ok || !data.success) throw new Error(data.error || data.message || 'Failed to remove admin email');
   return data.emails || [];
 }
 
 export async function adminLogout(): Promise<void> {
   const token = getAdminToken();
   if (token) {
-    await fetch(`${API_BASE}/admin/logout`, {
+    await safeFetchJson(`${API_BASE}/admin/logout`, {
       method: 'POST',
       headers: getAdminAuthHeaders()
     }).catch(() => {});
@@ -310,73 +361,59 @@ export async function checkAdminSession(): Promise<boolean> {
   const token = getAdminToken();
   if (!token) return false;
   try {
-    const res = await fetch(`${API_BASE}/admin/check-session`, {
+    const data = await safeFetchJson<{ authenticated: boolean }>(`${API_BASE}/admin/check-session`, {
       headers: getAdminAuthHeaders()
     });
-    return res.ok;
+    return Boolean(data.authenticated);
   } catch {
     return false;
   }
 }
 
 export async function fetchAdminStats() {
-  const res = await fetch(`${API_BASE}/admin/stats`, {
+  return await safeFetchJson(`${API_BASE}/admin/stats`, {
     headers: getAdminAuthHeaders()
   });
-  if (!res.ok) throw new Error('Failed to fetch admin stats');
-  return await res.json();
 }
 
 export async function fetchAdminAgents() {
-  const res = await fetch(`${API_BASE}/admin/agents`, {
+  return await safeFetchJson(`${API_BASE}/admin/agents`, {
     headers: getAdminAuthHeaders()
   });
-  if (!res.ok) throw new Error('Failed to fetch agent applications');
-  return await res.json();
 }
 
 export async function updateAdminAgentStatus(agentId: string, status: 'verified' | 'rejected', reason?: string) {
-  const res = await fetch(`${API_BASE}/admin/agents/${agentId}/status`, {
+  return await safeFetchJson(`${API_BASE}/admin/agents/${agentId}/status`, {
     method: 'PATCH',
     headers: getAdminAuthHeaders(),
     body: JSON.stringify({ status, reason })
   });
-  if (!res.ok) throw new Error('Failed to update agent status');
-  return await res.json();
 }
 
 export async function fetchAdminProperties() {
-  const res = await fetch(`${API_BASE}/admin/properties`, {
+  return await safeFetchJson(`${API_BASE}/admin/properties`, {
     headers: getAdminAuthHeaders()
   });
-  if (!res.ok) throw new Error('Failed to fetch admin properties');
-  return await res.json();
 }
 
 export async function updateAdminPropertyStatus(propertyId: string, status: string, reason?: string) {
-  const res = await fetch(`${API_BASE}/admin/properties/${propertyId}/status`, {
+  return await safeFetchJson(`${API_BASE}/admin/properties/${propertyId}/status`, {
     method: 'PATCH',
     headers: getAdminAuthHeaders(),
     body: JSON.stringify({ status, reason })
   });
-  if (!res.ok) throw new Error('Failed to update property status');
-  return await res.json();
 }
 
 export async function fetchStudentOverview() {
-  const res = await fetch(`${API_BASE}/admin/students/overview`, {
+  return await safeFetchJson(`${API_BASE}/admin/students/overview`, {
     headers: getAdminAuthHeaders()
   });
-  if (!res.ok) throw new Error('Failed to fetch student overview');
-  return await res.json();
 }
 
 export async function fetchAdminAnalytics() {
-  const res = await fetch(`${API_BASE}/admin/analytics`, {
+  return await safeFetchJson(`${API_BASE}/admin/analytics`, {
     headers: getAdminAuthHeaders()
   });
-  if (!res.ok) throw new Error('Failed to fetch admin analytics');
-  return await res.json();
 }
 
 export async function fetchReports(): Promise<Report[]> {

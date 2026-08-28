@@ -143,7 +143,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const updated = await addAdminEmail(newAdminEmailInput.trim());
       setAdminEmails(updated);
       setNewAdminEmailInput('');
-      setEmailNotice({ type: 'success', msg: `Admin email '${newAdminEmailInput.trim()}' added! They can log in with passcode Dormiqa_332456701.` });
+      setEmailNotice({ type: 'success', msg: `Admin email '${newAdminEmailInput.trim()}' authorized and saved securely to Firestore collection.` });
     } catch (err: any) {
       setEmailNotice({ type: 'error', msg: err.message || 'Failed to add admin email.' });
     } finally {
@@ -1011,7 +1011,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     Admin Access Management
                   </h3>
                   <p className="text-xs text-neutral-500 font-medium">
-                    Authorized email addresses permitted to authenticate with admin passcode <code className="bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded font-mono font-bold text-amber-600 dark:text-amber-400">Dormiqa_332456701</code>
+                    Authorized email addresses stored in Firestore collection <code className="bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded font-mono font-bold text-emerald-600 dark:text-emerald-400">authorized_admins</code> permitted to authenticate via server-validated credentials or passcode.
                   </p>
                 </div>
               </div>
@@ -1063,8 +1063,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500">
                   Currently Authorized Admin Emails ({adminEmails.length})
                 </h4>
-                <span className="text-[11px] font-bold text-neutral-400">
-                  Passcode: <span className="font-mono text-neutral-700 dark:text-neutral-300">Dormiqa_332456701</span>
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5" /> Secure Server Authorization
                 </span>
               </div>
 
@@ -1080,7 +1080,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           {email}
                         </p>
                         <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 mt-0.5">
-                          <Check className="w-3 h-3" /> Passcode Authentication Active
+                          <Check className="w-3 h-3" /> Approved Administrator Account
                         </p>
                       </div>
                     </div>

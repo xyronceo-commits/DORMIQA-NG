@@ -130,5 +130,10 @@ service cloud.firestore {
       // Direct writes from client SDK are forbidden — OTP generation and verification MUST be handled via secure server-side API
       allow create, update, delete: if false;
     }
+
+    // AUTHORIZED ADMINS COLLECTION (Managed strictly server-side via protected API routes)
+    match /authorized_admins/{adminEmailDoc} {
+      allow read, write: if false;
+    }
   }
 }
