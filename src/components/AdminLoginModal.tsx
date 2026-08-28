@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Lock, X, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { Shield, Lock, X, ArrowRight, AlertCircle, Loader2, Mail } from 'lucide-react';
 import { adminLogin } from '../services/api';
 
 interface AdminLoginModalProps {
@@ -13,6 +13,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   onClose,
   onSuccess
 }) => {
+  const [email, setEmail] = useState('buildsafe247@gmail.com');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +29,11 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       return;
     }
 
+    if (!email.trim()) {
+      setError('Please enter your authorized admin email.');
+      return;
+    }
+
     if (!password.trim()) {
       setError('Please enter the admin passcode.');
       return;
@@ -37,7 +43,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
     setError(null);
 
     try {
-      const response = await adminLogin(password);
+      const response = await adminLogin(email.trim(), password.trim());
       if (response.success) {
         setPassword('');
         setError(null);
@@ -52,7 +58,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             setIsLocked(true);
           }
         }
-        setError(response.message || 'Incorrect passcode. Access denied.');
+        setError(response.message || 'Incorrect credentials. Access denied.');
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please try again.');
@@ -99,32 +105,54 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
               <label className="text-xs font-extrabold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 block">
-                Admin Passcode
+                Admin Email
               </label>
-              {trialsLeft !== null && (
-                <span className={`text-[10px] font-bold ${trialsLeft <= 2 ? 'text-rose-500' : 'text-neutral-400'}`}>
-                  {trialsLeft} trial{trialsLeft === 1 ? '' : 's'} remaining
-                </span>
-              )}
+              <div className="relative flex items-center">
+                <Mail className="w-4 h-4 text-neutral-400 absolute left-3.5" />
+                <input
+                  type="email"
+                  value={email}
+                  disabled={isLocked}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (error) setError(null);
+                  }}
+                  placeholder="buildsafe247@gmail.com"
+                  required
+                  className="w-full pl-10 pr-4 py-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/80 text-neutral-900 dark:text-white text-sm focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
             </div>
-            <div className="relative flex items-center">
-              <Lock className="w-4 h-4 text-neutral-400 absolute left-3.5" />
-              <input
-                type="password"
-                value={password}
-                disabled={isLocked}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (error) setError(null);
-                }}
-                placeholder="Enter passcode"
-                autoFocus
-                required
-                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/80 text-neutral-900 dark:text-white font-mono text-sm focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              />
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-extrabold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 block">
+                  Admin Passcode
+                </label>
+                {trialsLeft !== null && (
+                  <span className={`text-[10px] font-bold ${trialsLeft <= 2 ? 'text-rose-500' : 'text-neutral-400'}`}>
+                    {trialsLeft} trial{trialsLeft === 1 ? '' : 's'} remaining
+                  </span>
+                )}
+              </div>
+              <div className="relative flex items-center">
+                <Lock className="w-4 h-4 text-neutral-400 absolute left-3.5" />
+                <input
+                  type="password"
+                  value={password}
+                  disabled={isLocked}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (error) setError(null);
+                  }}
+                  placeholder="Enter passcode"
+                  required
+                  className="w-full pl-10 pr-4 py-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/80 text-neutral-900 dark:text-white font-mono text-sm focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
             </div>
           </div>
 

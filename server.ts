@@ -361,7 +361,9 @@ function createRateLimiter(maxRequests: number, windowMs: number, store: Map<str
 const adminLoginLimiter = createRateLimiter(5, 15 * 60 * 1000, adminRateLimitStore);
 
 const ADMIN_PASSCODE = 'Dormiqa_332456701';
-const validAdminPasswords = new Set<string>([ADMIN_PASSCODE]);
+const authorizedAdminEmails = new Set<string>([
+  'buildsafe247@gmail.com'
+]);
 
 const adminTrialStore = new Map<string, { attempts: number; lockedUntil?: number }>();
 
@@ -1052,9 +1054,10 @@ Return ONLY valid JSON matching this schema:
 
   // --- SECURE ADMIN CONTROLS & AUTHENTICATION ENDPOINTS ---
 
-  // Admin Login (Rate-limited, Password-verified with 5 passcode trials)
+  // Admin Login (Email + Passcode verified with 5 trial lock)
   app.post('/api/admin/login', (req, res) => {
-    const { password } = req.body || {};
+    const { email, password } = req.body || {};
+    const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
     const cleanPassword = typeof password === 'string' ? password.trim() : '';
 
     const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
@@ -1080,7 +1083,10 @@ Return ONLY valid JSON matching this schema:
       delete trial.lockedUntil;
     }
 
-    if (!cleanPassword || cleanPassword !== ADMIN_PASSCODE) {
+    const isEmailAuthorized = cleanEmail && Array.from(authorizedAdminEmails).some(e => e.toLowerCase() === cleanEmail);
+    const isPasscodeCorrect = cleanPassword && cleanPassword === ADMIN_PASSCODE;
+
+    if (!isEmailAuthorized || !isPasscodeCorrect) {
       trial.attempts += 1;
       const attemptsLeft = Math.max(0, 5 - trial.attempts);
 
@@ -1094,11 +1100,18 @@ Return ONLY valid JSON matching this schema:
         });
       }
 
+      let errorMsg = 'Incorrect admin credentials.';
+      if (!isEmailAuthorized) {
+        errorMsg = `Email '${cleanEmail || 'blank'}' is not authorized for admin access.`;
+      } else if (!isPasscodeCorrect) {
+        errorMsg = 'Incorrect passcode.';
+      }
+
       return res.status(401).json({
         success: false,
-        error: 'InvalidPasscode',
+        error: 'InvalidCredentials',
         attemptsLeft,
-        message: `Incorrect passcode. ${attemptsLeft} trial${attemptsLeft === 1 ? '' : 's'} remaining.`
+        message: `${errorMsg} ${attemptsLeft} trial${attemptsLeft === 1 ? '' : 's'} remaining.`
       });
     }
 
@@ -1110,8 +1123,64 @@ Return ONLY valid JSON matching this schema:
     res.json({
       success: true,
       token,
+      email: cleanEmail,
       message: 'Administrative authentication successful',
       expiresInSeconds: 86400
+    });
+  });
+
+  // Admin Emails Management (GET, POST, DELETE)
+  app.get('/api/admin/emails', requireAdminAuth, (req, res) => {
+    res.json({
+      success: true,
+      emails: Array.from(authorizedAdminEmails)
+    });
+  });
+
+  app.post('/api/admin/emails', requireAdminAuth, (req, res) => {
+    const { email } = req.body || {};
+    const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return res.status(400).json({ success: false, error: 'Valid email address required.' });
+    }
+
+    authorizedAdminEmails.add(cleanEmail);
+    res.json({
+      success: true,
+      message: `Admin email '${cleanEmail}' granted access with passcode.`,
+      emails: Array.from(authorizedAdminEmails)
+    });
+  });
+
+  app.delete('/api/admin/emails', requireAdminAuth, (req, res) => {
+    const { email } = req.body || {};
+    const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    
+    if (authorizedAdminEmails.size <= 1) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot delete the only remaining admin email address.'
+      });
+    }
+
+    // Don't allow deleting default admin if it's the main account
+    let deleted = false;
+    for (const item of authorizedAdminEmails) {
+      if (item.toLowerCase() === cleanEmail) {
+        authorizedAdminEmails.delete(item);
+        deleted = true;
+        break;
+      }
+    }
+
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: 'Admin email not found.' });
+    }
+
+    res.json({
+      success: true,
+      message: `Admin email '${cleanEmail}' removed.`,
+      emails: Array.from(authorizedAdminEmails)
     });
   });
 
@@ -1198,6 +1267,24 @@ Return ONLY valid JSON matching this schema:
   // Student Overview
   app.get('/api/admin/students/overview', requireAdminAuth, (req, res) => {
     const students = usersStore.filter(u => u.role === 'student');
+    const now = Date.now();
+    const oneDay = 24 * 60 * 60 * 1000;
+    const oneWeek = 7 * oneDay;
+    const oneMonth = 30 * oneDay;
+
+    let newToday = 0;
+    let newThisWeek = 0;
+    let newThisMonth = 0;
+
+    students.forEach(s => {
+      const createdTime = s.createdAt ? new Date(s.createdAt).getTime() : 0;
+      if (createdTime > 0) {
+        const age = now - createdTime;
+        if (age <= oneDay) newToday++;
+        if (age <= oneWeek) newThisWeek++;
+        if (age <= oneMonth) newThisMonth++;
+      }
+    });
     
     // Group students by university dynamically
     const uniMap = new Map<string, { id: string; name: string; code: string; count: number }>();
@@ -1219,9 +1306,9 @@ Return ONLY valid JSON matching this schema:
 
     res.json({
       totalStudents: students.length,
-      newToday: 0,
-      newThisWeek: 0,
-      newThisMonth: 0,
+      newToday,
+      newThisWeek,
+      newThisMonth,
       studentsByUniversity
     });
   });
@@ -1230,6 +1317,23 @@ Return ONLY valid JSON matching this schema:
   app.get('/api/admin/analytics', requireAdminAuth, (req, res) => {
     const students = usersStore.filter(u => u.role === 'student');
     const agents = usersStore.filter(u => u.role === 'agent');
+
+    // Group student signups over time by month
+    const monthlySignupsMap = new Map<string, number>();
+    students.forEach(s => {
+      if (s.createdAt) {
+        const date = new Date(s.createdAt);
+        const monthLabel = date.toLocaleString('default', { month: 'short' });
+        monthlySignupsMap.set(monthLabel, (monthlySignupsMap.get(monthLabel) || 0) + 1);
+      }
+    });
+
+    const maxCount = Math.max(1, ...Array.from(monthlySignupsMap.values()));
+    const studentSignupsOverTime = Array.from(monthlySignupsMap.entries()).map(([month, count]) => ({
+      month,
+      count,
+      height: `${Math.round((count / maxCount) * 100)}%`
+    }));
 
     // Build category demand dynamically from listings
     const typeCounts: Record<string, number> = {};
@@ -1245,7 +1349,7 @@ Return ONLY valid JSON matching this schema:
     }));
 
     res.json({
-      studentSignupsOverTime: [],
+      studentSignupsOverTime,
       accommodationDemand,
       agentApplications: {
         total: agents.length,

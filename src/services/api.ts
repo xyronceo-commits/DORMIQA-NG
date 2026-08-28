@@ -247,11 +247,14 @@ function getAdminAuthHeaders() {
   };
 }
 
-export async function adminLogin(password: string): Promise<{ success: boolean; token?: string; message?: string; attemptsLeft?: number }> {
+export async function adminLogin(emailOrPassword: string, pass?: string): Promise<{ success: boolean; token?: string; message?: string; attemptsLeft?: number }> {
+  const email = pass ? emailOrPassword : 'buildsafe247@gmail.com';
+  const password = pass ? pass : emailOrPassword;
+
   const res = await fetch(`${API_BASE}/admin/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password })
+    body: JSON.stringify({ email, password })
   });
 
   const data = await res.json();
@@ -259,6 +262,37 @@ export async function adminLogin(password: string): Promise<{ success: boolean; 
     setAdminToken(data.token);
   }
   return data;
+}
+
+export async function fetchAdminEmails(): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/admin/emails`, {
+    headers: getAdminAuthHeaders()
+  });
+  if (!res.ok) throw new Error('Failed to fetch admin emails');
+  const data = await res.json();
+  return data.emails || [];
+}
+
+export async function addAdminEmail(email: string): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/admin/emails`, {
+    method: 'POST',
+    headers: getAdminAuthHeaders(),
+    body: JSON.stringify({ email })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.error || data.message || 'Failed to add admin email');
+  return data.emails || [];
+}
+
+export async function removeAdminEmail(email: string): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/admin/emails`, {
+    method: 'DELETE',
+    headers: getAdminAuthHeaders(),
+    body: JSON.stringify({ email })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.error || data.message || 'Failed to remove admin email');
+  return data.emails || [];
 }
 
 export async function adminLogout(): Promise<void> {

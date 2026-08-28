@@ -29,7 +29,11 @@ import {
   X,
   FileCheck,
   BarChart2,
-  GraduationCap
+  GraduationCap,
+  UserPlus,
+  Trash2,
+  Key,
+  AlertCircle
 } from 'lucide-react';
 import { Listing, User } from '../types';
 import { 
@@ -40,6 +44,9 @@ import {
   updateAdminPropertyStatus, 
   fetchStudentOverview, 
   fetchAdminAnalytics,
+  fetchAdminEmails,
+  addAdminEmail,
+  removeAdminEmail,
   adminLogout 
 } from '../services/api';
 
@@ -52,7 +59,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onRefresh,
   onAdminLogout
 }) => {
-  const [activeTab, setActiveTab] = useState<'agents' | 'properties' | 'students' | 'analytics'>('agents');
+  const [activeTab, setActiveTab] = useState<'agents' | 'properties' | 'students' | 'analytics' | 'access'>('agents');
   
   // Data state
   const [stats, setStats] = useState<{
@@ -78,6 +85,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [studentData, setStudentData] = useState<any>(null);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   
+  // Admin Access Emails State
+  const [adminEmails, setAdminEmails] = useState<string[]>(['buildsafe247@gmail.com']);
+  const [newAdminEmailInput, setNewAdminEmailInput] = useState('');
+  const [isAddingEmail, setIsAddingEmail] = useState(false);
+  const [emailNotice, setEmailNotice] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('pending');
@@ -99,12 +112,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const loadAllAdminData = async () => {
     setIsLoading(true);
     try {
-      const [statsRes, agentsRes, propsRes, studentsRes, analyticsRes] = await Promise.allSettled([
+      const [statsRes, agentsRes, propsRes, studentsRes, analyticsRes, emailsRes] = await Promise.allSettled([
         fetchAdminStats(),
         fetchAdminAgents(),
         fetchAdminProperties(),
         fetchStudentOverview(),
-        fetchAdminAnalytics()
+        fetchAdminAnalytics(),
+        fetchAdminEmails()
       ]);
 
       if (statsRes.status === 'fulfilled') setStats(statsRes.value);
@@ -112,10 +126,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (propsRes.status === 'fulfilled' && Array.isArray(propsRes.value)) setProperties(propsRes.value);
       if (studentsRes.status === 'fulfilled') setStudentData(studentsRes.value);
       if (analyticsRes.status === 'fulfilled') setAnalyticsData(analyticsRes.value);
+      if (emailsRes.status === 'fulfilled' && Array.isArray(emailsRes.value)) setAdminEmails(emailsRes.value);
     } catch (err) {
       console.error('Failed to load admin dashboard data:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAddEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdminEmailInput.trim()) return;
+    setIsAddingEmail(true);
+    setEmailNotice(null);
+    try {
+      const updated = await addAdminEmail(newAdminEmailInput.trim());
+      setAdminEmails(updated);
+      setNewAdminEmailInput('');
+      setEmailNotice({ type: 'success', msg: `Admin email '${newAdminEmailInput.trim()}' added! They can log in with passcode Dormiqa_332456701.` });
+    } catch (err: any) {
+      setEmailNotice({ type: 'error', msg: err.message || 'Failed to add admin email.' });
+    } finally {
+      setIsAddingEmail(false);
+    }
+  };
+
+  const handleRemoveEmail = async (emailToRemove: string) => {
+    if (!confirm(`Are you sure you want to revoke admin access for ${emailToRemove}?`)) return;
+    setEmailNotice(null);
+    try {
+      const updated = await removeAdminEmail(emailToRemove);
+      setAdminEmails(updated);
+      setEmailNotice({ type: 'success', msg: `Admin email '${emailToRemove}' removed.` });
+    } catch (err: any) {
+      setEmailNotice({ type: 'error', msg: err.message || 'Failed to remove admin email.' });
     }
   };
 
@@ -365,6 +409,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             <BarChart2 className="w-4 h-4" />
             <span>Analytics</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('access')}
+            className={`py-3 px-4 text-xs sm:text-sm font-extrabold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === 'access'
+                ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400'
+                : 'border-transparent text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
+            }`}
+          >
+            <Key className="w-4 h-4 text-amber-500" />
+            <span>Admin Access Control</span>
           </button>
         </div>
 
@@ -735,7 +791,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="bg-white dark:bg-neutral-900 p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xs">
                 <p className="text-xs font-extrabold text-neutral-400 uppercase tracking-wider">New Students Today</p>
                 <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                  {studentData?.newToday || 24}
+                  {studentData?.newToday ?? 0}
                 </p>
                 <p className="text-[11px] font-semibold text-neutral-500 mt-1">Verified university emails</p>
               </div>
@@ -743,7 +799,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="bg-white dark:bg-neutral-900 p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xs">
                 <p className="text-xs font-extrabold text-neutral-400 uppercase tracking-wider">New Students This Week</p>
                 <p className="text-3xl font-black text-indigo-600 dark:text-indigo-400 mt-1">
-                  {studentData?.newThisWeek || 185}
+                  {studentData?.newThisWeek ?? 0}
                 </p>
                 <p className="text-[11px] font-semibold text-neutral-500 mt-1">Active house searches</p>
               </div>
@@ -751,7 +807,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="bg-white dark:bg-neutral-900 p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xs">
                 <p className="text-xs font-extrabold text-neutral-400 uppercase tracking-wider">New Students This Month</p>
                 <p className="text-3xl font-black text-neutral-900 dark:text-white mt-1">
-                  {studentData?.newThisMonth || 640}
+                  {studentData?.newThisMonth ?? 0}
                 </p>
                 <p className="text-[11px] font-semibold text-neutral-500 mt-1">August onboarding intake</p>
               </div>
@@ -936,6 +992,110 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     ))
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SECTION 5: ADMIN ACCESS CONTROL TAB */}
+        {activeTab === 'access' && (
+          <div className="space-y-6 animate-in fade-in">
+            {/* Header / Explanation Card */}
+            <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xs space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-black">
+                  <Key className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-neutral-900 dark:text-white">
+                    Admin Access Management
+                  </h3>
+                  <p className="text-xs text-neutral-500 font-medium">
+                    Authorized email addresses permitted to authenticate with admin passcode <code className="bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded font-mono font-bold text-amber-600 dark:text-amber-400">Dormiqa_332456701</code>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Notice / Feedback Banner */}
+            {emailNotice && (
+              <div className={`p-4 rounded-2xl border flex items-center gap-3 text-xs font-bold ${
+                emailNotice.type === 'success' 
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 text-emerald-800 dark:text-emerald-300' 
+                  : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 text-rose-800 dark:text-rose-300'
+              }`}>
+                {emailNotice.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
+                <span>{emailNotice.msg}</span>
+              </div>
+            )}
+
+            {/* Add New Admin Email Form Card */}
+            <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xs space-y-4">
+              <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500">
+                Authorize New Admin Email Address
+              </h4>
+              <form onSubmit={handleAddEmail} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative flex-1">
+                  <Mail className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type="email"
+                    value={newAdminEmailInput}
+                    onChange={(e) => setNewAdminEmailInput(e.target.value)}
+                    placeholder="Enter email address (e.g. buildsafe247@gmail.com)"
+                    required
+                    className="w-full pl-10 pr-4 py-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isAddingEmail || !newAdminEmailInput.trim()}
+                  className="py-3 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Grant Admin Access</span>
+                </button>
+              </form>
+            </div>
+
+            {/* List of Authorized Admin Emails */}
+            <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500">
+                  Currently Authorized Admin Emails ({adminEmails.length})
+                </h4>
+                <span className="text-[11px] font-bold text-neutral-400">
+                  Passcode: <span className="font-mono text-neutral-700 dark:text-neutral-300">Dormiqa_332456701</span>
+                </span>
+              </div>
+
+              <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                {adminEmails.map((email) => (
+                  <div key={email} className="py-3.5 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-extrabold text-neutral-900 dark:text-white font-mono">
+                          {email}
+                        </p>
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 mt-0.5">
+                          <Check className="w-3 h-3" /> Passcode Authentication Active
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveEmail(email)}
+                      disabled={adminEmails.length <= 1}
+                      title={adminEmails.length <= 1 ? "Cannot remove the only remaining admin email" : "Revoke access"}
+                      className="p-2 rounded-xl text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
