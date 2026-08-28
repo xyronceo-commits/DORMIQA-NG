@@ -679,8 +679,9 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 font-sans selection:bg-emerald-500 selection:text-white transition-colors duration-200">
       
-      {/* Global Navbar for Public/Agent/Admin Pages */}
-      {(currentRole !== 'student' || ['landing', 'onboarding', 'agent-dash', 'agent-landing', 'admin-dash', 'coming-soon'].includes(activeView)) && (
+      {/* Global Navbar for Public/Student Pages without embedded header */}
+      {(currentRole !== 'student' || ['landing', 'onboarding', 'coming-soon'].includes(activeView)) && 
+       !['agent-dash', 'agent-landing', 'admin-dash'].includes(activeView) && (
         <Navbar
           activeView={activeView as any}
           setActiveView={navigateView as any}
@@ -1107,6 +1108,7 @@ export default function App() {
               onOpenListingDetail={(l) => handleOpenListingDetail(l)}
               onOpenNotificationCenter={() => setIsNotificationCenterOpen(true)}
               onOpenAdminAccess={() => setIsAdminLoginModalOpen(true)}
+              onOpenInfoPage={handleOpenInfoPage}
               activeTab={agentTab}
               onTabChange={setAgentTab}
               accounts={accounts}

@@ -28,6 +28,7 @@ import { EditUnitStatusAndSalesModal } from './EditUnitStatusAndSalesModal';
 import { AgentProfilePage } from './AgentProfilePage';
 import { AgentCalendarPage } from './AgentCalendarPage';
 import { AgentBottomNav, AgentNavView } from './AgentBottomNav';
+import { ThemeToggle } from './ThemeToggle';
 
 interface AgentDashboardProps {
   listings: Listing[];
@@ -45,6 +46,7 @@ interface AgentDashboardProps {
   onOpenListingDetail?: (listing: Listing) => void;
   onOpenNotificationCenter?: () => void;
   onOpenAdminAccess?: () => void;
+  onOpenInfoPage?: (docId: string) => void;
 }
 
 export const AgentDashboard: React.FC<AgentDashboardProps> = ({
@@ -62,7 +64,8 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
   onListingUpdate,
   onOpenListingDetail,
   onOpenNotificationCenter,
-  onOpenAdminAccess
+  onOpenAdminAccess,
+  onOpenInfoPage
 }) => {
   const [activeNav, setActiveNav] = useState<AgentNavView>('home');
   const [localInspections, setLocalInspections] = useState(inspections);
@@ -195,6 +198,8 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
 
           {/* Header Action Controls */}
           <div className="flex items-center gap-2">
+            <ThemeToggle variant="dropdown" />
+
             {onOpenAdminAccess && (
               <button
                 onClick={onOpenAdminAccess}
@@ -228,9 +233,15 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
             {/* Welcome Banner */}
             <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-2xs">
               <div className="space-y-1">
-                <h1 className="text-2xl sm:text-3xl font-black text-neutral-900 dark:text-white tracking-tight">
-                  Welcome back, {activeUser?.name || auth.currentUser?.displayName || 'Agent'}
-                </h1>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-2xl sm:text-3xl font-black text-neutral-900 dark:text-white tracking-tight">
+                    Welcome back, {activeUser?.name || auth.currentUser?.displayName || 'Agent'}
+                  </h1>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    Verified Caretaker
+                  </span>
+                </div>
                 <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 font-medium">
                   Manage your hostels and accommodation listings.
                 </p>
@@ -519,6 +530,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
               if (sec === 'calendar') setActiveNav('calendar');
             }}
             onSignOut={onSignOut}
+            onOpenInfoPage={onOpenInfoPage}
           />
         )}
 

@@ -3,6 +3,7 @@ import { Search, Bell, User as UserIcon, ShieldCheck, Filter, ArrowLeft, Buildin
 import { Listing, University, Campus, SearchFilters } from '../types';
 import { ListingCard } from './ListingCard';
 import { ListingGridSkeleton } from './SkeletonLoader';
+import { ThemeToggle } from './ThemeToggle';
 
 interface StudentDiscoverPageProps {
   listings: Listing[];
@@ -112,8 +113,10 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
             </span>
           </div>
 
-          {/* Top-Right: Notifications & Profile Avatar */}
-          <div className="flex items-center gap-3">
+          {/* Top-Right: Theme Toggle, Notifications & Profile Avatar */}
+          <div className="flex items-center gap-2.5">
+            <ThemeToggle variant="dropdown" />
+
             <button
               onClick={onOpenNotifications}
               className="relative p-2.5 rounded-full hover:bg-neutral-100 dark:hover:bg-slate-800 text-neutral-700 dark:text-slate-300 transition-colors cursor-pointer"

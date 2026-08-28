@@ -21,6 +21,7 @@ import {
   Laptop
 } from 'lucide-react';
 import { University, User } from '../types';
+import { ThemeToggle } from './ThemeToggle';
 import { 
   auth,
   registerWithEmail, 
@@ -220,6 +221,8 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
           {/* Top-Right Controls */}
           <div className="flex items-center gap-2">
             
+            <ThemeToggle variant="dropdown" />
+
             {/* Admin Access (Discreet Security Icon) */}
             <button
               onClick={onOpenAdminAccess}

@@ -21,6 +21,7 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   sendEmailVerification,
+  sendPasswordResetEmail,
   signOut,
   onAuthStateChanged,
   User as FirebaseUser
@@ -357,6 +358,10 @@ export const addAuthorizedAdminEmailToFirestore = async (email: string): Promise
 export const removeAuthorizedAdminEmailFromFirestore = async (email: string): Promise<string[]> => {
   const cleanEmail = email.trim().toLowerCase();
   return await removeAdminEmail(cleanEmail);
+};
+
+export const sendPasswordReset = async (email: string) => {
+  return sendPasswordResetEmail(auth, email);
 };
 
 export default app;

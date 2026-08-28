@@ -13,10 +13,13 @@ import {
   ShieldCheck, 
   LogOut, 
   ChevronRight,
-  CheckCircle2
+  CheckCircle2,
+  Save,
+  Check,
+  X
 } from 'lucide-react';
 import { User } from '../types';
-import { auth } from '../services/firebase';
+import { auth, saveUserToFirestore } from '../services/firebase';
 import { ThemeToggle } from './ThemeToggle';
 
 interface StudentProfilePageProps {
@@ -40,10 +43,46 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
 }) => {
   const [activeModal, setActiveModal] = useState<'profile' | 'security' | 'notifications' | 'terms' | 'privacy' | null>(null);
 
+  const [studentName, setStudentName] = useState(user?.name || auth.currentUser?.displayName || 'Student Account');
+  const [studentPhone, setStudentPhone] = useState(user?.phone || '');
+  const [studentUniversity, setStudentUniversity] = useState(user?.universityName || 'Osun State University (UNIOSUN)');
+  const [profileToast, setProfileToast] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
   const photo = user?.avatarUrl || auth.currentUser?.photoURL || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80";
-  const name = user?.name || auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Student Account';
-  const university = user?.universityName || 'Osun State University (UNIOSUN)';
-  const email = user?.email || auth.currentUser?.email || 'xyron.ceo@gmail.com';
+  const name = studentName;
+  const university = studentUniversity;
+  const email = user?.email || auth.currentUser?.email || '';
+
+  const handleSaveStudentProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const currentUid = auth.currentUser?.uid || user?.id;
+    if (!currentUid) {
+      setProfileToast('Error: Authentication required.');
+      return;
+    }
+    setIsSaving(true);
+    const updatedUserData: User = {
+      id: currentUid,
+      name: studentName,
+      phone: studentPhone,
+      universityName: studentUniversity,
+      email: user?.email || auth.currentUser?.email || '',
+      role: 'student',
+      avatarUrl: photo,
+      createdAt: user?.createdAt || new Date().toISOString().split('T')[0]
+    };
+    try {
+      await saveUserToFirestore(updatedUserData);
+      setProfileToast('Profile details updated & saved to Firebase!');
+      setTimeout(() => setProfileToast(''), 3000);
+      setTimeout(() => setActiveModal(null), 1200);
+    } catch (err: any) {
+      setProfileToast('Save failed: ' + (err?.message || 'Error'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50/60 dark:bg-slate-950 pb-24 text-slate-900 dark:text-slate-100">
@@ -288,9 +327,73 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
                 Close
               </button>
             </div>
-            <div className="text-xs text-neutral-600 dark:text-slate-300 space-y-2 leading-relaxed">
+            <div className="text-xs text-neutral-600 dark:text-slate-300 space-y-4 leading-relaxed">
               {activeModal === 'profile' && (
-                <p>Profile details are automatically verified with your university email address ({email}). To change your primary campus or email, contact student support.</p>
+                <form onSubmit={handleSaveStudentProfile} className="space-y-3 text-left">
+                  {profileToast && (
+                    <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-2">
+                      <Check className="w-4 h-4 text-emerald-600" />
+                      <span>{profileToast}</span>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-[11px] font-extrabold uppercase text-neutral-500 dark:text-slate-400 block mb-1">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      value={studentName}
+                      onChange={(e) => setStudentName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-slate-800 bg-neutral-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-extrabold uppercase text-neutral-500 dark:text-slate-400 block mb-1">
+                      Phone / WhatsApp Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={studentPhone}
+                      onChange={(e) => setStudentPhone(e.target.value)}
+                      placeholder="e.g. 08123456789"
+                      className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-slate-800 bg-neutral-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-extrabold uppercase text-neutral-500 dark:text-slate-400 block mb-1">
+                      University / Institution
+                    </label>
+                    <input
+                      type="text"
+                      value={studentUniversity}
+                      onChange={(e) => setStudentUniversity(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-slate-800 bg-neutral-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold"
+                      required
+                    />
+                  </div>
+
+                  <div className="pt-2 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal(null)}
+                      className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-slate-800 text-neutral-600 dark:text-slate-400 text-xs font-bold"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSaving}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-extrabold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
+                    </button>
+                  </div>
+                </form>
               )}
               {activeModal === 'security' && (
                 <p>Your password & authentication token are managed securely via Firebase Auth. To reset your password, check your email inbox for password recovery instructions.</p>

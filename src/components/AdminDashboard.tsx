@@ -36,6 +36,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Listing, User, AuthorizedAdmin, AdminRole } from '../types';
+import { ThemeToggle } from './ThemeToggle';
 import { 
   fetchAdminStats, 
   fetchAdminAgents, 
@@ -304,7 +305,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     <div className="min-h-screen bg-neutral-50/50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 pb-16">
       
       {/* Top Admin Header Bar */}
-      <div className="bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 sticky top-16 z-30 shadow-2xs">
+      <div className="bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 sticky top-0 z-30 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black">
@@ -315,8 +316,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <h1 className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">
                   Dormiqa Admin
                 </h1>
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                  Internal Ops
+                <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                  Verified Admin
                 </span>
               </div>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
@@ -325,10 +327,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3 self-end sm:self-auto">
+          <div className="flex items-center gap-2.5 self-end sm:self-auto">
+            <ThemeToggle variant="dropdown" />
+
             <button
               onClick={loadAllAdminData}
-              className="p-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white transition-colors flex items-center gap-1.5 text-xs font-bold cursor-pointer"
+              className="p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white transition-colors flex items-center gap-1.5 text-xs font-bold cursor-pointer"
               title="Refresh Data"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
@@ -555,6 +559,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     }`}
                   >
                     Changes Requested ({properties.filter(p => p.status === 'changes_requested').length})
+                  </button>
+
+                  <button
+                    onClick={() => setStatusFilter('rejected')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      statusFilter === 'rejected'
+                        ? 'bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
+                        : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200'
+                    }`}
+                  >
+                    Rejected ({properties.filter(p => p.status === 'rejected' || p.status === 'banned').length})
                   </button>
 
                   <button
@@ -792,10 +807,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                       {prop.status !== 'changes_requested' && (
                         <button
+                          type="button"
                           onClick={() => setRejectionReasonModal({ type: 'property', id: prop.id, title: prop.title })}
                           className="px-3.5 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-neutral-700 dark:text-neutral-300 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
                         >
                           <span>Request Changes</span>
+                        </button>
+                      )}
+
+                      {prop.status !== 'rejected' && prop.status !== 'banned' && (
+                        <button
+                          type="button"
+                          onClick={() => handleRejectProperty(prop.id, 'rejected', 'Property listing rejected by administrator moderation.')}
+                          className="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Reject</span>
                         </button>
                       )}
                     </div>
