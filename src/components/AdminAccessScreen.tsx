@@ -2,7 +2,7 @@ import React from 'react';
 import { Shield, ShieldAlert, Loader2, ArrowLeft } from 'lucide-react';
 
 interface AdminAccessScreenProps {
-  status: 'AUTH_LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED' | 'ADMIN_CHECKING' | 'AUTHORIZED' | 'UNAUTHORIZED';
+  status: 'AUTH_LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED' | 'ADMIN_CHECKING' | 'AUTHORIZED' | 'UNAUTHORIZED' | 'SESSION_EXPIRED' | 'SIGNED_OUT';
   currentUserEmail?: string;
   errorMessage?: string | null;
   onContinueWithGoogle: () => void;
@@ -78,6 +78,8 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
     );
   }
 
+  const isExpired = status === 'SESSION_EXPIRED';
+
   // Default: UNAUTHENTICATED
   return (
     <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-neutral-950">
@@ -95,7 +97,16 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
           </p>
         </div>
 
-        {errorMessage && (
+        {isExpired && (
+          <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 text-xs font-semibold space-y-1">
+            <p className="font-extrabold text-amber-900 dark:text-amber-200">Session Expired</p>
+            <p className="text-[11px] leading-normal opacity-90">
+              Your 12-hour administrator session has expired. Please sign in with Google to continue.
+            </p>
+          </div>
+        )}
+
+        {errorMessage && !isExpired && (
           <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-semibold">
             {errorMessage}
           </div>

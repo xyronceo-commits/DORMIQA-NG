@@ -468,6 +468,50 @@ export const checkAdminAuthorizedInFirestore = async (emailOrUid: string, uidOve
   }
 };
 
+export const ADMIN_SESSION_DURATION_MS = 12 * 60 * 60 * 1000; // 12 Hours
+
+export const setAdminSessionTimestamp = (uid: string) => {
+  try {
+    const sessionData = {
+      loginTime: Date.now(),
+      uid
+    };
+    localStorage.setItem(`dormiqa_admin_session_${uid}`, JSON.stringify(sessionData));
+    localStorage.setItem('dormiqa_admin_active_uid', uid);
+  } catch (e) {
+    console.warn('Error setting admin session timestamp:', e);
+  }
+};
+
+export const clearAdminSessionTimestamp = (uid?: string) => {
+  try {
+    if (uid) {
+      localStorage.removeItem(`dormiqa_admin_session_${uid}`);
+    }
+    const activeUid = localStorage.getItem('dormiqa_admin_active_uid');
+    if (activeUid) {
+      localStorage.removeItem(`dormiqa_admin_session_${activeUid}`);
+      localStorage.removeItem('dormiqa_admin_active_uid');
+    }
+    localStorage.removeItem('dormiqa_admin_email');
+  } catch (e) {
+    console.warn('Error clearing admin session timestamp:', e);
+  }
+};
+
+export const checkAdminSessionValid = (uid: string): boolean => {
+  try {
+    const raw = localStorage.getItem(`dormiqa_admin_session_${uid}`);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.loginTime) return false;
+    const elapsed = Date.now() - Number(parsed.loginTime);
+    return elapsed >= 0 && elapsed < ADMIN_SESSION_DURATION_MS;
+  } catch (e) {
+    return false;
+  }
+};
+
 export const signInAdminWithGoogle = async (): Promise<{ user: FirebaseUser; authorized: boolean; role?: 'SUPER_ADMIN' | 'ADMIN'; message?: string }> => {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
@@ -491,6 +535,9 @@ export const signInAdminWithGoogle = async (): Promise<{ user: FirebaseUser; aut
       message: authCheck.message || 'This Google account is not authorized to access the Dormiqa Admin Portal.'
     };
   }
+
+  // Set 12-hour admin session timestamp for authorized administrator
+  setAdminSessionTimestamp(uid);
 
   return {
     user: fbUser,

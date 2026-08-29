@@ -80,7 +80,11 @@ import {
   db,
   initializeSuperAdminInFirestore,
   checkAdminAuthorizedInFirestore,
-  signInAdminWithGoogle
+  signInAdminWithGoogle,
+  setAdminSessionTimestamp,
+  clearAdminSessionTimestamp,
+  checkAdminSessionValid,
+  ADMIN_SESSION_DURATION_MS
 } from './services/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, collection } from 'firebase/firestore';
@@ -90,7 +94,7 @@ export default function App() {
   const [selectedComingSoonUniId, setSelectedComingSoonUniId] = useState<string>('unilag');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
-  const [adminAuthStatus, setAdminAuthStatus] = useState<'AUTH_LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED' | 'ADMIN_CHECKING' | 'AUTHORIZED' | 'UNAUTHORIZED'>('AUTH_LOADING');
+  const [adminAuthStatus, setAdminAuthStatus] = useState<'AUTH_LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED' | 'ADMIN_CHECKING' | 'AUTHORIZED' | 'UNAUTHORIZED' | 'SESSION_EXPIRED' | 'SIGNED_OUT'>('AUTH_LOADING');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [adminEmail, setAdminEmail] = useState<string>('');
   const [adminRole, setAdminRole] = useState<AdminRole>('ADMIN');
@@ -99,6 +103,35 @@ export default function App() {
     // Initialize Super Admin in Firestore
     initializeSuperAdminInFirestore();
   }, []);
+
+  // Periodic 12-hour session expiration watcher
+  useEffect(() => {
+    const verifyAdminSessionExpiry = () => {
+      if (isAdminAuthenticated && auth.currentUser) {
+        const uid = auth.currentUser.uid;
+        const valid = checkAdminSessionValid(uid);
+        if (!valid) {
+          console.warn(`Admin 12-hour session expired for ${auth.currentUser.email}`);
+          clearAdminSessionTimestamp(uid);
+          signOut(auth).catch(() => {});
+          setIsAdminAuthenticated(false);
+          setAdminAuthStatus('SESSION_EXPIRED');
+          setActiveView('admin-dash');
+          pushViewUrl('admin-dash');
+          setToastNotice('Your 12-hour administrator session has expired. Please sign in with Google again.');
+          setTimeout(() => setToastNotice(null), 5000);
+        }
+      }
+    };
+
+    const interval = setInterval(verifyAdminSessionExpiry, 60000); // check every 60s
+    window.addEventListener('focus', verifyAdminSessionExpiry);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', verifyAdminSessionExpiry);
+    };
+  }, [isAdminAuthenticated]);
 
   const handleAdminGoogleSignIn = async () => {
     setAdminAuthStatus('ADMIN_CHECKING');
@@ -245,24 +278,31 @@ export default function App() {
       const uid = fbUser.uid;
       const email = fbUser.email?.toLowerCase() || '';
 
-      // Check Admin authorization from Firestore
+      // Check Admin authorization from Firestore & 12-hour session validity
       if (email) {
         setAdminAuthStatus('ADMIN_CHECKING');
         const adminCheck = await checkAdminAuthorizedInFirestore(email, uid);
         if (adminCheck.authorized) {
-          setIsAdminAuthenticated(true);
-          setAdminEmail(email);
-          setAdminRole(adminCheck.role || (email === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN'));
-          setAdminAuthStatus('AUTHORIZED');
-          try {
-            localStorage.setItem('dormiqa_admin_email', email);
-          } catch {}
+          const isSessionValid = checkAdminSessionValid(uid);
+          if (isSessionValid) {
+            setIsAdminAuthenticated(true);
+            setAdminEmail(email);
+            setAdminRole(adminCheck.role || (email === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN'));
+            setAdminAuthStatus('AUTHORIZED');
+            try {
+              localStorage.setItem('dormiqa_admin_email', email);
+            } catch {}
+          } else {
+            console.warn(`12-hour Admin session expired for ${email}`);
+            clearAdminSessionTimestamp(uid);
+            await signOut(auth);
+            setIsAdminAuthenticated(false);
+            setAdminAuthStatus('SESSION_EXPIRED');
+          }
         } else {
           setIsAdminAuthenticated(false);
           setAdminAuthStatus('UNAUTHORIZED');
-          try {
-            localStorage.removeItem('dormiqa_admin_email');
-          } catch {}
+          clearAdminSessionTimestamp(uid);
         }
       } else {
         setIsAdminAuthenticated(false);
@@ -1269,16 +1309,15 @@ export default function App() {
                 currentAdminRole={adminRole}
                 onRefresh={loadListingsData}
                 onAdminLogout={async () => {
+                  const uid = auth.currentUser?.uid;
+                  clearAdminSessionTimestamp(uid);
                   await signOut(auth);
                   clearAdminToken();
-                  try {
-                    localStorage.removeItem('dormiqa_admin_email');
-                  } catch {}
                   setIsAdminAuthenticated(false);
-                  setAdminAuthStatus('UNAUTHENTICATED');
+                  setAdminAuthStatus('SIGNED_OUT');
                   setCurrentRole('student');
-                  setActiveView('landing');
-                  pushViewUrl('landing');
+                  setActiveView('admin-dash');
+                  pushViewUrl('admin-dash');
                   setToastNotice('Admin session logged out.');
                   setTimeout(() => setToastNotice(null), 3000);
                 }}
