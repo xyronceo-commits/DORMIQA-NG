@@ -1247,7 +1247,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       type="email"
                       value={newAdminEmailInput}
                       onChange={(e) => setNewAdminEmailInput(e.target.value)}
-                      placeholder="Enter administrator email (e.g. name@dormiqa.com)"
+                      placeholder="Enter administrator email (e.g. admin@gmail.com)"
                       required
                       className="w-full pl-10 pr-4 py-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500"
                     />
@@ -1377,7 +1377,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">
                 <p className="font-extrabold uppercase text-[10px] text-neutral-400">Email</p>
-                <p className="font-bold text-neutral-900 dark:text-white">{selectedAgent.email || 'dormiqa@gmail.com'}</p>
+                <p className="font-bold text-neutral-900 dark:text-white">{selectedAgent.email || 'dormiqa.ng@gmail.com'}</p>
               </div>
 
               <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">

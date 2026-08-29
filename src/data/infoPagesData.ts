@@ -56,7 +56,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
         subpoints: [
           'Provide accurate, verifiable personal details including legal name, official email, and phone number.',
           'Do not impersonate any person, tertiary institution staff member, or registered corporate entity.',
-          'Notify [dormiqa@gmail.com] immediately upon suspecting unauthorized account access.'
+          'Notify [dormiqa.ng@gmail.com] immediately upon suspecting unauthorized account access.'
         ]
       },
       {
@@ -86,7 +86,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
       },
       {
         heading: '8. Corporate Contact Information',
-        content: 'For legal queries or formal notices, write to [dormiqa@gmail.com] or send physical mail to [Dormiqa Technologies Limited, Plot 12 Campus Way, Yaba, Lagos, Nigeria].'
+        content: 'For legal queries or formal notices, write to [dormiqa.ng@gmail.com] or send physical mail to [Dormiqa Technologies Limited, Plot 12 Campus Way, Yaba, Lagos, Nigeria].'
       }
     ]
   },
@@ -133,7 +133,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
       },
       {
         heading: '6. Your Rights',
-        content: 'You have the right to request access to, correction of, or permanent deletion of your personal data stored on Dormiqa. Email [dormiqa@gmail.com] to exercise your rights.'
+        content: 'You have the right to request access to, correction of, or permanent deletion of your personal data stored on Dormiqa. Email [dormiqa.ng@gmail.com] to exercise your rights.'
       }
     ]
   },
@@ -318,7 +318,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
       },
       {
         heading: '2. Takedown Request Notice',
-        content: 'Send a written copyright complaint to [dormiqa@gmail.com] including:',
+        content: 'Send a written copyright complaint to [dormiqa.ng@gmail.com] including:',
         subpoints: [
           'Identification of the copyrighted work claimed to be infringed.',
           'URL or listing ID of the infringing content on Dormiqa.',
@@ -531,7 +531,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
       },
       {
         heading: 'Q4: What should I do if an agent demands money before showing me the room?',
-        content: 'DO NOT PAY. Report the agent immediately using the "Report Listing" button or email [dormiqa@gmail.com]. Demanding upfront viewing fees is against Dormiqa policy.'
+        content: 'DO NOT PAY. Report the agent immediately using the "Report Listing" button or email [dormiqa.ng@gmail.com]. Demanding upfront viewing fees is against Dormiqa policy.'
       },
       {
         heading: 'Q5: Which universities are currently supported?',
@@ -552,7 +552,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
         heading: '1. Support Channels & Operating Hours',
         content: 'Our team is available Monday through Saturday, 8:00 AM – 6:00 PM (WAT).',
         subpoints: [
-          'Support Email: [dormiqa@gmail.com]',
+          'Support Email: [dormiqa.ng@gmail.com]',
           'Official Phone / WhatsApp: [+234 (0) 800-DORMIQA / +234 800 226 7672]'
         ]
       },
@@ -573,7 +573,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     sections: [
       {
         heading: '1. Technical Bug Reporting',
-        content: 'Encountering a glitch in search, messaging, or calendar bookings? Email [dormiqa@gmail.com] with your device type, screenshot, and description of the issue.'
+        content: 'Encountering a glitch in search, messaging, or calendar bookings? Email [dormiqa.ng@gmail.com] with your device type, screenshot, and description of the issue.'
       },
       {
         heading: '2. Listing Discrepancy',
@@ -701,7 +701,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
       },
       {
         heading: 'Talent Network Registration',
-        content: 'Interested in joining Dormiqa as a Campus Lead, Software Engineer, or Operations Specialist? Send your CV to [dormiqa@gmail.com].'
+        content: 'Interested in joining Dormiqa as a Campus Lead, Software Engineer, or Operations Specialist? Send your CV to [dormiqa.ng@gmail.com].'
       }
     ]
   },
@@ -717,7 +717,7 @@ export const INFO_PAGES_DATA: Record<string, InfoPageDoc> = {
     sections: [
       {
         heading: 'Media Contact & Enquiries',
-        content: 'For media enquiries, interview requests with our founders, or brand asset kits, email [dormiqa@gmail.com].'
+        content: 'For media enquiries, interview requests with our founders, or brand asset kits, email [dormiqa.ng@gmail.com].'
       },
       {
         heading: 'Brand Assets Notice',

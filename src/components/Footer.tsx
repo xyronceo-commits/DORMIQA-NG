@@ -108,9 +108,9 @@ export const Footer: React.FC<FooterProps> = ({
         {/* Bottom Bar */}
         <div className="pt-4 flex flex-col sm:flex-row items-center justify-between text-xs text-neutral-500 dark:text-neutral-400 gap-3">
           <p>© 2026 Dormiqa Technologies Limited. All rights reserved.</p>
-          <a href="mailto:dormiqa@gmail.com" className="hover:text-neutral-900 dark:hover:text-white transition-colors flex items-center gap-1.5 font-bold text-neutral-700 dark:text-neutral-300">
+          <a href="mailto:dormiqa.ng@gmail.com" className="hover:text-neutral-900 dark:hover:text-white transition-colors flex items-center gap-1.5 font-bold text-neutral-700 dark:text-neutral-300">
             <Mail className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>dormiqa@gmail.com</span>
+            <span>dormiqa.ng@gmail.com</span>
           </a>
         </div>
 

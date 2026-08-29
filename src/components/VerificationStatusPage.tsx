@@ -93,14 +93,13 @@ export const VerificationStatusPage: React.FC<VerificationStatusPageProps> = ({
               <span>Sign Out for Now</span>
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => alert('Dormiqa Support: support@dormiqa.ng')}
-            className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+          <a
+            href="mailto:dormiqa.ng@gmail.com"
+            className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer text-center"
           >
             <HelpCircle className="w-4 h-4" />
             <span>Contact Support</span>
-          </button>
+          </a>
         </div>
 
       </div>

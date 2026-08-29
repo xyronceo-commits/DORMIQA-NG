@@ -1135,7 +1135,7 @@ export const MOCK_LISTINGS: Listing[] = UNIVERSITIES.flatMap((uni) => {
         agencyName: 'Dormiqa Campus Rentals Ltd',
         avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
         phone: '+234 803 123 4567',
-        email: 'dormiqa@gmail.com',
+        email: 'dormiqa.ng@gmail.com',
         responseRate: '99%',
         responseTime: '< 10 mins',
         isVerified: true,

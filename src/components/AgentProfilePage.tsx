@@ -82,7 +82,7 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
   const agencyName = profileAgency;
   const universityLocation = profileLocation;
 
-  const email = user?.email || auth.currentUser?.email || 'agent@dormiqa.ng';
+  const email = user?.email || auth.currentUser?.email || 'dormiqa.ng@gmail.com';
   const isVerified = user?.isVerifiedAgent || user?.businessVerificationStatus === 'approved';
   const avatarUrl = user?.avatarUrl || auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80';
 

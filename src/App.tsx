@@ -950,30 +950,7 @@ export default function App() {
             {activeView === 'landing' && (
               <LandingPage
                 universities={universities}
-                featuredListings={listings.filter(l => l.featured).slice(0, 3)}
-                recentListings={listings.slice(0, 6)}
                 onSearchUniversity={handleSelectUniversity}
-                onOpenListingDetail={(l) => handleOpenListingDetail(l)}
-                onBookInspection={(l) => {
-                  if (!isLoggedIn) {
-                    setActiveView('onboarding');
-                    setToastNotice('Please sign up or sign in to book an inspection.');
-                    setTimeout(() => setToastNotice(null), 4000);
-                  } else {
-                    setBookingListing(l);
-                  }
-                }}
-                onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
-                savedIds={savedIds}
-                onToggleSave={(id) => {
-                  if (!isLoggedIn) {
-                    setActiveView('onboarding');
-                    setToastNotice('Please sign up or sign in to save listings.');
-                    setTimeout(() => setToastNotice(null), 4000);
-                  } else {
-                    toggleSave(id);
-                  }
-                }}
                 onOpenAgentPortal={() => {
                   if (!isLoggedIn) {
                     setActiveView('onboarding');
@@ -1139,7 +1116,7 @@ export default function App() {
         )}
 
         {/* 2. Redesigned Student Portal Views */}
-        {(activeView === 'search' || activeView === 'landing') && currentRole === 'student' && (
+        {activeView === 'search' && currentRole === 'student' && (
           <StudentDiscoverPage
             listings={displayListings}
             isListingsLoading={isListingsLoading}
