@@ -141,48 +141,48 @@ export const ListingCard: React.FC<ListingCardProps> = ({
       </div>
 
       {/* Content body */}
-      <div className="p-3 sm:p-5 flex-1 flex flex-col justify-between space-y-2 sm:space-y-3.5">
+      <div className="p-2.5 sm:p-5 flex-1 flex flex-col justify-between space-y-2 sm:space-y-3.5">
         
-        <div className="space-y-1.5 sm:space-y-2">
+        <div className="space-y-1 sm:space-y-2">
           {/* Property Type & Availability Metadata */}
-          <div className="flex items-center justify-between text-[11px] font-bold">
-            <span className="uppercase tracking-wider text-[9px] sm:text-[10px] text-neutral-500 dark:text-slate-400 font-extrabold">
+          <div className="flex items-center justify-between text-[10px] font-bold gap-1">
+            <span className="uppercase tracking-wider text-[8px] sm:text-[10px] text-neutral-500 dark:text-slate-400 font-extrabold truncate">
               {typeLabel}
             </span>
             {listing.unitStatus === 'occupied' ? (
-              <span className="text-rose-600 dark:text-rose-400 text-[9px] sm:text-[10px] font-extrabold flex items-center gap-1 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-full border border-rose-200/60 dark:border-rose-800/60">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-600 dark:bg-rose-400 inline-block"></span>
-                Fully Rented
+              <span className="text-rose-600 dark:text-rose-400 text-[8px] sm:text-[10px] font-extrabold flex items-center gap-1 bg-rose-50 dark:bg-rose-950/40 px-1.5 sm:px-2 py-0.5 rounded-full border border-rose-200/60 dark:border-rose-800/60 shrink-0">
+                <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-rose-600 dark:bg-rose-400 inline-block"></span>
+                Rented
               </span>
             ) : listing.unitStatus === 'remaining' || listing.vacanciesCount ? (
-              <span className="text-amber-700 dark:text-amber-300 text-[9px] sm:text-[10px] font-extrabold flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-200/60 dark:border-amber-800/60">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>
+              <span className="text-amber-700 dark:text-amber-300 text-[8px] sm:text-[10px] font-extrabold flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 px-1.5 sm:px-2 py-0.5 rounded-full border border-amber-200/60 dark:border-amber-800/60 shrink-0">
+                <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-amber-500 inline-block"></span>
                 {listing.vacanciesCount || 1} Left
               </span>
             ) : (
-              <span className="text-emerald-700 dark:text-emerald-300 text-[9px] sm:text-[10px] font-extrabold flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-800/60">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+              <span className="text-emerald-700 dark:text-emerald-300 text-[8px] sm:text-[10px] font-extrabold flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 sm:px-2 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-800/60 shrink-0">
+                <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-500 inline-block"></span>
                 Available
               </span>
             )}
           </div>
 
           {/* Title & Verified Shield */}
-          <div className="flex items-start justify-between gap-1.5 pt-0.5">
-            <h3 className="font-bold text-neutral-900 dark:text-white text-sm sm:text-base leading-snug line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+          <div className="flex items-start justify-between gap-1 pt-0.5">
+            <h3 className="font-bold text-neutral-900 dark:text-white text-xs sm:text-base leading-snug line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
               {listing.title}
             </h3>
             {listing.agent.isVerified && (
-              <span className="shrink-0 inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 sm:px-2 py-0.5 rounded-md border border-emerald-200/80 dark:border-emerald-800/80" title="Verified Caretaker/Agent">
-                <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-600 dark:text-emerald-400" />
-                Verified
+              <span className="shrink-0 inline-flex items-center gap-0.5 text-[8px] sm:text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-1 sm:px-2 py-0.5 rounded-md border border-emerald-200/80 dark:border-emerald-800/80" title="Verified Caretaker/Agent">
+                <ShieldCheck className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span className="hidden xs:inline sm:inline">Verified</span>
               </span>
             )}
           </div>
 
           {/* Location & Address */}
-          <div className="flex items-center text-[11px] sm:text-xs text-neutral-500 dark:text-slate-400 gap-1 truncate">
-            <MapPin className="w-3.5 h-3.5 shrink-0 text-neutral-400 dark:text-slate-500" />
+          <div className="flex items-center text-[10px] sm:text-xs text-neutral-500 dark:text-slate-400 gap-1 truncate">
+            <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0 text-neutral-400 dark:text-slate-500" />
             <span className="truncate">{listing.address}</span>
           </div>
 
@@ -202,38 +202,35 @@ export const ListingCard: React.FC<ListingCardProps> = ({
             {listing.facilities.slice(0, 2).map((facility, i) => (
               <span 
                 key={i}
-                className="text-[9px] sm:text-[10px] font-medium bg-neutral-100/80 dark:bg-slate-800/80 text-neutral-600 dark:text-slate-300 px-1.5 sm:px-2 py-0.5 rounded-md border border-neutral-200/60 dark:border-slate-700/60"
+                className="text-[8px] sm:text-[10px] font-medium bg-neutral-100/80 dark:bg-slate-800/80 text-neutral-600 dark:text-slate-300 px-1 sm:px-2 py-0.5 rounded-md border border-neutral-200/60 dark:border-slate-700/60 truncate max-w-[90px] sm:max-w-none"
               >
                 {facility}
               </span>
             ))}
             {listing.facilities.length > 2 && (
-              <span className="text-[9px] sm:text-[10px] text-neutral-400 dark:text-slate-500 font-semibold px-1 py-0.5">
-                +{listing.facilities.length - 2} more
+              <span className="text-[8px] sm:text-[10px] text-neutral-400 dark:text-slate-500 font-semibold px-0.5 py-0.5">
+                +{listing.facilities.length - 2}
               </span>
             )}
           </div>
         </div>
 
         {/* Pricing & Inspection CTA Row */}
-        <div className="pt-2.5 sm:pt-3.5 border-t border-neutral-100 dark:border-slate-800 flex items-center justify-between mt-auto">
-          <div>
-            <div className="flex items-baseline gap-1">
-              <span className="font-extrabold text-neutral-900 dark:text-white text-base sm:text-lg">
+        <div className="pt-2 sm:pt-3.5 border-t border-neutral-100 dark:border-slate-800 flex flex-col xs:flex-row sm:flex-row items-stretch xs:items-center sm:items-center justify-between gap-1.5 sm:gap-2 mt-auto">
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-0.5 sm:gap-1">
+              <span className="font-extrabold text-neutral-900 dark:text-white text-xs sm:text-lg truncate">
                 ₦{(listing.pricePerYear || (listing.pricePerWeek ? listing.pricePerWeek * 52 : 300000)).toLocaleString()}
               </span>
-              <span className="text-[10px] sm:text-xs text-neutral-500 dark:text-slate-400 font-medium">/yr</span>
+              <span className="text-[8px] sm:text-xs text-neutral-500 dark:text-slate-400 font-medium">/yr</span>
             </div>
-            <div className="text-[10px] sm:text-[11px] text-neutral-400 dark:text-slate-500 font-medium flex items-center gap-1.5 mt-0.5">
+            <div className="text-[8px] sm:text-[11px] text-neutral-400 dark:text-slate-500 font-medium flex items-center gap-1 mt-0.5 truncate">
               <span>₦{(listing.pricePerMonth || Math.round((listing.pricePerYear || 300000) / 12)).toLocaleString()}/mo</span>
-              {listing.billsIncluded && (
-                <span className="text-emerald-600 dark:text-emerald-400 font-bold">• Utilities Inc.</span>
-              )}
             </div>
           </div>
 
           {/* Action CTAs */}
-          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 justify-end">
             {onStartChat && (
               <button
                 type="button"
@@ -241,7 +238,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({
                   e.stopPropagation();
                   onStartChat(listing.agentId || listing.agent?.id || 'agent_1', listing.id);
                 }}
-                className="p-2 sm:p-2.5 text-xs font-bold text-neutral-700 dark:text-neutral-200 bg-neutral-100 dark:bg-slate-800 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950 dark:hover:text-emerald-400 border border-neutral-200/80 dark:border-slate-700 transition-colors rounded-xl flex items-center justify-center cursor-pointer active:scale-95 min-w-[36px] min-h-[36px]"
+                className="p-1.5 sm:p-2.5 text-xs font-bold text-neutral-700 dark:text-neutral-200 bg-neutral-100 dark:bg-slate-800 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950 dark:hover:text-emerald-400 border border-neutral-200/80 dark:border-slate-700 transition-colors rounded-xl flex items-center justify-center cursor-pointer active:scale-95 min-w-[28px] min-h-[28px] sm:min-w-[36px] sm:min-h-[36px]"
                 title="Message Caretaker Directly"
               >
                 <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -254,10 +251,10 @@ export const ListingCard: React.FC<ListingCardProps> = ({
                 e.stopPropagation();
                 onBookInspection(listing);
               }}
-              className="px-2.5 sm:px-3.5 py-2 sm:py-2.5 text-[11px] sm:text-xs font-bold text-white bg-slate-900 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-500 transition-colors rounded-xl flex items-center gap-1 sm:gap-1.5 shadow-2xs cursor-pointer shrink-0 min-h-[36px]"
+              className="px-2 sm:px-3.5 py-1.5 sm:py-2.5 text-[9px] sm:text-xs font-bold text-white bg-slate-900 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-500 transition-colors rounded-xl flex items-center justify-center gap-1 shadow-2xs cursor-pointer shrink-0 min-h-[28px] sm:min-h-[36px]"
             >
               <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              Book Tour
+              <span>Book Tour</span>
             </button>
           </div>
         </div>

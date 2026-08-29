@@ -337,6 +337,8 @@ export default function App() {
 
       if (profile?.savedListingIds && Array.isArray(profile.savedListingIds)) {
         setSavedIds(profile.savedListingIds);
+      } else {
+        setSavedIds([]);
       }
 
       if (userAccount.universityId) {
@@ -609,6 +611,9 @@ export default function App() {
     }
     const currentAcc = accounts.find(a => a.id === activeAccountId);
     setIsLoggedIn(false);
+    setSavedIds([]);
+    localStorage.removeItem('dormiqa_saved_ids');
+    localStorage.removeItem('campora_saved_ids');
     localStorage.removeItem('dormiqa_is_logged_in');
     localStorage.removeItem('campora_is_logged_in');
     localStorage.removeItem('dormiqa_user_accounts');
@@ -630,6 +635,9 @@ export default function App() {
     const remaining = accounts.filter(a => a.id !== accountId);
 
     setIsLoggedIn(false);
+    setSavedIds([]);
+    localStorage.removeItem('dormiqa_saved_ids');
+    localStorage.removeItem('campora_saved_ids');
     localStorage.removeItem('dormiqa_is_logged_in');
     localStorage.removeItem('campora_is_logged_in');
 
@@ -655,7 +663,7 @@ export default function App() {
 
   const [savedIds, setSavedIds] = useState<string[]>(() => {
     try {
-      const stored = localStorage.getItem('dormiqa_saved_ids') || localStorage.getItem('campora_saved_ids');
+      const stored = localStorage.getItem('dormiqa_saved_ids');
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -672,6 +680,9 @@ export default function App() {
   const [addModalOpen, setAddModalOpen] = useState(false);
 
   useEffect(() => {
+    try {
+      localStorage.removeItem('campora_saved_ids');
+    } catch (e) {}
     loadUniversitiesData();
     loadInspectionsData();
     loadConversationsData();

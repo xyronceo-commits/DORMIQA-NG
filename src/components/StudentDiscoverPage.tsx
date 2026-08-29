@@ -79,6 +79,7 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
 }) => {
   // Navigation view mode: 'initial' (10 cards) vs 'full' (all cards + search & filters)
   const [viewMode, setViewMode] = useState<'initial' | 'full'>('initial');
+  const [fullVisibleCount, setFullVisibleCount] = useState<number>(10);
 
   // Search & Filter States for Full Discovery Page
   const [searchTerm, setSearchTerm] = useState('');
@@ -166,6 +167,11 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
     });
   }, [verifiedUniversityListings, searchTerm, selectedPropertyType, minPrice, maxPrice, maxWalkMinutes, selectedAmenities, onlyVacant]);
 
+  // Paginated listings for Full Discovery view (10 per batch = 5 rows x 2 columns on mobile)
+  const displayedFullListings = useMemo(() => {
+    return fullFilteredListings.slice(0, fullVisibleCount);
+  }, [fullFilteredListings, fullVisibleCount]);
+
   // Active filter count calculation
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -191,6 +197,7 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
     setSelectedAmenities([]);
     setOnlyVacant(false);
     setSearchTerm('');
+    setFullVisibleCount(10);
   };
 
   const handleSubscribeNotification = (e: React.FormEvent) => {
@@ -326,8 +333,8 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
                   </h2>
                 </div>
 
-                {/* DESKTOP 2-COLUMN (5 Left, 5 Right) / MOBILE COMPACT GRID */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* DESKTOP 2-COLUMN (5 Left, 5 Right) / MOBILE 2-COLUMN GRID (5 Rows of 2 Cards) */}
+                <div className="grid grid-cols-2 md:grid-cols-2 gap-3 sm:gap-6">
                   {initialTenListings.map(listing => (
                     <ListingCard
                       key={listing.id}
@@ -578,20 +585,34 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
                 </div>
               </div>
             ) : (
-              /* FULL RESULTS LISTING GRID (2-COLUMN / RESPONSIVE) */
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {fullFilteredListings.map(listing => (
-                  <ListingCard
-                    key={`full-${listing.id}`}
-                    listing={listing}
-                    isSaved={savedIds.includes(listing.id)}
-                    onToggleSave={onToggleSave}
-                    onOpenDetail={onOpenDetail}
-                    onBookInspection={onBookInspection}
-                    onStartChat={onStartChat}
-                    selectedCampus={selectedCampus}
-                  />
-                ))}
+              /* FULL RESULTS LISTING GRID (2-COLUMNS ON MOBILE: 5 ROWS PER PAGE) */
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+                  {displayedFullListings.map(listing => (
+                    <ListingCard
+                      key={`full-${listing.id}`}
+                      listing={listing}
+                      isSaved={savedIds.includes(listing.id)}
+                      onToggleSave={onToggleSave}
+                      onOpenDetail={onOpenDetail}
+                      onBookInspection={onBookInspection}
+                      onStartChat={onStartChat}
+                      selectedCampus={selectedCampus}
+                    />
+                  ))}
+                </div>
+
+                {/* LOAD MORE HOSTELS BUTTON IN FULL DISCOVERY MODE */}
+                {fullFilteredListings.length > fullVisibleCount && (
+                  <div className="pt-6 text-center">
+                    <button
+                      onClick={() => setFullVisibleCount(prev => prev + 10)}
+                      className="w-full sm:w-auto px-8 py-3.5 bg-slate-900 hover:bg-emerald-600 text-white dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-2xl font-black text-xs transition-all shadow-xs cursor-pointer inline-flex items-center justify-center gap-2"
+                    >
+                      <span>Load 10 More Hostels ({fullFilteredListings.length - fullVisibleCount} remaining) ↓</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
