@@ -20,7 +20,7 @@ import {
   Search,
   ChevronRight
 } from 'lucide-react';
-import { Listing, Inspection, Conversation, User } from '../types';
+import { Listing, Inspection, Conversation, User, University } from '../types';
 import { updateInspectionStatus, fetchInspections, fetchConversations, updateListingStatusAndSales } from '../services/api';
 import { sendNotification } from '../services/notificationService';
 import { auth, db } from '../services/firebase';
@@ -35,6 +35,7 @@ interface AgentDashboardProps {
   listings: Listing[];
   inspections: Inspection[];
   conversations: Conversation[];
+  universities?: University[];
   onOpenAddModal: () => void;
   onOpenChat: (conv: Conversation) => void;
   activeTab?: 'availability' | 'schedule' | 'requests' | 'profile';
@@ -54,6 +55,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
   listings,
   inspections,
   conversations,
+  universities = [],
   onOpenAddModal,
   onOpenChat,
   activeTab = 'availability',
@@ -497,18 +499,22 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
 
                       <div className="flex items-center justify-between text-xs pt-2 border-t border-neutral-100 dark:border-neutral-800">
                         <span className="font-black text-neutral-900 dark:text-white">₦{item.pricePerYear?.toLocaleString()} / yr</span>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => onOpenListingDetail && onOpenListingDetail(item)}
-                            className="px-2.5 py-1 bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-[11px] font-bold rounded-lg cursor-pointer"
+                            className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-extrabold rounded-xl transition-all cursor-pointer flex items-center gap-1 active:scale-95 border border-neutral-200/80 dark:border-neutral-700 shadow-2xs"
+                            title="View Property Details"
                           >
-                            View
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View</span>
                           </button>
                           <button
                             onClick={() => setSelectedListingForEdit(item)}
-                            className="px-2.5 py-1 bg-emerald-600 text-white text-[11px] font-bold rounded-lg cursor-pointer"
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold rounded-xl transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-xs border border-emerald-600"
+                            title="Edit Property & Pricing"
                           >
-                            Edit
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Edit</span>
                           </button>
                         </div>
                       </div>
@@ -603,15 +609,19 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                     <div className="flex gap-2">
                       <button
                         onClick={() => onOpenListingDetail && onOpenListingDetail(item)}
-                        className="flex-1 py-2 bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 font-bold text-xs rounded-xl cursor-pointer"
+                        className="flex-1 py-2 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 border border-neutral-200/80 dark:border-neutral-700 shadow-2xs"
+                        title="View Property Details"
                       >
-                        View
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View</span>
                       </button>
                       <button
                         onClick={() => setSelectedListingForEdit(item)}
-                        className="flex-1 py-2 bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer"
+                        className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 shadow-xs border border-emerald-600"
+                        title="Edit Property & Pricing"
                       >
-                        Edit
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
                       </button>
                     </div>
                   </div>
@@ -673,6 +683,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
         {activeNav === 'profile' && (
           <AgentProfilePage
             user={activeUser}
+            universities={universities}
             hostelsCount={agentListings.length}
             chatsCount={agentConversations.length}
             inspectionsCount={agentInspections.length}

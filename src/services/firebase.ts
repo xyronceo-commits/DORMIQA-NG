@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { fetchAdminEmails, addAdminEmail, removeAdminEmail } from './api';
+import { University } from '../types';
 import { 
   getFirestore, 
   doc, 
@@ -257,12 +258,169 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   }
 }
 
+export function validateAndNormalizePhoneNumber(input: string): { isValid: boolean; normalized: string; error?: string } {
+  if (!input || !input.trim()) {
+    return { isValid: false, normalized: '', error: 'Phone number is required.' };
+  }
+  const cleaned = input.trim().replace(/[\s\-\(\)]/g, '');
+  const digitOnly = cleaned.replace(/\+/g, '');
+  if (!/^\d+$/.test(digitOnly)) {
+    return { isValid: false, normalized: '', error: 'Phone number must contain digits only.' };
+  }
+  if (digitOnly.length < 10 || digitOnly.length > 14) {
+    return { isValid: false, normalized: '', error: 'Please enter a valid phone number with 10 to 11 digits (e.g. 08012345678 or +2348012345678).' };
+  }
+
+  let normalized = cleaned;
+  if (cleaned.startsWith('0') && cleaned.length === 11) {
+    normalized = '+234' + cleaned.substring(1);
+  } else if (cleaned.startsWith('234') && cleaned.length === 13) {
+    normalized = '+' + cleaned;
+  } else if (!cleaned.startsWith('+')) {
+    normalized = '+' + cleaned;
+  }
+
+  return { isValid: true, normalized };
+}
+
+export interface StudentProfilePayload {
+  uid: string;
+  name: string;
+  email: string;
+  photoURL?: string;
+  avatarUrl?: string;
+  phoneNumber: string;
+  phone?: string;
+  universityId: string;
+  universityName: string;
+  profileCompleted: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const saveStudentProfileToFirestore = async (data: StudentProfilePayload) => {
+  const user = auth.currentUser;
+  const uid = data.uid || user?.uid;
+  if (!uid) {
+    throw new Error("We couldn't save your profile. User authentication is missing.");
+  }
+
+  const cleanEmail = (data.email || user?.email || '').trim().toLowerCase();
+  const photo = data.photoURL || data.avatarUrl || user?.photoURL || '';
+  const phoneVal = data.phoneNumber || data.phone || '';
+  const now = new Date().toISOString();
+
+  const studentRef = doc(db, 'students', uid);
+  const userRef = doc(db, 'users', uid);
+
+  let existingCreatedAt = data.createdAt;
+  if (!existingCreatedAt) {
+    try {
+      const snap = await getDoc(studentRef);
+      if (snap.exists()) {
+        existingCreatedAt = snap.data().createdAt;
+      }
+    } catch {}
+  }
+
+  const payload = {
+    id: uid,
+    uid: uid,
+    name: data.name.trim(),
+    email: cleanEmail,
+    photoURL: photo,
+    avatarUrl: photo,
+    phoneNumber: phoneVal,
+    phone: phoneVal,
+    universityId: data.universityId,
+    universityName: data.universityName,
+    profileCompleted: data.profileCompleted === true,
+    createdAt: existingCreatedAt || now,
+    updatedAt: now
+  };
+
+  try {
+    // Write directly to students/{uid}
+    await setDoc(studentRef, payload, { merge: true });
+
+    // Sync to users/{uid}
+    await setDoc(userRef, {
+      ...payload,
+      role: 'student',
+      isEmailVerified: true
+    }, { merge: true });
+
+    return payload;
+  } catch (err) {
+    console.error("Firestore saveStudentProfileToFirestore error:", err);
+    throw new Error("We couldn't save your profile. Please try again.");
+  }
+};
+
+export const fetchStudentProfileFromFirestore = async (uid: string): Promise<StudentProfilePayload | null> => {
+  if (!uid) return null;
+  try {
+    const studentRef = doc(db, 'students', uid);
+    const snap = await getDoc(studentRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const phoneVal = data.phoneNumber || data.phone || '';
+      const uniId = data.universityId || '';
+      const isCompleted = data.profileCompleted === true || (Boolean(uniId) && Boolean(phoneVal));
+      return {
+        uid: uid,
+        name: data.name || '',
+        email: data.email || '',
+        photoURL: data.photoURL || data.avatarUrl || '',
+        avatarUrl: data.photoURL || data.avatarUrl || '',
+        phoneNumber: phoneVal,
+        phone: phoneVal,
+        universityId: uniId,
+        universityName: data.universityName || '',
+        profileCompleted: isCompleted,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt
+      };
+    }
+    // Fallback check in users/{uid}
+    const userRef = doc(db, 'users', uid);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      const data = userSnap.data();
+      if (data.role === 'student' || !data.role) {
+        const phoneVal = data.phoneNumber || data.phone || '';
+        const uniId = data.universityId || '';
+        const isCompleted = data.profileCompleted === true || (Boolean(uniId) && Boolean(phoneVal));
+        return {
+          uid: uid,
+          name: data.name || '',
+          email: data.email || '',
+          photoURL: data.photoURL || data.avatarUrl || '',
+          avatarUrl: data.photoURL || data.avatarUrl || '',
+          phoneNumber: phoneVal,
+          phone: phoneVal,
+          universityId: uniId,
+          universityName: data.universityName || '',
+          profileCompleted: isCompleted,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt
+        };
+      }
+    }
+    return null;
+  } catch (err) {
+    console.warn("Failed to fetch student profile from Firestore:", err);
+    return null;
+  }
+};
+
 export const saveUserToFirestore = async (userObj: {
   id?: string;
   name: string;
   email: string;
   role?: string;
   phone?: string;
+  universityId?: string;
   universityName?: string;
   agencyName?: string;
   isEmailVerified?: boolean;
@@ -292,7 +450,8 @@ export const saveUserToFirestore = async (userObj: {
       email: cleanEmail,
       role: userObj.role || 'student',
       phone: userObj.phone || '',
-      universityName: userObj.universityName || '',
+      universityId: userObj.universityId || 'uniosun',
+      universityName: userObj.universityName || 'Osun State University',
       agencyName: userObj.agencyName || '',
       isEmailVerified: isVerified,
       avatarUrl: userObj.avatarUrl || user?.photoURL || '',
@@ -316,6 +475,38 @@ export const saveUserToFirestore = async (userObj: {
     }
 
     await setDoc(userRef, updateData, { merge: true });
+
+    // Sync to role-specific Firestore collections students/{uid} or agents/{uid}
+    if (updateData.role === 'student') {
+      const studentRef = doc(db, 'students', docId);
+      await setDoc(studentRef, {
+        id: docId,
+        uid: docId,
+        name: updateData.name,
+        email: cleanEmail,
+        phone: updateData.phone,
+        universityId: updateData.universityId,
+        universityName: updateData.universityName,
+        avatarUrl: updateData.avatarUrl,
+        updatedAt: updateData.updatedAt
+      }, { merge: true });
+    } else if (updateData.role === 'agent') {
+      const agentRef = doc(db, 'agents', docId);
+      await setDoc(agentRef, {
+        id: docId,
+        uid: docId,
+        name: updateData.name,
+        email: cleanEmail,
+        phone: updateData.phone,
+        agencyName: updateData.agencyName,
+        universityId: updateData.universityId,
+        universityName: updateData.universityName,
+        businessVerificationStatus: updateData.businessVerificationStatus || 'none',
+        isVerifiedAgent: updateData.isVerifiedAgent || false,
+        avatarUrl: updateData.avatarUrl,
+        updatedAt: updateData.updatedAt
+      }, { merge: true });
+    }
   } catch (err) {
     console.warn("Failed to sync user to Firestore users collection:", err);
     handleFirestoreError(err, OperationType.WRITE, `users/${docId}`, false);
@@ -324,17 +515,124 @@ export const saveUserToFirestore = async (userObj: {
 
 export const fetchUserProfileFromFirestore = async (uidOrEmail: string): Promise<any | null> => {
   if (!uidOrEmail) return null;
-  const userRef = doc(db, 'users', uidOrEmail);
   try {
+    const userRef = doc(db, 'users', uidOrEmail);
     const snap = await getDoc(userRef);
-    if (snap.exists()) {
-      return snap.data();
+    let data = snap.exists() ? snap.data() : null;
+
+    // Merge role-specific document (students/{uid} or agents/{uid}) if needed
+    if (data) {
+      if (data.role === 'student' || !data.role) {
+        const studentSnap = await getDoc(doc(db, 'students', uidOrEmail));
+        if (studentSnap.exists()) {
+          data = { ...studentSnap.data(), ...data };
+        }
+      } else if (data.role === 'agent') {
+        const agentSnap = await getDoc(doc(db, 'agents', uidOrEmail));
+        if (agentSnap.exists()) {
+          data = { ...agentSnap.data(), ...data };
+        }
+      }
+    } else {
+      const studentSnap = await getDoc(doc(db, 'students', uidOrEmail));
+      if (studentSnap.exists()) {
+        data = studentSnap.data();
+      } else {
+        const agentSnap = await getDoc(doc(db, 'agents', uidOrEmail));
+        if (agentSnap.exists()) {
+          data = agentSnap.data();
+        }
+      }
     }
-    return null;
+
+    return data;
   } catch (err) {
     console.warn("Failed to fetch user profile from Firestore:", err);
     handleFirestoreError(err, OperationType.GET, `users/${uidOrEmail}`, false);
     return null;
+  }
+};
+
+/**
+ * Fetch & Seed Universities Collection in Firestore
+ */
+export const fetchUniversitiesFromFirestore = async (): Promise<University[]> => {
+  try {
+    const colRef = collection(db, 'universities');
+    const snap = await getDocs(colRef);
+    
+    if (!snap.empty) {
+      const list: University[] = [];
+      snap.forEach(d => {
+        const data = d.data();
+        const isUniosun = d.id === 'uniosun';
+        list.push({
+          id: d.id,
+          name: data.name || '',
+          shortName: data.shortName || data.code || data.name,
+          city: data.city || data.location?.split(',')[0] || '',
+          state: data.state || data.location?.split(',')[1] || '',
+          country: data.country || 'Nigeria',
+          code: data.code || data.shortName || d.id.toUpperCase(),
+          type: data.type || 'federal',
+          lat: data.lat || 7.7821,
+          lng: data.lng || 4.5621,
+          popularAreas: data.popularAreas || [],
+          totalListings: data.totalListings || 0,
+          imageUrl: data.imageUrl || '',
+          description: data.description || '',
+          status: data.status || (isUniosun ? 'active' : 'coming_soon'),
+          isActive: data.isActive !== undefined ? data.isActive : (data.status === 'active' || isUniosun),
+          waitlistUrl: data.waitlistUrl || 'https://dormiqa-waitlist.vercel.app'
+        } as University);
+      });
+
+      // Guarantee UNIOSUN appears first
+      list.sort((a, b) => {
+        if (a.id === 'uniosun') return -1;
+        if (b.id === 'uniosun') return 1;
+        if (a.status === 'active' && b.status !== 'active') return -1;
+        if (b.status === 'active' && a.status !== 'active') return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      return list;
+    }
+
+    // Seed Firestore with default universities if collection is empty
+    const { UNIVERSITIES } = await import('../data/mockData');
+    for (const uni of UNIVERSITIES) {
+      try {
+        const isUniosun = uni.id === 'uniosun';
+        const uniStatus = isUniosun ? 'active' : 'coming_soon';
+        await setDoc(doc(db, 'universities', uni.id), {
+          id: uni.id,
+          name: uni.name,
+          shortName: uni.code || uni.name,
+          code: uni.code,
+          location: `${uni.city}, ${uni.state}`,
+          city: uni.city,
+          state: uni.state,
+          country: uni.country,
+          type: uni.type,
+          status: uniStatus,
+          isActive: isUniosun,
+          waitlistUrl: 'https://dormiqa-waitlist.vercel.app',
+          description: uni.description,
+          imageUrl: uni.imageUrl,
+          popularAreas: uni.popularAreas,
+          totalListings: uni.totalListings
+        }, { merge: true });
+      } catch (seedErr) {
+        console.warn(`Failed to seed university ${uni.id}:`, seedErr);
+      }
+    }
+
+    return UNIVERSITIES;
+  } catch (err) {
+    console.warn("Firestore fetchUniversities error, falling back to local data:", err);
+    const { UNIVERSITIES } = await import('../data/mockData');
+    return UNIVERSITIES;
   }
 };
 

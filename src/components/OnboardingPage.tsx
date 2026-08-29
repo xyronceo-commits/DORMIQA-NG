@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { UserRole, University } from '../types';
 import { EmailVerificationCard } from './EmailVerificationCard';
+import { UniversitySelector } from './UniversitySelector';
 import { 
   auth,
   signInWithGoogle, 
@@ -30,6 +31,9 @@ import {
   checkEmailVerified,
   saveUserToFirestore,
   fetchUserProfileFromFirestore,
+  saveStudentProfileToFirestore,
+  fetchStudentProfileFromFirestore,
+  validateAndNormalizePhoneNumber,
   logoutFirebase
 } from '../services/firebase';
 
@@ -86,7 +90,8 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   const [studentName, setStudentName] = useState('');
   const [studentEmail, setStudentEmail] = useState('');
   const [studentPhone, setStudentPhone] = useState('');
-  const [studentUni, setStudentUni] = useState(universities[0]?.name || 'University of Lagos (UNILAG)');
+  const [studentUniId, setStudentUniId] = useState('uniosun');
+  const [studentUni, setStudentUni] = useState(universities[0]?.name || 'Osun State University (UNIOSUN)');
   const [studentPassword, setStudentPassword] = useState('');
 
   // Agent Form State
@@ -95,13 +100,15 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   const [agencyName, setAgencyName] = useState('');
   const [verificationType, setVerificationType] = useState<'cac' | 'id_card'>('cac');
   const [verificationDocNum, setVerificationDocNum] = useState('');
-  const [agentUni, setAgentUni] = useState(universities[0]?.name || 'University of Lagos (UNILAG)');
+  const [agentUniId, setAgentUniId] = useState('uniosun');
+  const [agentUni, setAgentUni] = useState(universities[0]?.name || 'Osun State University (UNIOSUN)');
   const [agentPhoneWA, setAgentPhoneWA] = useState('');
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
   const [agentPassword, setAgentPassword] = useState('');
 
   // Google OAuth Auth State for Profile Completion Step
   const [googleAuthData, setGoogleAuthData] = useState<{
+    uid: string;
     displayName: string;
     email: string;
     photoURL?: string;
@@ -127,38 +134,58 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
       const photoURL = fbUser.photoURL || undefined;
       const uid = fbUser.uid;
 
-      // Check if existing user account in Firestore
-      const existingProfile = await fetchUserProfileFromFirestore(uid) || (email ? await fetchUserProfileFromFirestore(email) : null);
+      if (selectedRole === 'student') {
+        // Fetch student profile directly from Firestore students/{uid}
+        const studentProfile = await fetchStudentProfileFromFirestore(uid);
 
-      if (authMode === 'signin') {
-        if (!existingProfile) {
-          // User signed into Google Auth but has NEVER registered a Dormiqa account profile
-          // Reject sign in per requirement!
-          await logoutFirebase();
-          setAuthError("Account not found. Please sign up first.");
+        const isComplete = studentProfile &&
+          studentProfile.profileCompleted === true &&
+          Boolean(studentProfile.universityId) &&
+          Boolean(studentProfile.phoneNumber || studentProfile.phone);
+
+        if (isComplete) {
+          // RETURNING STUDENT WITH COMPLETE PROFILE! Do NOT make them complete profile again!
+          const studentData = {
+            id: uid,
+            role: 'student' as UserRole,
+            name: studentProfile.name || displayName || email.split('@')[0] || 'Student',
+            email: email,
+            phone: studentProfile.phoneNumber || studentProfile.phone || '',
+            universityId: studentProfile.universityId,
+            universityName: studentProfile.universityName,
+            avatarUrl: studentProfile.photoURL || studentProfile.avatarUrl || photoURL,
+            isSignup: false,
+            isEmailVerified: true
+          };
+          onCompleteOnboarding(studentData);
           return;
         }
 
-        const fullData = {
-          id: uid,
-          role: (existingProfile?.role || selectedRole || 'student') as UserRole,
-          name: existingProfile?.name || displayName || email.split('@')[0] || 'User',
-          email: email,
-          phone: existingProfile?.phone || '',
-          universityName: existingProfile?.universityName || '',
-          agencyName: existingProfile?.agencyName || '',
-          avatarUrl: existingProfile?.avatarUrl || photoURL,
-          isSignup: false,
-          isEmailVerified: true
-        };
-        await saveUserToFirestore(fullData);
-        onCompleteOnboarding(fullData);
+        // FIRST-TIME OR INCOMPLETE STUDENT PROFILE!
+        setStudentName(studentProfile?.name || displayName || '');
+        setStudentEmail(email);
+        setStudentPhone(studentProfile?.phoneNumber || studentProfile?.phone || '');
+        setStudentUniId(studentProfile?.universityId || 'uniosun');
+        setStudentUni(studentProfile?.universityName || universities.find(u => u.id === 'uniosun')?.name || 'Osun State University (UNIOSUN)');
+        
+        setGoogleAuthData({
+          uid,
+          displayName: displayName || studentProfile?.name || '',
+          email,
+          photoURL
+        });
         return;
       }
 
-      // authMode === 'signup'
+      // If Agent role is selected
+      const existingProfile = await fetchUserProfileFromFirestore(uid) || (email ? await fetchUserProfileFromFirestore(email) : null);
+      if (authMode === 'signin' && !existingProfile) {
+        await logoutFirebase();
+        setAuthError("Account not found. Please sign up first.");
+        return;
+      }
+
       if (existingProfile) {
-        // User already has a profile! Sign them in directly
         const fullData = {
           id: uid,
           role: existingProfile.role as UserRole,
@@ -176,17 +203,11 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
         return;
       }
 
-      if (displayName) {
-        setStudentName(prev => prev || displayName);
-        setAgentName(prev => prev || displayName);
-        setAgencyName(prev => prev || `${displayName} Housing`);
-      }
-      if (email) {
-        setStudentEmail(email);
-        setAgentEmail(email);
-      }
+      if (displayName) setAgentName(prev => prev || displayName);
+      if (email) setAgentEmail(email);
 
       setGoogleAuthData({
+        uid,
         displayName,
         email,
         photoURL
@@ -195,10 +216,10 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
       if (err?.code !== 'auth/popup-closed-by-user' && err?.code !== 'auth/cancelled-popup-request') {
         console.error("Google Auth Failure:", err);
       }
-      let errorMsg: string | null = err?.message || "Google Authentication failed. Please try again or use Email.";
+      let errorMsg: string | null = "Google sign-in failed. Please try again.";
       if (err?.code === 'auth/unauthorized-domain') {
         const currentHostname = typeof window !== 'undefined' ? window.location.hostname : 'dormiqa-ng.vercel.app';
-        errorMsg = `Firebase Auth Error (auth/unauthorized-domain): The domain '${currentHostname}' is not authorized for Firebase Authentication. Please add '${currentHostname}' to Authorized Domains under Firebase Console -> Authentication -> Settings.`;
+        errorMsg = `Firebase Auth Error (auth/unauthorized-domain): The domain '${currentHostname}' is not authorized for Firebase Authentication. Please add '${currentHostname}' to Authorized Domains under Firebase Console.`;
       } else if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
         errorMsg = null;
       }
@@ -212,27 +233,87 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     e.preventDefault();
     if (!googleAuthData) return;
 
-    const name = selectedRole === 'student'
-      ? (studentName || googleAuthData.displayName || 'Student User')
-      : (agentName || googleAuthData.displayName || 'Property Agent');
-    const phone = selectedRole === 'student' ? studentPhone : agentPhoneWA;
-    const uni = selectedRole === 'student' ? studentUni : agentUni;
+    setIsLoading(true);
+    setAuthError(null);
 
-    const fullData = {
-      role: selectedRole,
-      name: name,
-      email: googleAuthData.email,
-      phone: phone,
-      universityName: uni,
-      agencyName: selectedRole === 'agent' ? (agencyName || `${name} Housing`) : undefined,
-      avatarUrl: googleAuthData.photoURL,
-      isSignup: true,
-      isEmailVerified: true
-    };
+    try {
+      if (selectedRole === 'student') {
+        // Validate phone number
+        const phoneCheck = validateAndNormalizePhoneNumber(studentPhone);
+        if (!phoneCheck.isValid) {
+          setAuthError(phoneCheck.error || "Please enter a valid phone number.");
+          setIsLoading(false);
+          return;
+        }
 
-    await saveUserToFirestore(fullData);
+        // Validate university selection
+        const selectedUniObj = universities.find(u => u.id === studentUniId) || {
+          id: studentUniId,
+          name: studentUni,
+          code: studentUniId,
+          status: studentUniId === 'uniosun' ? 'active' : 'coming_soon'
+        };
 
-    onCompleteOnboarding(fullData);
+        const isUniActive = selectedUniObj.status === 'active' || selectedUniObj.id === 'uniosun';
+        if (!isUniActive) {
+          // Block submission for coming soon university
+          setIsLoading(false);
+          return;
+        }
+
+        const studentData = {
+          uid: googleAuthData.uid || auth.currentUser?.uid || '',
+          name: studentName.trim() || googleAuthData.displayName || 'Student',
+          email: googleAuthData.email,
+          photoURL: googleAuthData.photoURL || '',
+          avatarUrl: googleAuthData.photoURL || '',
+          phoneNumber: phoneCheck.normalized,
+          phone: phoneCheck.normalized,
+          universityId: selectedUniObj.id,
+          universityName: selectedUniObj.name,
+          profileCompleted: true
+        };
+
+        await saveStudentProfileToFirestore(studentData);
+
+        const fullData = {
+          id: studentData.uid,
+          role: 'student' as UserRole,
+          name: studentData.name,
+          email: studentData.email,
+          phone: studentData.phoneNumber,
+          universityId: studentData.universityId,
+          universityName: studentData.universityName,
+          avatarUrl: studentData.photoURL,
+          isSignup: true,
+          isEmailVerified: true
+        };
+
+        onCompleteOnboarding(fullData);
+      } else {
+        // Agent path
+        const fullData = {
+          id: googleAuthData.uid || auth.currentUser?.uid || '',
+          role: selectedRole,
+          name: agentName || googleAuthData.displayName || 'Property Agent',
+          email: googleAuthData.email,
+          phone: agentPhoneWA,
+          universityName: agentUni,
+          agencyName: agencyName || `${agentName} Housing`,
+          avatarUrl: googleAuthData.photoURL,
+          isSignup: true,
+          isEmailVerified: true
+        };
+
+        await saveUserToFirestore(fullData);
+        onCompleteOnboarding(fullData);
+      }
+    } catch (err: any) {
+      console.error("Failed to save profile:", err);
+      setAuthError("We couldn't save your profile. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleStudentSubmit = async (e: React.FormEvent) => {
@@ -468,6 +549,9 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   }
 
   if (googleAuthData) {
+    const selectedUniObj = universities.find(u => u.id === (selectedRole === 'student' ? studentUniId : agentUniId));
+    const isComingSoon = selectedRole === 'student' && selectedUniObj && selectedUniObj.status === 'coming_soon' && selectedUniObj.id !== 'uniosun';
+
     return (
       <div className="min-h-[calc(100vh-4rem)] bg-neutral-50 py-10 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
         <div className="max-w-lg w-full bg-white rounded-2xl border border-neutral-200 p-6 sm:p-8 shadow-sm space-y-6 animate-in fade-in">
@@ -482,12 +566,19 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
               <span>Google OAuth Verified</span>
             </div>
             <h2 className="text-2xl font-black text-neutral-900 tracking-tight">
-              Complete Your Profile
+              Complete your profile
             </h2>
             <p className="text-xs text-neutral-600 max-w-sm mx-auto leading-relaxed">
-              Your Google authentication was successful! Please review and fill out your name, school, and contact details below to finish setting up your account.
+              Just a few details before you start exploring accommodation.
             </p>
           </div>
+
+          {authError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-rose-700 text-xs font-semibold">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{authError}</span>
+            </div>
+          )}
 
           {/* User Role Selector */}
           <div className="space-y-1.5">
@@ -558,36 +649,51 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
               </div>
             </div>
 
-            {/* Name of School / Institution */}
-            <div>
-              <label className="text-xs font-bold text-neutral-800 block mb-1">
-                {selectedRole === 'student' ? 'Name of University / School' : 'Primary Campus Serviced'}
-              </label>
-              <div className="relative">
-                <GraduationCap className="w-4 h-4 text-neutral-400 absolute left-3 top-3 z-10" />
-                <select
-                  required
-                  value={selectedRole === 'student' ? studentUni : agentUni}
-                  onChange={(e) => {
-                    if (selectedRole === 'student') setStudentUni(e.target.value);
-                    else setAgentUni(e.target.value);
-                  }}
-                  className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+            {/* University Selector */}
+            <UniversitySelector
+              universities={universities}
+              selectedUniversityId={selectedRole === 'student' ? studentUniId : agentUniId}
+              onSelectUniversity={(uni) => {
+                if (selectedRole === 'student') {
+                  setStudentUniId(uni.id);
+                  setStudentUni(uni.name);
+                } else {
+                  setAgentUniId(uni.id);
+                  setAgentUni(uni.name);
+                }
+              }}
+              label={selectedRole === 'student' ? 'University' : 'Primary Serviced Campus'}
+              required
+            />
+
+            {/* Coming Soon Notice */}
+            {isComingSoon && selectedUniObj && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-3 animate-in fade-in">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-extrabold text-xs text-amber-900">
+                      Dormiqa isn't available at this university yet.
+                    </h4>
+                    <p className="text-xs text-amber-700 mt-0.5">
+                      We're expanding rapidly! Join our waitlist to get early access when we launch at {selectedUniObj.name}.
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href={`https://dormiqa-waitlist.vercel.app?university=${encodeURIComponent(selectedUniObj.shortName || selectedUniObj.code || selectedUniObj.name)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-xs"
                 >
-                  <option value="">-- Select School / University --</option>
-                  {universities.map(u => (
-                    <option key={u.id} value={u.name}>
-                      {u.name} ({u.state})
-                    </option>
-                  ))}
-                  <option value="Other Nigerian Institution">Other Federal/State Uni or Polytechnic</option>
-                </select>
+                  <span>Join the waitlist →</span>
+                </a>
               </div>
-            </div>
+            )}
 
             {/* Phone Number (WhatsApp) */}
             <div>
-              <label className="text-xs font-bold text-neutral-800 block mb-1">Phone Number (WhatsApp)</label>
+              <label className="text-xs font-bold text-neutral-800 block mb-1">Phone number</label>
               <div className="relative">
                 <Phone className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
                 <input
@@ -598,7 +704,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                     if (selectedRole === 'student') setStudentPhone(e.target.value);
                     else setAgentPhoneWA(e.target.value);
                   }}
-                  placeholder="+234 812 345 6789"
+                  placeholder="+234 801 234 5678"
                   className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
                 />
               </div>
@@ -632,10 +738,17 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
               </button>
               <button
                 type="submit"
-                className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                disabled={isLoading || isComingSoon}
+                className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-neutral-300 disabled:cursor-not-allowed text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>Save Profile & Continue to Dashboard</span>
-                <ArrowRight className="w-4 h-4" />
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                ) : (
+                  <>
+                    <span>Save & Start Exploring →</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </div>
           </form>
@@ -928,25 +1041,17 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                           </div>
                         </div>
 
-                        {/* University Name */}
-                        <div>
-                          <label className="text-xs font-bold text-neutral-800 block mb-1">Name of University / Institution</label>
-                          <div className="relative">
-                            <GraduationCap className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                            <select
-                              value={studentUni}
-                              onChange={(e) => setStudentUni(e.target.value)}
-                              className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                            >
-                              {universities.map(u => (
-                                <option key={u.id} value={u.name}>
-                                  {u.name} ({u.state})
-                                </option>
-                              ))}
-                              <option value="Other Nigerian Institution">Other Federal/State Uni or Polytechnic</option>
-                            </select>
-                          </div>
-                        </div>
+                        {/* University Selection */}
+                        <UniversitySelector
+                          universities={universities}
+                          selectedUniversityId={studentUniId}
+                          onSelectUniversity={(uni) => {
+                            setStudentUniId(uni.id);
+                            setStudentUni(uni.name);
+                          }}
+                          label="University / Institution"
+                          required
+                        />
                       </div>
 
                       <div>
@@ -1083,26 +1188,17 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                         </div>
                       </div>
 
-                      {/* Serviced University - Single Select Dropdown */}
-                      <div>
-                        <label className="text-xs font-bold text-neutral-800 block mb-1">Primary University / Polytechnic Serviced (Select One)</label>
-                        <div className="relative">
-                          <GraduationCap className="w-4 h-4 text-neutral-400 absolute left-3 top-3 z-10" />
-                          <select
-                            required
-                            value={agentUni}
-                            onChange={(e) => setAgentUni(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                          >
-                            <option value="">-- Select One Primary University --</option>
-                            {universities.map(u => (
-                              <option key={u.id} value={u.name}>
-                                {u.name} ({u.state})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
+                      {/* Serviced University Selector */}
+                      <UniversitySelector
+                        universities={universities}
+                        selectedUniversityId={agentUniId}
+                        onSelectUniversity={(uni) => {
+                          setAgentUniId(uni.id);
+                          setAgentUni(uni.name);
+                        }}
+                        label="Primary University / Polytechnic Serviced"
+                        required
+                      />
 
                       <div>
                         <label className="text-xs font-bold text-neutral-800 block mb-1">Account Password</label>

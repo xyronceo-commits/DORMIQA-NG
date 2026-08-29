@@ -18,12 +18,14 @@ import {
   Check,
   X
 } from 'lucide-react';
-import { User } from '../types';
-import { auth, saveUserToFirestore } from '../services/firebase';
+import { User, University } from '../types';
+import { auth, saveUserToFirestore, saveStudentProfileToFirestore, validateAndNormalizePhoneNumber } from '../services/firebase';
 import { ThemeToggle } from './ThemeToggle';
+import { UniversitySelector } from './UniversitySelector';
 
 interface StudentProfilePageProps {
   user?: User;
+  universities?: University[];
   savedCount: number;
   chatsCount: number;
   inspectionsCount: number;
@@ -34,6 +36,7 @@ interface StudentProfilePageProps {
 
 export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
   user,
+  universities = [],
   savedCount,
   chatsCount,
   inspectionsCount,
@@ -44,7 +47,8 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
   const [activeModal, setActiveModal] = useState<'profile' | 'security' | 'notifications' | 'terms' | 'privacy' | null>(null);
 
   const [studentName, setStudentName] = useState(user?.name || auth.currentUser?.displayName || 'Student Account');
-  const [studentPhone, setStudentPhone] = useState(user?.phone || '');
+  const [studentPhone, setStudentPhone] = useState(user?.phone || user?.phoneNumber || '');
+  const [studentUniId, setStudentUniId] = useState(user?.universityId || 'uniosun');
   const [studentUniversity, setStudentUniversity] = useState(user?.universityName || 'Osun State University (UNIOSUN)');
   const [profileToast, setProfileToast] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -61,19 +65,26 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
       setProfileToast('Error: Authentication required.');
       return;
     }
+
+    const phoneVal = validateAndNormalizePhoneNumber(studentPhone);
+    if (!phoneVal.isValid) {
+      setProfileToast(phoneVal.error || 'Please enter a valid phone number.');
+      return;
+    }
+
     setIsSaving(true);
-    const updatedUserData: User = {
-      id: currentUid,
-      name: studentName,
-      phone: studentPhone,
-      universityName: studentUniversity,
-      email: user?.email || auth.currentUser?.email || '',
-      role: 'student',
-      avatarUrl: photo,
-      createdAt: user?.createdAt || new Date().toISOString().split('T')[0]
-    };
     try {
-      await saveUserToFirestore(updatedUserData);
+      await saveStudentProfileToFirestore({
+        uid: currentUid,
+        name: studentName,
+        email: email,
+        photoURL: photo,
+        phoneNumber: phoneVal.normalized,
+        universityId: studentUniId,
+        universityName: studentUniversity,
+        profileCompleted: true
+      });
+
       setProfileToast('Profile details updated & saved to Firebase!');
       setTimeout(() => setProfileToast(''), 3000);
       setTimeout(() => setActiveModal(null), 1200);
@@ -352,6 +363,18 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
 
                   <div>
                     <label className="text-[11px] font-extrabold uppercase text-neutral-500 dark:text-slate-400 block mb-1">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      disabled
+                      className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-slate-800 bg-neutral-100 dark:bg-slate-800/60 text-neutral-500 dark:text-slate-400 text-xs font-semibold cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-extrabold uppercase text-neutral-500 dark:text-slate-400 block mb-1">
                       Phone / WhatsApp Number
                     </label>
                     <input
@@ -363,18 +386,16 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
                     />
                   </div>
 
-                  <div>
-                    <label className="text-[11px] font-extrabold uppercase text-neutral-500 dark:text-slate-400 block mb-1">
-                      University / Institution
-                    </label>
-                    <input
-                      type="text"
-                      value={studentUniversity}
-                      onChange={(e) => setStudentUniversity(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-slate-800 bg-neutral-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold"
-                      required
-                    />
-                  </div>
+                  <UniversitySelector
+                    universities={universities}
+                    selectedUniversityId={studentUniId}
+                    onSelectUniversity={(uni) => {
+                      setStudentUniId(uni.id);
+                      setStudentUniversity(uni.name);
+                    }}
+                    label="University / Institution"
+                    required
+                  />
 
                   <div className="pt-2 flex justify-end gap-2">
                     <button

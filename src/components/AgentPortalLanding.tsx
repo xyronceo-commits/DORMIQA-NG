@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { University, User } from '../types';
 import { ThemeToggle } from './ThemeToggle';
+import { UniversitySelector } from './UniversitySelector';
 import { 
   auth,
   registerWithEmail, 
@@ -58,7 +59,8 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
   const [agentEmail, setAgentEmail] = useState('');
   const [agencyName, setAgencyName] = useState('');
   const [agentPhone, setAgentPhone] = useState('');
-  const [agentUni, setAgentUni] = useState(universities[0]?.name || 'University of Lagos (UNILAG)');
+  const [agentUniId, setAgentUniId] = useState('uniosun');
+  const [agentUni, setAgentUni] = useState(universities[0]?.name || 'Osun State University (UNIOSUN)');
   const [agentPassword, setAgentPassword] = useState('');
 
   // Top Drawer Navigation State
@@ -102,6 +104,7 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
         email: agentEmail.trim().toLowerCase(),
         role: 'agent',
         phone: agentPhone,
+        universityId: agentUniId || 'uniosun',
         universityName: agentUni,
         agencyName: agencyName || `${agentName || 'Agent'} Housing`,
         isVerifiedAgent: false,
@@ -559,26 +562,16 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
-                    Primary University Serviced
-                  </label>
-                  <div className="relative">
-                    <GraduationCap className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3 z-10" />
-                    <select
-                      required
-                      value={agentUni}
-                      onChange={(e) => setAgentUni(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                    >
-                      {universities.map(u => (
-                        <option key={u.id} value={u.name}>
-                          {u.name} ({u.state})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+                <UniversitySelector
+                  universities={universities}
+                  selectedUniversityId={agentUniId}
+                  onSelectUniversity={(uni) => {
+                    setAgentUniId(uni.id);
+                    setAgentUni(uni.name);
+                  }}
+                  label="Primary University Serviced"
+                  required
+                />
 
                 <div>
                   <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 block mb-1">

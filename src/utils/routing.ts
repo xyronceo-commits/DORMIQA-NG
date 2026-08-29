@@ -5,7 +5,7 @@
 export interface ParsedRoute {
   type: 'property' | 'view' | '404';
   propertyId?: string;
-  view?: 'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon';
+  view?: 'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'universities';
   adminTab?: 'agents' | 'properties' | 'students' | 'analytics' | 'access';
 }
 
@@ -36,6 +36,7 @@ const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
   '/admin/settings': 'admin-dash',
   '/admin/access': 'admin-dash',
   '/coming-soon': 'coming-soon',
+  '/universities': 'universities',
 };
 
 /**
@@ -128,7 +129,8 @@ export function pushViewUrl(view: string, replace = false, subTab?: string) {
     'student-dash': '/student-dashboard',
     'agent-dash': '/agent-dashboard',
     'admin-dash': '/admin/dashboard',
-    'coming-soon': '/coming-soon'
+    'coming-soon': '/coming-soon',
+    'universities': '/universities'
   };
 
   let targetPath = pathMap[view] || '/';

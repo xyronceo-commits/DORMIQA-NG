@@ -1065,13 +1065,21 @@ const TEMPLATES = [
   { titleSuffix: 'Crown Villa Ensuite Studio', propertyType: 'ensuite' as const, pricePerYear: 420000, walkMin: 4, featured: true },
   { titleSuffix: 'Greenfield Shared Student Apartment', propertyType: 'shared_flat' as const, pricePerYear: 280000, walkMin: 12, featured: false },
   { titleSuffix: 'Campus Gate View Serviced Lodge', propertyType: 'studio' as const, pricePerYear: 380000, walkMin: 6, featured: false },
-  { titleSuffix: 'Garden View Hillside Lodge', propertyType: 'self_contain' as const, pricePerYear: 320000, walkMin: 5, featured: true }
+  { titleSuffix: 'Garden View Hillside Lodge', propertyType: 'self_contain' as const, pricePerYear: 320000, walkMin: 5, featured: true },
+  { titleSuffix: 'Diamond Student Suites', propertyType: 'self_contain' as const, pricePerYear: 390000, walkMin: 7, featured: false },
+  { titleSuffix: 'Sunrise Villa Off-Campus Lodge', propertyType: 'single_room' as const, pricePerYear: 220000, walkMin: 10, featured: false },
+  { titleSuffix: 'Harmony Haven Luxury Apartments', propertyType: 'one_bedroom' as const, pricePerYear: 600000, walkMin: 9, featured: true },
+  { titleSuffix: 'Peace Court Student Hostel', propertyType: 'bedspace' as const, pricePerYear: 180000, walkMin: 3, featured: false },
+  { titleSuffix: 'Prestige Heights Self-Contain', propertyType: 'self_contain' as const, pricePerYear: 360000, walkMin: 6, featured: true },
+  { titleSuffix: 'Emerald Lodge Student Res', propertyType: 'studio' as const, pricePerYear: 400000, walkMin: 8, featured: false },
+  { titleSuffix: 'Apex Executive Lodge', propertyType: 'ensuite' as const, pricePerYear: 450000, walkMin: 5, featured: true },
+  { titleSuffix: 'University Gate Residency', propertyType: 'self_contain' as const, pricePerYear: 340000, walkMin: 4, featured: false }
 ];
 
 export const MOCK_LISTINGS: Listing[] = UNIVERSITIES.flatMap((uni) => {
   const uniCampuses = getCampusesByUniversityId(uni.id, UNIVERSITIES);
   
-  return TEMPLATES.slice(0, Math.max(5, uniCampuses.length)).map((tmpl, idx) => {
+  return TEMPLATES.map((tmpl, idx) => {
     // For multi-campus universities, distribute properties across the campuses
     const targetCampus = uniCampuses[idx % uniCampuses.length] || {
       lat: uni.lat,

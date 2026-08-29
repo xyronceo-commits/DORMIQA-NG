@@ -100,9 +100,10 @@ export async function safeFetchJson<T = any>(url: string, options?: RequestInit)
 
 export async function fetchUniversities(): Promise<University[]> {
   try {
-    return await safeFetchJson<University[]>(`${API_BASE}/universities`);
+    const { fetchUniversitiesFromFirestore } = await import('./firebase');
+    return await fetchUniversitiesFromFirestore();
   } catch (err) {
-    console.warn('API fetchUniversities error, reading from mock or empty:', err);
+    console.warn('API fetchUniversities error, falling back to local data:', err);
     const { UNIVERSITIES } = await import('../data/mockData');
     return UNIVERSITIES;
   }
@@ -269,6 +270,10 @@ export async function createListing(listingData: Partial<Listing>): Promise<List
 export async function updateListingStatusAndSales(
   listingId: string, 
   updateData: {
+    title?: string;
+    hotelName?: string;
+    address?: string;
+    description?: string;
     unitStatus?: 'vacant' | 'occupied' | 'remaining' | 'under_renovation';
     vacanciesCount?: number;
     unitStatusNote?: string;

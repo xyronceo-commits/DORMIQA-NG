@@ -84,6 +84,8 @@ export interface University {
   totalListings: number;
   imageUrl: string;
   description: string;
+  status?: 'active' | 'coming_soon';
+  waitlistUrl?: string;
 }
 
 export type PropertyType = 

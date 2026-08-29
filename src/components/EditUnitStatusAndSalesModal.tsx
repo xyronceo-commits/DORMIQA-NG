@@ -29,6 +29,10 @@ export const EditUnitStatusAndSalesModal: React.FC<EditUnitStatusAndSalesModalPr
   onClose,
   onListingUpdated
 }) => {
+  const [title, setTitle] = useState<string>(listing.title || '');
+  const [address, setAddress] = useState<string>(listing.address || '');
+  const [description, setDescription] = useState<string>(listing.description || '');
+
   const [unitStatus, setUnitStatus] = useState<UnitStatus>(listing.unitStatus || 'vacant');
   const [vacanciesCount, setVacanciesCount] = useState<number>(listing.vacanciesCount || 1);
   const [unitStatusNote, setUnitStatusNote] = useState<string>(listing.unitStatusNote || '');
@@ -65,6 +69,10 @@ export const EditUnitStatusAndSalesModal: React.FC<EditUnitStatusAndSalesModalPr
 
     try {
       const updated = await updateListingStatusAndSales(listing.id, {
+        title,
+        hotelName: title,
+        address,
+        description,
         unitStatus,
         vacanciesCount,
         unitStatusNote,
@@ -78,7 +86,7 @@ export const EditUnitStatusAndSalesModal: React.FC<EditUnitStatusAndSalesModalPr
         isAvailableForSale
       });
 
-      setSuccessNotice('Property status and sales details updated successfully!');
+      setSuccessNotice('Property listing details updated successfully!');
       onListingUpdated(updated);
 
       setTimeout(() => {
@@ -86,7 +94,7 @@ export const EditUnitStatusAndSalesModal: React.FC<EditUnitStatusAndSalesModalPr
       }, 1200);
     } catch (err: any) {
       console.error(err);
-      setErrorMessage(err.message || 'Failed to update property status and sales info.');
+      setErrorMessage(err.message || 'Failed to update property details.');
     } finally {
       setIsSubmitting(false);
     }
@@ -132,12 +140,66 @@ export const EditUnitStatusAndSalesModal: React.FC<EditUnitStatusAndSalesModalPr
             </div>
           )}
 
+          {/* SECTION 0: BASIC PROPERTY DETAILS */}
+          <div className="space-y-4">
+            <div className="border-b border-neutral-200 pb-2">
+              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                <Building2 className="w-4 h-4 text-emerald-600" />
+                1. Basic Property & Listing Details
+              </h3>
+              <p className="text-[11px] text-neutral-500">Edit the title, location address, and overview description of this hostel.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-900 block mb-1">
+                  Hostel / Listing Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  placeholder="e.g. Royal Crown Student Lodge"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-900 block mb-1">
+                  Address / Campus Area
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  placeholder="e.g. 14 Oke-Baale Expressway, Osogbo"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-900 block mb-1">
+                Property Description
+              </label>
+              <textarea
+                rows={2}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none"
+                placeholder="Describe rooms, power supply, security, water supply, and distance to lecture halls..."
+              />
+            </div>
+          </div>
+
           {/* SECTION 1: UNIT POSTED STATUS */}
           <div className="space-y-4">
             <div className="border-b border-neutral-200 pb-2">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                1. Unit Posted & Occupancy Status
+                2. Unit Occupancy & Availability Status
               </h3>
               <p className="text-[11px] text-neutral-500">Specify whether the rooms are vacant, occupied, under renovation, or if few units remain.</p>
             </div>
@@ -231,12 +293,12 @@ export const EditUnitStatusAndSalesModal: React.FC<EditUnitStatusAndSalesModalPr
             </div>
           </div>
 
-          {/* SECTION 2: SALES & PRICING INFORMATION */}
+          {/* SECTION 3: SALES & PRICING INFORMATION */}
           <div className="space-y-4">
             <div className="border-b border-neutral-200 pb-2">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                 <DollarSign className="w-4 h-4 text-emerald-600" />
-                2. Sales & Pricing Information
+                3. Sales & Pricing Information
               </h3>
               <p className="text-[11px] text-neutral-500">Update property rental pricing, caution deposit, promo discounts, and sales notes.</p>
             </div>

@@ -40,6 +40,7 @@ import {
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { LandingPage } from './components/LandingPage';
+import { UniversitiesPage } from './components/UniversitiesPage';
 import { getCampusesByUniversityId } from './data/campuses';
 import { calculateHaversineDistanceKm } from './utils/distance';
 import { SearchAndFilterBar } from './components/SearchAndFilterBar';
@@ -90,7 +91,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, collection } from 'firebase/firestore';
 
 export default function App() {
-  const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections'>('landing');
+  const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities'>('landing');
   const [selectedComingSoonUniId, setSelectedComingSoonUniId] = useState<string>('unilag');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
@@ -159,7 +160,7 @@ export default function App() {
     }
   };
 
-  const navigateView = (view: 'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections') => {
+  const navigateView = (view: 'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities') => {
     setIs404Route(false);
     setRoutePropertyError(null);
     setRoutePropertyUnavailableReason(null);
@@ -170,7 +171,7 @@ export default function App() {
       pushViewUrl('admin-dash');
       return;
     }
-    if (!isLoggedIn && view !== 'landing' && view !== 'onboarding' && view !== 'business-verification' && view !== 'search' && view !== 'coming-soon') {
+    if (!isLoggedIn && view !== 'landing' && view !== 'onboarding' && view !== 'business-verification' && view !== 'search' && view !== 'coming-soon' && view !== 'universities') {
       setActiveView('onboarding');
       pushViewUrl('onboarding');
       setToastNotice('Please sign up or sign in to access verified accommodation.');
@@ -322,7 +323,8 @@ export default function App() {
         email: email,
         role: profile?.role || 'student',
         phone: profile?.phone || '',
-        universityName: profile?.universityName || '',
+        universityId: profile?.universityId || 'uniosun',
+        universityName: profile?.universityName || 'Osun State University',
         agencyName: profile?.agencyName || '',
         isVerifiedAgent: profile?.businessVerificationStatus === 'approved' || profile?.isVerifiedAgent || false,
         isEmailVerified: isVerified,
@@ -335,6 +337,10 @@ export default function App() {
 
       if (profile?.savedListingIds && Array.isArray(profile.savedListingIds)) {
         setSavedIds(profile.savedListingIds);
+      }
+
+      if (userAccount.universityId) {
+        setFilters(prev => ({ ...prev, universityId: userAccount.universityId || 'uniosun' }));
       }
 
       setAccounts([userAccount]);
@@ -356,6 +362,7 @@ export default function App() {
                 name: liveData.name || a.name,
                 agencyName: liveData.agencyName || a.agencyName,
                 phone: liveData.phone || a.phone,
+                universityId: liveData.universityId || a.universityId,
                 universityName: liveData.universityName || a.universityName,
                 licenseNumber: liveData.licenseNumber || a.licenseNumber,
                 isVerifiedAgent: liveStatus === 'approved',
@@ -367,6 +374,10 @@ export default function App() {
             }
             return a;
           }));
+
+          if (liveData.universityId) {
+            setFilters(prev => ({ ...prev, universityId: liveData.universityId }));
+          }
 
           if (liveData.savedListingIds && Array.isArray(liveData.savedListingIds)) {
             setSavedIds(liveData.savedListingIds);
@@ -972,6 +983,16 @@ export default function App() {
                   }
                 }}
                 onOpenOnboarding={() => setActiveView('onboarding')}
+                onOpenAllUniversities={() => navigateView('universities')}
+              />
+            )}
+
+            {/* Dedicated Universities Directory Page */}
+            {activeView === 'universities' && (
+              <UniversitiesPage
+                universities={universities}
+                onSearchUniversity={(uniId) => handleSelectUniversity(uniId)}
+                onBackToLanding={() => navigateView('landing')}
               />
             )}
 
@@ -1178,6 +1199,7 @@ export default function App() {
         {activeView === 'student-dash' && (
           <StudentProfilePage
             user={accounts.find(a => a.id === activeAccountId)}
+            universities={universities}
             savedCount={savedIds.length}
             chatsCount={conversations.length}
             inspectionsCount={inspections.length}
@@ -1278,6 +1300,7 @@ export default function App() {
               listings={listings}
               inspections={inspections}
               conversations={conversations}
+              universities={universities}
               onOpenAddModal={() => setAddModalOpen(true)}
               onOpenChat={(conv) => setActiveConversation(conv)}
               onOpenListingDetail={(l) => handleOpenListingDetail(l)}

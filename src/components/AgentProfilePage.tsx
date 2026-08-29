@@ -25,12 +25,14 @@ import {
   Phone,
   Send
 } from 'lucide-react';
-import { User } from '../types';
+import { User, University } from '../types';
 import { auth, sendPasswordReset, saveUserToFirestore } from '../services/firebase';
 import { ThemeToggle } from './ThemeToggle';
+import { UniversitySelector } from './UniversitySelector';
 
 interface AgentProfilePageProps {
   user?: Partial<User> | null;
+  universities?: University[];
   hostelsCount?: number;
   chatsCount?: number;
   inspectionsCount?: number;
@@ -41,6 +43,7 @@ interface AgentProfilePageProps {
 
 export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
   user,
+  universities = [],
   hostelsCount = 0,
   chatsCount = 0,
   inspectionsCount = 0,
@@ -55,7 +58,8 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
   const [profileName, setProfileName] = useState(user?.name || auth.currentUser?.displayName || 'Agent Manager');
   const [profilePhone, setProfilePhone] = useState(user?.phone || '08012345678');
   const [profileAgency, setProfileAgency] = useState(user?.agencyName || 'Verified Accommodation Management');
-  const [profileLocation, setProfileLocation] = useState(user?.universityName || 'UNIOSUN / Lagos Campus');
+  const [profileUniId, setProfileUniId] = useState(user?.universityId || 'uniosun');
+  const [profileLocation, setProfileLocation] = useState(user?.universityName || 'Osun State University (UNIOSUN)');
   const [profileToast, setProfileToast] = useState('');
 
   // Security State
@@ -94,6 +98,7 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
       name: profileName,
       phone: profilePhone,
       agencyName: profileAgency,
+      universityId: profileUniId,
       universityName: profileLocation,
       email: user?.email || auth.currentUser?.email || '',
       role: (user?.role as 'agent' | 'student' | 'admin') || 'agent',
@@ -541,18 +546,16 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
                 />
               </div>
 
-              <div>
-                <label className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1">
-                  Primary Campus Location
-                </label>
-                <input
-                  type="text"
-                  value={profileLocation}
-                  onChange={(e) => setProfileLocation(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50 text-neutral-900 dark:text-white text-xs font-bold focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-                  required
-                />
-              </div>
+              <UniversitySelector
+                universities={universities}
+                selectedUniversityId={profileUniId}
+                onSelectUniversity={(uni) => {
+                  setProfileUniId(uni.id);
+                  setProfileLocation(uni.name);
+                }}
+                label="Primary Campus / University Serviced"
+                required
+              />
 
               <div className="pt-2 flex justify-end gap-2">
                 <button
