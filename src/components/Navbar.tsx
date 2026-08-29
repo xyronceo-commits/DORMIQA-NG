@@ -36,7 +36,7 @@ interface NavbarProps {
   onOpenAddModal?: () => void;
   onNavigateStudentTab?: (tab: 'inspections' | 'saved' | 'chats' | 'profile') => void;
   onNavigateAgentTab?: (tab: 'schedule' | 'availability' | 'requests' | 'profile') => void;
-  onOpenAdminLoginModal?: () => void;
+  onOpenAdminAccess?: () => void;
   studentTab?: 'inspections' | 'saved' | 'chats' | 'profile';
   agentTab?: 'schedule' | 'availability' | 'requests' | 'profile';
   onReplayTour?: () => void;
@@ -58,7 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAddModal,
   onNavigateStudentTab,
   onNavigateAgentTab,
-  onOpenAdminLoginModal,
+  onOpenAdminAccess,
   studentTab,
   agentTab,
   onReplayTour,
@@ -304,9 +304,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Sign Up / Sign In
               </button>
 
-              {onOpenAdminLoginModal && (
+              {onOpenAdminAccess && (
                 <button
-                  onClick={onOpenAdminLoginModal}
+                  onClick={onOpenAdminAccess}
                   className="p-2 rounded-xl text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors cursor-pointer focus:outline-none"
                   title="Admin Access"
                   aria-label="Admin Access"

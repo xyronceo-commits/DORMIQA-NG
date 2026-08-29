@@ -66,7 +66,7 @@ import { StudentProfilePage } from './components/StudentProfilePage';
 import { BottomNav } from './components/BottomNav';
 import { AgentDashboard } from './components/AgentDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
-import { AdminLoginModal } from './components/AdminLoginModal';
+import { AdminAccessScreen } from './components/AdminAccessScreen';
 import { InfoPagesModal } from './components/InfoPagesModal';
 import { ComingSoonPage } from './components/ComingSoonPage';
 import { ListingGridSkeleton, ListItemRowSkeleton, DashboardSkeleton, ChatDrawerSkeleton } from './components/SkeletonLoader';
@@ -80,8 +80,7 @@ import {
   db,
   initializeSuperAdminInFirestore,
   checkAdminAuthorizedInFirestore,
-  checkIsMagicLink,
-  completeAdminMagicLink
+  signInAdminWithGoogle
 } from './services/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, collection } from 'firebase/firestore';
@@ -91,51 +90,41 @@ export default function App() {
   const [selectedComingSoonUniId, setSelectedComingSoonUniId] = useState<string>('unilag');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
-  const [adminAuthStatus, setAdminAuthStatus] = useState<'AUTH_LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED'>('AUTH_LOADING');
+  const [adminAuthStatus, setAdminAuthStatus] = useState<'AUTH_LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED' | 'ADMIN_CHECKING' | 'AUTHORIZED' | 'UNAUTHORIZED'>('AUTH_LOADING');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [adminEmail, setAdminEmail] = useState<string>('');
   const [adminRole, setAdminRole] = useState<AdminRole>('ADMIN');
-  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. Initialize Super Admin in Firestore
+    // Initialize Super Admin in Firestore
     initializeSuperAdminInFirestore();
-
-    // 2. Check if current URL is a Magic Link sign-in return
-    if (checkIsMagicLink()) {
-      setAdminAuthStatus('AUTH_LOADING');
-      setActiveView('admin-dash');
-
-      completeAdminMagicLink().then(({ user, role }) => {
-        const userEmail = user.email || 'buildsafe247@gmail.com';
-        setIsAdminAuthenticated(true);
-        setAdminEmail(userEmail);
-        setAdminRole(role);
-        setAdminAuthStatus('AUTHENTICATED');
-        setCurrentRole('admin');
-        try {
-          localStorage.setItem('dormiqa_admin_email', userEmail);
-        } catch {}
-
-        if (typeof window !== 'undefined') {
-          const cleanUrl = window.location.origin + window.location.pathname;
-          window.history.replaceState({}, document.title, cleanUrl);
-        }
-        setToastNotice(`Authenticated as ${role}: ${userEmail}`);
-        setTimeout(() => setToastNotice(null), 4000);
-      }).catch((err: any) => {
-        console.warn('Magic link auth error:', err);
-        setAdminAuthStatus('UNAUTHENTICATED');
-        if (err.message === 'EMAIL_REQUIRED') {
-          setIsAdminLoginModalOpen(true);
-          setToastNotice('Please confirm your administrator email address.');
-        } else {
-          setToastNotice(err.message || 'Failed to complete sign-in link.');
-        }
-        setTimeout(() => setToastNotice(null), 5000);
-      });
-    }
   }, []);
+
+  const handleAdminGoogleSignIn = async () => {
+    setAdminAuthStatus('ADMIN_CHECKING');
+    try {
+      const res = await signInAdminWithGoogle();
+      if (res.authorized) {
+        setIsAdminAuthenticated(true);
+        setAdminEmail(res.user.email || 'buildsafe247@gmail.com');
+        setAdminRole(res.role || 'SUPER_ADMIN');
+        setAdminAuthStatus('AUTHORIZED');
+        setCurrentRole('admin');
+        setActiveView('admin-dash');
+        pushViewUrl('admin-dash');
+        setToastNotice(`Authenticated as ${res.role}: ${res.user.email}`);
+        setTimeout(() => setToastNotice(null), 4000);
+      } else {
+        setIsAdminAuthenticated(false);
+        setAdminAuthStatus('UNAUTHORIZED');
+      }
+    } catch (err: any) {
+      console.warn('Google sign-in error:', err);
+      setAdminAuthStatus('UNAUTHENTICATED');
+      setToastNotice(err.message || 'Google sign-in failed. Please try again.');
+      setTimeout(() => setToastNotice(null), 5000);
+    }
+  };
 
   const navigateView = (view: 'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections') => {
     setIs404Route(false);
@@ -146,9 +135,6 @@ export default function App() {
     if (view === 'admin-dash') {
       setActiveView('admin-dash');
       pushViewUrl('admin-dash');
-      if (!isAdminAuthenticated && adminAuthStatus !== 'AUTH_LOADING') {
-        setIsAdminLoginModalOpen(true);
-      }
       return;
     }
     if (!isLoggedIn && view !== 'landing' && view !== 'onboarding' && view !== 'business-verification' && view !== 'search' && view !== 'coming-soon') {
@@ -261,22 +247,26 @@ export default function App() {
 
       // Check Admin authorization from Firestore
       if (email) {
-        const adminCheck = await checkAdminAuthorizedInFirestore(email);
+        setAdminAuthStatus('ADMIN_CHECKING');
+        const adminCheck = await checkAdminAuthorizedInFirestore(email, uid);
         if (adminCheck.authorized) {
           setIsAdminAuthenticated(true);
           setAdminEmail(email);
           setAdminRole(adminCheck.role || (email === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN'));
-          setAdminAuthStatus('AUTHENTICATED');
+          setAdminAuthStatus('AUTHORIZED');
           try {
             localStorage.setItem('dormiqa_admin_email', email);
           } catch {}
         } else {
           setIsAdminAuthenticated(false);
-          setAdminAuthStatus('UNAUTHENTICATED');
+          setAdminAuthStatus('UNAUTHORIZED');
           try {
             localStorage.removeItem('dormiqa_admin_email');
           } catch {}
         }
+      } else {
+        setIsAdminAuthenticated(false);
+        setAdminAuthStatus('UNAUTHENTICATED');
       }
 
       let profile = await fetchUserProfileFromFirestore(uid);
@@ -842,7 +832,7 @@ export default function App() {
           onOpenAddModal={() => setAddModalOpen(true)}
           onNavigateStudentTab={(t) => setStudentTab(t)}
           onNavigateAgentTab={(t) => setAgentTab(t)}
-          onOpenAdminLoginModal={() => setIsAdminLoginModalOpen(true)}
+          onOpenAdminAccess={() => navigateView('admin-dash')}
           studentTab={studentTab}
           agentTab={agentTab}
           onReplayTour={() => {
@@ -1054,7 +1044,7 @@ export default function App() {
                 pushViewUrl('agent-dash');
               }
             }}
-            onOpenAdminAccess={() => setIsAdminLoginModalOpen(true)}
+            onOpenAdminAccess={() => navigateView('admin-dash')}
             onGoToStudentView={() => setActiveView('landing')}
           />
         )}
@@ -1186,7 +1176,7 @@ export default function App() {
                   setCurrentRole('agent');
                   setPendingAgentRegistration(agentUser);
                 }}
-                onOpenAdminAccess={() => setIsAdminLoginModalOpen(true)}
+                onOpenAdminAccess={() => navigateView('admin-dash')}
                 onGoToStudentView={() => setActiveView('landing')}
               />
             );
@@ -1252,7 +1242,7 @@ export default function App() {
               onOpenChat={(conv) => setActiveConversation(conv)}
               onOpenListingDetail={(l) => handleOpenListingDetail(l)}
               onOpenNotificationCenter={() => setIsNotificationCenterOpen(true)}
-              onOpenAdminAccess={() => setIsAdminLoginModalOpen(true)}
+              onOpenAdminAccess={() => navigateView('admin-dash')}
               onOpenInfoPage={handleOpenInfoPage}
               activeTab={agentTab}
               onTabChange={setAgentTab}
@@ -1272,60 +1262,41 @@ export default function App() {
 
         {/* 7. Admin Dashboard Gate & View */}
         {activeView === 'admin-dash' && (() => {
-          if (adminAuthStatus === 'AUTH_LOADING') {
+          if (adminAuthStatus === 'AUTHORIZED' && isAdminAuthenticated) {
             return (
-              <div className="min-h-[65vh] flex flex-col items-center justify-center p-8 bg-slate-50 dark:bg-neutral-950">
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="w-8 h-8 animate-spin text-emerald-600 dark:text-emerald-400" />
-                  <p className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-                    Checking your session...
-                  </p>
-                </div>
-              </div>
-            );
-          }
-
-          if (!isAdminAuthenticated || adminAuthStatus === 'UNAUTHENTICATED') {
-            return (
-              <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-neutral-950">
-                <div className="w-full max-w-md bg-white dark:bg-neutral-900 rounded-3xl p-8 border border-neutral-200 dark:border-neutral-800 shadow-xl text-center space-y-6">
-                  <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200/50">
-                    <Shield className="w-8 h-8" />
-                  </div>
-                  <div className="space-y-2">
-                    <h2 className="text-xl font-black text-neutral-900 dark:text-white">Admin Access</h2>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                      Dormiqa Administrator authentication is required to access management controls.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setIsAdminLoginModalOpen(true)}
-                    className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
-                  >
-                    Sign In with Magic Link
-                  </button>
-                </div>
-              </div>
+              <AdminDashboard
+                currentAdminEmail={adminEmail}
+                currentAdminRole={adminRole}
+                onRefresh={loadListingsData}
+                onAdminLogout={async () => {
+                  await signOut(auth);
+                  clearAdminToken();
+                  try {
+                    localStorage.removeItem('dormiqa_admin_email');
+                  } catch {}
+                  setIsAdminAuthenticated(false);
+                  setAdminAuthStatus('UNAUTHENTICATED');
+                  setCurrentRole('student');
+                  setActiveView('landing');
+                  pushViewUrl('landing');
+                  setToastNotice('Admin session logged out.');
+                  setTimeout(() => setToastNotice(null), 3000);
+                }}
+              />
             );
           }
 
           return (
-            <AdminDashboard
-              currentAdminEmail={adminEmail}
-              currentAdminRole={adminRole}
-              onRefresh={loadListingsData}
-              onAdminLogout={async () => {
-                await signOut(auth);
-                clearAdminToken();
-                try {
-                  localStorage.removeItem('dormiqa_admin_email');
-                } catch {}
+            <AdminAccessScreen
+              status={adminAuthStatus}
+              currentUserEmail={auth.currentUser?.email || undefined}
+              onContinueWithGoogle={handleAdminGoogleSignIn}
+              onBackToDormiqa={() => {
+                signOut(auth).catch(() => {});
                 setIsAdminAuthenticated(false);
                 setAdminAuthStatus('UNAUTHENTICATED');
-                setCurrentRole('student');
                 setActiveView('landing');
-                setToastNotice('Admin session logged out.');
-                setTimeout(() => setToastNotice(null), 3000);
+                pushViewUrl('landing');
               }}
             />
           );
@@ -1457,21 +1428,6 @@ export default function App() {
         onNavigateToOnboarding={() => {
           setIsInfoModalOpen(false);
           setActiveView('onboarding');
-        }}
-      />
-
-      {/* Discreet Secure Admin Access Login Modal */}
-      <AdminLoginModal
-        isOpen={isAdminLoginModalOpen}
-        onClose={() => setIsAdminLoginModalOpen(false)}
-        onSuccess={(email, role) => {
-          setIsAdminAuthenticated(true);
-          setAdminEmail(email);
-          setAdminRole(role);
-          setCurrentRole('admin');
-          setActiveView('admin-dash');
-          setToastNotice(`Authenticated as ${role}: ${email}`);
-          setTimeout(() => setToastNotice(null), 3000);
         }}
       />
 

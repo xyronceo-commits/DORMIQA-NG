@@ -2,59 +2,87 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // USERS COLLECTION
-    match /users/{userId} {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isInitialSuperAdmin() {
+      return isSignedIn() &&
+        (request.auth.token.email == 'buildsafe247@gmail.com' || request.auth.token.email_verified == true && request.auth.token.email == 'buildsafe247@gmail.com');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        isInitialSuperAdmin() ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        exists(/databases/$(database)/documents/authorized_admins/$(request.auth.token.email))
+      );
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        isInitialSuperAdmin() ||
+        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'SUPER_ADMIN') ||
+        (exists(/databases/$(database)/documents/authorized_admins/$(request.auth.token.email)) &&
+          get(/databases/$(database)/documents/authorized_admins/$(request.auth.token.email)).data.role == 'SUPER_ADMIN')
+      );
+    }
+
+    // ADMINS COLLECTION
+    match /admins/{adminUid} {
       allow read: if true;
-      allow write: if request.auth != null || resource == null;
-    }
-
-    // LISTINGS COLLECTION
-    match /listings/{listingId} {
-      allow read: if true;
-      allow write: if request.auth != null || resource == null;
-    }
-
-    // INSPECTIONS COLLECTION
-    match /inspections/{inspectionId} {
-      allow read, write: if request.auth != null || resource == null;
-    }
-
-    // CONVERSATIONS COLLECTION
-    match /conversations/{conversationId} {
-      allow read, write: if request.auth != null || resource == null;
-
-      // MESSAGES SUBCOLLECTION
-      match /messages/{messageId} {
-        allow read, write: if request.auth != null || resource == null;
-      }
-    }
-
-    // REPORTS COLLECTION
-    match /reports/{reportId} {
-      allow read: if true;
-      allow write: if request.auth != null || resource == null;
-    }
-
-    // NOTIFICATIONS COLLECTION
-    match /notifications/{notificationId} {
-      allow read, write: if request.auth != null || resource == null;
-    }
-
-    // REVIEWS COLLECTION
-    match /reviews/{reviewId} {
-      allow read: if true;
-      allow write: if request.auth != null || resource == null;
-    }
-
-    // EMAIL VERIFICATIONS COLLECTION
-    match /emailVerifications/{verificationId} {
-      allow read, write: if true;
+      allow write: if isInitialSuperAdmin() || isSuperAdmin();
     }
 
     // AUTHORIZED ADMINS COLLECTION
     match /authorized_admins/{adminEmailDoc} {
       allow read: if true;
-      allow write: if request.auth != null || resource == null;
+      allow write: if isInitialSuperAdmin() || isSuperAdmin();
+    }
+
+    // USERS COLLECTION
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // LISTINGS COLLECTION
+    match /listings/{listingId} {
+      allow read, write: if true;
+    }
+
+    // INSPECTIONS COLLECTION
+    match /inspections/{inspectionId} {
+      allow read, write: if true;
+    }
+
+    // CONVERSATIONS COLLECTION
+    match /conversations/{conversationId} {
+      allow read, write: if true;
+
+      match /messages/{messageId} {
+        allow read, write: if true;
+      }
+    }
+
+    // REPORTS COLLECTION
+    match /reports/{reportId} {
+      allow read, write: if true;
+    }
+
+    // NOTIFICATIONS COLLECTION
+    match /notifications/{notificationId} {
+      allow read, write: if true;
+    }
+
+    // REVIEWS COLLECTION
+    match /reviews/{reviewId} {
+      allow read, write: if true;
+    }
+
+    // EMAIL VERIFICATIONS COLLECTION
+    match /emailVerifications/{verificationId} {
+      allow read, write: if true;
     }
   }
 }

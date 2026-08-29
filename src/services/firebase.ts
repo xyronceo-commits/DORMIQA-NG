@@ -339,7 +339,7 @@ export const fetchUserProfileFromFirestore = async (uidOrEmail: string): Promise
 };
 
 /**
- * AUTHORIZED ADMINS HELPERS & MAGIC LINK AUTHENTICATION
+ * AUTHORIZED ADMINS HELPERS & GOOGLE AUTHENTICATION
  */
 
 // Ensure initial Super Admin is present in Firestore
@@ -370,26 +370,63 @@ export const initializeSuperAdminInFirestore = async (): Promise<void> => {
   }
 };
 
-export const checkAdminAuthorizedInFirestore = async (emailOrUid: string): Promise<{ authorized: boolean; role?: 'SUPER_ADMIN' | 'ADMIN'; message?: string; data?: any }> => {
+export const checkAdminAuthorizedInFirestore = async (emailOrUid: string, uidOverride?: string): Promise<{ authorized: boolean; role?: 'SUPER_ADMIN' | 'ADMIN'; message?: string; data?: any }> => {
   const cleanInput = emailOrUid.trim().toLowerCase();
   if (!cleanInput) {
     return { authorized: false, message: 'Invalid administrator identity.' };
   }
 
-  // Initial Super Admin override
+  // Initial Super Admin check
   if (cleanInput === 'buildsafe247@gmail.com') {
+    if (uidOverride) {
+      try {
+        await setDoc(doc(db, 'admins', uidOverride), {
+          email: 'buildsafe247@gmail.com',
+          role: 'SUPER_ADMIN',
+          status: 'active',
+          createdAt: new Date().toISOString(),
+          createdBy: 'system',
+          uid: uidOverride
+        }, { merge: true });
+      } catch (e) {
+        console.warn('Error linking initial super admin uid:', e);
+      }
+    }
     return { authorized: true, role: 'SUPER_ADMIN' };
   }
 
   try {
-    // Check by email doc ID first
-    let adminRef = doc(db, 'authorized_admins', cleanInput);
-    let snap = await getDoc(adminRef);
+    // 1. Check admins/{uid} directly if uidOverride is present or if cleanInput looks like a UID
+    if (uidOverride) {
+      const uidRef = doc(db, 'admins', uidOverride);
+      const uidSnap = await getDoc(uidRef);
+      if (uidSnap.exists()) {
+        const data = uidSnap.data();
+        if (data.status === 'disabled') {
+          return { authorized: false, message: 'This administrator account has been disabled.' };
+        }
+        if (data.status === 'active') {
+          return { authorized: true, role: data.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN', data };
+        }
+      }
+    }
+
+    // 2. Query authorized_admins collection by email
+    const legacyRef = doc(db, 'authorized_admins', cleanInput);
+    let snap = await getDoc(legacyRef);
 
     if (!snap.exists()) {
-      // Query collection for email or uid match
       const colRef = collection(db, 'authorized_admins');
       const q = query(colRef, where('email', '==', cleanInput));
+      const qSnap = await getDocs(q);
+      if (!qSnap.empty) {
+        snap = qSnap.docs[0];
+      }
+    }
+
+    if (!snap.exists()) {
+      const adminsCol = collection(db, 'admins');
+      const q = query(adminsCol, where('email', '==', cleanInput));
       const qSnap = await getDocs(q);
       if (!qSnap.empty) {
         snap = qSnap.docs[0];
@@ -401,92 +438,66 @@ export const checkAdminAuthorizedInFirestore = async (emailOrUid: string): Promi
       if (data.status === 'disabled') {
         return { authorized: false, message: 'This administrator account has been disabled.' };
       }
-      return { authorized: true, role: (data.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN'), data };
+      const role: 'SUPER_ADMIN' | 'ADMIN' = data.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN';
+
+      if (uidOverride) {
+        try {
+          await setDoc(doc(db, 'admins', uidOverride), {
+            email: cleanInput,
+            role,
+            status: 'active',
+            createdAt: data.createdAt || new Date().toISOString(),
+            createdBy: data.createdBy || 'super_admin',
+            uid: uidOverride
+          }, { merge: true });
+        } catch (e) {
+          console.warn('Error syncing admin record to admins/{uid}:', e);
+        }
+      }
+
+      return { authorized: true, role, data };
     }
 
-    return { authorized: false, message: "This email doesn't have administrator access." };
+    return { authorized: false, message: 'This Google account is not authorized to access the Dormiqa Admin Portal.' };
   } catch (err) {
     console.warn("Firestore admin check error:", err);
-    // Fallback to initial super admin check
     if (cleanInput === 'buildsafe247@gmail.com') {
       return { authorized: true, role: 'SUPER_ADMIN' };
     }
-    return { authorized: false, message: "This email doesn't have administrator access." };
+    return { authorized: false, message: 'This Google account is not authorized to access the Dormiqa Admin Portal.' };
   }
 };
 
-export const sendAdminMagicLink = async (email: string): Promise<void> => {
-  const cleanEmail = email.trim().toLowerCase();
-  if (!cleanEmail || !cleanEmail.includes('@')) {
-    throw new Error('Please enter a valid administrator email address.');
-  }
+export const signInAdminWithGoogle = async (): Promise<{ user: FirebaseUser; authorized: boolean; role?: 'SUPER_ADMIN' | 'ADMIN'; message?: string }> => {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
 
-  // Check whether the email is an authorized administrator FIRST
-  const authCheck = await checkAdminAuthorizedInFirestore(cleanEmail);
-  if (!authCheck.authorized) {
-    throw new Error(authCheck.message || "This email doesn't have administrator access.");
-  }
-
-  const actionCodeSettings = {
-    url: typeof window !== 'undefined' ? `${window.location.origin}/?adminSignIn=true` : 'https://dormiqa.com/?adminSignIn=true',
-    handleCodeInApp: true,
-  };
-
-  await sendSignInLinkToEmail(auth, cleanEmail, actionCodeSettings);
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem('emailForSignIn', cleanEmail);
-  }
-};
-
-export const checkIsMagicLink = (url?: string): boolean => {
-  if (typeof window === 'undefined') return false;
-  return isSignInWithEmailLink(auth, url || window.location.href);
-};
-
-export const completeAdminMagicLink = async (emailOverride?: string): Promise<{ user: FirebaseUser; role: 'SUPER_ADMIN' | 'ADMIN' }> => {
-  const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
-  if (!isSignInWithEmailLink(auth, currentUrl)) {
-    throw new Error('Invalid or expired sign-in link.');
-  }
-
-  let emailToUse = emailOverride?.trim().toLowerCase() || (typeof window !== 'undefined' ? window.localStorage.getItem('emailForSignIn') : null);
-  
-  if (!emailToUse) {
-    throw new Error('EMAIL_REQUIRED');
-  }
-
-  const result = await signInWithEmailLink(auth, emailToUse, currentUrl);
-  if (typeof window !== 'undefined') {
-    window.localStorage.removeItem('emailForSignIn');
-  }
-
+  const result = await signInWithPopup(auth, provider);
   const fbUser = result.user;
-  const userEmail = (fbUser.email || emailToUse).trim().toLowerCase();
+  const email = (fbUser.email || '').trim().toLowerCase();
+  const uid = fbUser.uid;
 
-  // Verify Admin authorization
-  const authCheck = await checkAdminAuthorizedInFirestore(userEmail);
+  if (!email) {
+    throw new Error('No email address associated with this Google account.');
+  }
+
+  const authCheck = await checkAdminAuthorizedInFirestore(email, uid);
+  
   if (!authCheck.authorized) {
-    await signOut(auth);
-    throw new Error("This email doesn't have administrator access.");
+    // Note: Do NOT create admin record automatically for unauthorized accounts
+    return {
+      user: fbUser,
+      authorized: false,
+      message: authCheck.message || 'This Google account is not authorized to access the Dormiqa Admin Portal.'
+    };
   }
 
-  const role = authCheck.role || (userEmail === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN');
-
-  // Update authorized_admins document in Firestore with authenticated UID
-  try {
-    const adminRef = doc(db, 'authorized_admins', userEmail);
-    await setDoc(adminRef, {
-      email: userEmail,
-      uid: fbUser.uid,
-      role: role,
-      status: 'active',
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-  } catch (err) {
-    console.warn("Error linking UID to authorized_admins doc:", err);
-  }
-
-  return { user: fbUser, role };
+  return {
+    user: fbUser,
+    authorized: true,
+    role: authCheck.role || (email === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN'),
+    message: authCheck.message
+  };
 };
 
 export const fetchAuthorizedAdminEmailsFromFirestore = async (): Promise<string[]> => {
