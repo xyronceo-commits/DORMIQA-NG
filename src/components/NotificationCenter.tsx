@@ -91,13 +91,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
       case 'message':
-        return <MessageSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
+        return <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />;
       case 'inspection':
-        return <Calendar className="w-4 h-4 text-purple-600 dark:text-purple-400" />;
+        return <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />;
       case 'listing':
         return <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />;
       default:
-        return <Bell className="w-4 h-4 text-amber-600 dark:text-amber-400" />;
+        return <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />;
     }
   };
 

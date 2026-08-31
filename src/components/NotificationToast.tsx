@@ -41,13 +41,13 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
   const getIcon = (type: NotificationType) => {
     switch (type) {
       case 'message':
-        return <MessageSquare className="w-5 h-5 text-blue-600" />;
+        return <MessageSquare className="w-5 h-5 text-emerald-400" />;
       case 'inspection':
-        return <Calendar className="w-5 h-5 text-purple-600" />;
+        return <Calendar className="w-5 h-5 text-emerald-400" />;
       case 'listing':
-        return <Building2 className="w-5 h-5 text-emerald-600" />;
+        return <Building2 className="w-5 h-5 text-emerald-400" />;
       default:
-        return <Sparkles className="w-5 h-5 text-amber-600" />;
+        return <Sparkles className="w-5 h-5 text-emerald-400" />;
     }
   };
 

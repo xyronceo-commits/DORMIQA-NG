@@ -192,10 +192,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                       : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                   }`}
                 >
-                  <MessageSquare className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span>Messages</span>
                   {unreadCount > 0 && (
-                    <span className="px-1.5 py-0.2 text-[10px] font-black rounded-md bg-purple-600 text-white">
+                    <span className="px-1.5 py-0.2 text-[10px] font-black rounded-md bg-emerald-600 text-white">
                       {unreadCount}
                     </span>
                   )}
@@ -569,7 +569,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/80 hover:bg-neutral-100 dark:hover:bg-neutral-700/80 border border-neutral-200 dark:border-neutral-700 text-left flex items-center justify-between transition-all cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-400 flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                         <MessageSquare className="w-4 h-4" />
                       </div>
                       <div>
@@ -578,7 +578,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </div>
                     </div>
                     {unreadCount > 0 && (
-                      <span className="bg-rose-600 text-white text-xs font-black px-2 py-0.5 rounded-md">
+                      <span className="bg-emerald-600 text-white text-xs font-black px-2 py-0.5 rounded-md">
                         {unreadCount}
                       </span>
                     )}
@@ -592,7 +592,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/80 hover:bg-neutral-100 dark:hover:bg-neutral-700/80 border border-neutral-200 dark:border-neutral-700 text-left flex items-center gap-3 transition-all cursor-pointer"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                       <Calendar className="w-4 h-4" />
                     </div>
                     <div>
@@ -609,7 +609,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/80 hover:bg-neutral-100 dark:hover:bg-neutral-700/80 border border-neutral-200 dark:border-neutral-700 text-left flex items-center gap-3 transition-all cursor-pointer"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 flex items-center justify-center shrink-0">
                       <UserIcon className="w-4 h-4" />
                     </div>
                     <div>
@@ -624,14 +624,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               {currentRole === 'admin' && (
                 <button
                   onClick={() => { setActiveView('admin-dash'); setMobileMenuOpen(false); }}
-                  className="p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-left flex items-center gap-3 transition-all cursor-pointer sm:col-span-2 md:col-span-3"
+                  className="p-3 rounded-2xl bg-neutral-900 dark:bg-neutral-800 border border-neutral-800 text-left flex items-center gap-3 transition-all cursor-pointer sm:col-span-2 md:col-span-3 text-white"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-purple-900 text-white flex items-center justify-center shrink-0">
-                    <ShieldCheck className="w-4 h-4 text-purple-300" />
+                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                    <ShieldCheck className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="text-xs font-extrabold text-purple-950 dark:text-purple-200 block">Admin Oversight Portal</span>
-                    <span className="text-[11px] text-purple-800 dark:text-purple-400">Verification & platform safety</span>
+                    <span className="text-xs font-extrabold text-white block">Admin Oversight Portal</span>
+                    <span className="text-[11px] text-neutral-400">Verification & platform safety</span>
                   </div>
                 </button>
               )}

@@ -57,9 +57,9 @@ export const OnboardingShowcaseModal: React.FC<OnboardingShowcaseModalProps> = (
       title: "Real Walking Distance to Campus Gate",
       subtitle: "Never fall for fake '5-minute walk' claims again",
       badge: "Feature 1 of 4",
-      badgeColor: "bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300",
+      badgeColor: "bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200",
       icon: (
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+        <div className="w-16 h-16 rounded-2xl bg-neutral-900 flex items-center justify-center text-emerald-400">
           <Footprints className="w-8 h-8" />
         </div>
       ),
@@ -75,9 +75,9 @@ export const OnboardingShowcaseModal: React.FC<OnboardingShowcaseModalProps> = (
       title: "Transparent Power & Water Specs",
       subtitle: "Know power & borehole status before paying",
       badge: "Feature 2 of 4",
-      badgeColor: "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300",
+      badgeColor: "bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200",
       icon: (
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
+        <div className="w-16 h-16 rounded-2xl bg-neutral-900 flex items-center justify-center text-emerald-400">
           <Zap className="w-8 h-8" />
         </div>
       ),
@@ -93,9 +93,9 @@ export const OnboardingShowcaseModal: React.FC<OnboardingShowcaseModalProps> = (
       title: "Verified Caretakers & Direct Contact",
       subtitle: "Connect directly with verified lodge managers",
       badge: "Feature 3 of 4",
-      badgeColor: "bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300",
+      badgeColor: "bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200",
       icon: (
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-purple-500/20">
+        <div className="w-16 h-16 rounded-2xl bg-neutral-900 flex items-center justify-center text-emerald-400">
           <UserCheck className="w-8 h-8" />
         </div>
       ),
@@ -113,7 +113,7 @@ export const OnboardingShowcaseModal: React.FC<OnboardingShowcaseModalProps> = (
       badge: "Feature 4 of 4",
       badgeColor: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300",
       icon: (
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+        <div className="w-16 h-16 rounded-2xl bg-neutral-900 flex items-center justify-center text-emerald-400">
           <CalendarCheck className="w-8 h-8" />
         </div>
       ),
