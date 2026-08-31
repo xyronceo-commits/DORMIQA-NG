@@ -10,7 +10,16 @@ export interface AuthorizedAdmin {
 
 export type UserRole = 'student' | 'agent' | 'admin';
 
-export type BusinessVerificationStatus = 'none' | 'pending' | 'approved' | 'rejected';
+export type BusinessVerificationStatus = 'none' | 'pending' | 'approved' | 'rejected' | 'removed';
+
+export interface VerificationHistoryEntry {
+  id: string;
+  action: string;
+  status: string;
+  timestamp: string;
+  adminEmail: string;
+  reason?: string | null;
+}
 
 export interface BusinessVerificationDetails {
   businessName: string;
@@ -45,12 +54,15 @@ export interface User {
   businessVerificationDetails?: BusinessVerificationDetails;
   agencyName?: string;
   licenseNumber?: string;
-  status?: 'verified' | 'pending' | 'rejected';
+  status?: 'verified' | 'pending' | 'rejected' | 'removed';
   rejectionReason?: string;
   propertiesCount?: number;
   proofType?: string;
   bio?: string;
   createdAt: string;
+  removedAt?: string;
+  removedBy?: string;
+  verificationHistory?: VerificationHistoryEntry[];
 }
 
 export interface Campus {
@@ -148,9 +160,15 @@ export interface Listing {
   totalBedrooms: number;
   totalBathrooms: number;
   isVerified: boolean;
-  status: 'pending' | 'approved' | 'rejected' | 'banned' | 'flagged';
+  status: 'pending' | 'approved' | 'changes_requested' | 'rejected' | 'banned' | 'flagged' | 'removed';
   aiBanReason?: string;
   isAiBanned?: boolean;
+  rejectionReason?: string;
+  verificationProofUrl?: string;
+  verificationProofName?: string;
+  removedAt?: string;
+  removedBy?: string;
+  verificationHistory?: VerificationHistoryEntry[];
   duplicateListingId?: string;
   agentId: string;
   agent: {

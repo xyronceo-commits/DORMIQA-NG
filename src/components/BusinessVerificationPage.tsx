@@ -17,22 +17,27 @@ import {
   LogOut,
   HelpCircle
 } from 'lucide-react';
-import { User, BusinessVerificationDetails, BusinessVerificationStatus } from '../types';
+import { User, BusinessVerificationDetails, BusinessVerificationStatus, University } from '../types';
 import { saveUserToFirestore, auth, db } from '../services/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 
 import { VerificationStatusPage } from './VerificationStatusPage';
+import { UniversitySelector } from './UniversitySelector';
 
 interface BusinessVerificationPageProps {
   agentData?: Partial<User> | null;
+  universities?: University[];
   onCompleteVerification: (details: { licenseNumber: string; isVerifiedAgent: boolean; avatarUrl?: string; verificationDetails?: BusinessVerificationDetails }) => void;
   onSignOut?: () => void;
+  onDeleteAccount?: () => void;
 }
 
 export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> = ({
   agentData,
+  universities = [],
   onCompleteVerification,
-  onSignOut
+  onSignOut,
+  onDeleteAccount
 }) => {
   // Current Status
   const currentStatus: BusinessVerificationStatus = agentData?.businessVerificationStatus || (agentData?.isVerifiedAgent ? 'approved' : 'none');
@@ -65,6 +70,7 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
   const [businessName, setBusinessName] = useState(existingDetails?.businessName || agentData?.agencyName || '');
   const [agentFullName, setAgentFullName] = useState(existingDetails?.agentFullName || agentData?.name || '');
   const [phone, setPhone] = useState(existingDetails?.phone || agentData?.phone || '');
+  const [servicedUniId, setServicedUniId] = useState<string>(agentData?.universityId || 'uniosun');
   const [businessType, setBusinessType] = useState<'individual_caretaker' | 'registered_agency' | 'property_management_company'>(
     existingDetails?.businessType || 'individual_caretaker'
   );
@@ -208,6 +214,7 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
           }
         }}
         onSignOut={onSignOut}
+        onDeleteAccount={onDeleteAccount}
         onApproved={() => {
           onCompleteVerification({
             licenseNumber: agentData?.licenseNumber || `DMQ-AGT-${Math.floor(100000 + Math.random() * 900000)}`,
@@ -382,6 +389,18 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
               </div>
             </div>
 
+            {/* PRIMARY SERVICED UNIVERSITY */}
+            <div>
+              <UniversitySelector
+                universities={universities}
+                selectedUniversityId={servicedUniId}
+                onSelectUniversity={(uni) => setServicedUniId(uni.id)}
+                label="Primary University / Campus Serviced"
+                placeholder="Select primary university serviced"
+                required
+              />
+            </div>
+
             {/* 3. LOCATION & PROPERTY MANAGEMENT INFO */}
             <div className="space-y-4">
               <div>
@@ -499,17 +518,17 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-75 cursor-pointer"
+                className="w-full py-3.5 px-5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-4 focus:ring-emerald-500/20 active:scale-[0.99]"
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    Submitting Business Verification Details...
+                    <Loader2 className="w-4.5 h-4.5 animate-spin text-white shrink-0" />
+                    <span>Submitting Business Verification Details...</span>
                   </>
                 ) : (
                   <>
-                    <BadgeCheck className="w-4 h-4" />
-                    Submit for Verification
+                    <BadgeCheck className="w-4.5 h-4.5 shrink-0" />
+                    <span>Submit for Verification</span>
                   </>
                 )}
               </button>

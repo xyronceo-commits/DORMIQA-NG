@@ -1,20 +1,24 @@
-import React, { useEffect } from 'react';
-import { Clock, ShieldCheck, LogOut, HelpCircle, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Clock, ShieldCheck, LogOut, Trash2, HelpCircle, AlertCircle } from 'lucide-react';
 import { User, BusinessVerificationDetails } from '../types';
 import { auth, db } from '../services/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
+import { DeleteAccountModal } from './DeleteAccountModal';
 
 interface VerificationStatusPageProps {
   agentData?: Partial<User> | null;
   onSignOut?: () => void;
+  onDeleteAccount?: () => void;
   onApproved?: () => void;
 }
 
 export const VerificationStatusPage: React.FC<VerificationStatusPageProps> = ({
   agentData,
   onSignOut,
+  onDeleteAccount,
   onApproved
 }) => {
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const details: BusinessVerificationDetails | undefined = agentData?.businessVerificationDetails;
   const businessName = details?.businessName || agentData?.agencyName || 'Hostel Management Agency';
   const agentFullName = details?.agentFullName || agentData?.name || 'Agent / Caretaker';
@@ -82,25 +86,49 @@ export const VerificationStatusPage: React.FC<VerificationStatusPageProps> = ({
           <span>Dashboard access is temporarily locked until our administrators complete the audit.</span>
         </div>
 
-        <div className="pt-2 flex flex-col sm:flex-row gap-3">
+        <div className="pt-2 flex flex-col sm:flex-row gap-2">
           {onSignOut && (
             <button
               type="button"
               onClick={onSignOut}
-              className="flex-1 py-3 px-4 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="flex-1 py-3 px-3 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-neutral-200 dark:border-neutral-700"
             >
-              <LogOut className="w-4 h-4" />
-              <span>Sign Out for Now</span>
+              <LogOut className="w-3.5 h-3.5 text-neutral-500" />
+              <span>Sign Out</span>
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setShowDeleteModal(true)}
+            className="flex-1 py-3 px-3 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Delete Account</span>
+          </button>
           <a
             href="mailto:dormiqa.ng@gmail.com"
-            className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer text-center"
+            className="flex-1 py-3 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer text-center"
           >
-            <HelpCircle className="w-4 h-4" />
-            <span>Contact Support</span>
+            <HelpCircle className="w-3.5 h-3.5" />
+            <span>Support</span>
           </a>
         </div>
+
+        {/* DELETE ACCOUNT CONFIRMATION MODAL */}
+        <DeleteAccountModal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirmDelete={async () => {
+            if (onDeleteAccount) {
+              await onDeleteAccount();
+            } else if (onSignOut) {
+              onSignOut();
+            }
+            setShowDeleteModal(false);
+          }}
+          userEmail={agentData?.email || undefined}
+          userName={agentData?.name || undefined}
+        />
 
       </div>
     </div>

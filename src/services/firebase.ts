@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { fetchAdminEmails, addAdminEmail, removeAdminEmail } from './api';
 import { University } from '../types';
+import { clientCache } from './cache';
 import { 
   getFirestore, 
   doc, 
@@ -13,7 +14,8 @@ import {
   where, 
   addDoc, 
   updateDoc,
-  onSnapshot
+  onSnapshot,
+  arrayUnion
 } from 'firebase/firestore';
 import { 
   getAuth, 
@@ -27,6 +29,7 @@ import {
   isSignInWithEmailLink,
   signInWithEmailLink,
   signOut,
+  deleteUser,
   onAuthStateChanged,
   User as FirebaseUser
 } from 'firebase/auth';
@@ -887,64 +890,91 @@ export const sendPasswordReset = async (email: string) => {
  */
 export const updateAgentVerificationInFirestore = async (
   agentId: string, 
-  status: 'approved' | 'rejected', 
+  status: 'approved' | 'rejected' | 'removed', 
   adminEmail: string, 
   reason?: string
 ) => {
   const isApproved = status === 'approved';
+  const isRemoved = status === 'removed';
   const now = new Date().toISOString();
   
+  const historyEntry = {
+    id: `hist_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    action: isApproved ? 'Agent Verified' : isRemoved ? 'Agent Status Revoked' : 'Agent Rejected',
+    status: status === 'approved' ? 'verified' : status,
+    timestamp: now,
+    adminEmail: adminEmail || 'buildsafe247@gmail.com',
+    reason: reason || null
+  };
+
   const agentRef = doc(db, 'users', agentId);
   const updatePayload: Record<string, any> = {
-    verificationStatus: status,
-    businessVerificationStatus: status,
+    verificationStatus: isApproved ? 'approved' : status,
+    businessVerificationStatus: isApproved ? 'approved' : isRemoved ? 'removed' : 'rejected',
     isVerifiedAgent: isApproved,
-    status: isApproved ? 'approved' : 'rejected',
-    verificationUpdatedAt: now
+    status: isApproved ? 'verified' : isRemoved ? 'removed' : 'rejected',
+    verificationUpdatedAt: now,
+    verificationHistory: arrayUnion(historyEntry)
   };
   
   if (isApproved) {
     updatePayload.verifiedAt = now;
     updatePayload.verifiedBy = adminEmail || 'buildsafe247@gmail.com';
     updatePayload.rejectionReason = null;
+  } else if (isRemoved) {
+    updatePayload.removedAt = now;
+    updatePayload.removedBy = adminEmail || 'buildsafe247@gmail.com';
+    updatePayload.removalReason = reason || 'Agent status revoked by administrator.';
   } else {
     updatePayload.rejectedAt = now;
     updatePayload.rejectedBy = adminEmail || 'buildsafe247@gmail.com';
     updatePayload.rejectionReason = reason || 'Verification documents require updating.';
   }
 
-  await setDoc(agentRef, updatePayload, { merge: true });
+  try {
+    await setDoc(agentRef, updatePayload, { merge: true });
+  } catch (err) {
+    console.warn("Failed to sync agent status to Firestore users collection:", err);
+    handleFirestoreError(err, OperationType.WRITE, `users/${agentId}`, false);
+  }
 
   try {
     const agentColRef = doc(db, 'agents', agentId);
     await setDoc(agentColRef, updatePayload, { merge: true });
   } catch (err) {
-    // Ignore if optional collection
+    handleFirestoreError(err, OperationType.WRITE, `agents/${agentId}`, false);
   }
 
   // Create real-time notification document in Firestore
   const notifRef = collection(db, 'notifications');
-  const notifTitle = isApproved ? 'Agent verification approved' : 'Agent verification update';
+  const notifTitle = isApproved ? 'Agent verification approved' : isRemoved ? 'Agent access revoked' : 'Agent verification update';
   const notifMsg = isApproved
     ? 'Your Dormiqa agent account has been verified.'
+    : isRemoved
+    ? `Your Dormiqa agent privileges have been revoked.${reason ? ` Reason: ${reason}` : ''}`
     : `Your agent verification was not approved.${reason ? ` Reason: ${reason}` : ''}`;
 
-  await addDoc(notifRef, {
-    recipientId: agentId,
-    userId: agentId,
-    type: 'agent_verification',
-    title: notifTitle,
-    message: notifMsg,
-    body: notifMsg,
-    read: false,
-    createdAt: now,
-    relatedId: agentId,
-    metadata: {
-      rejectionReason: isApproved ? null : (reason || null),
-      verificationStatus: status,
-      adminEmail: adminEmail || 'admin'
-    }
-  });
+  try {
+    await addDoc(notifRef, {
+      recipientId: agentId,
+      userId: agentId,
+      type: 'agent_verification',
+      title: notifTitle,
+      message: notifMsg,
+      body: notifMsg,
+      read: false,
+      createdAt: now,
+      relatedId: agentId,
+      metadata: {
+        rejectionReason: isApproved ? null : (reason || null),
+        verificationStatus: status,
+        adminEmail: adminEmail || 'admin'
+      }
+    });
+  } catch (err) {
+    console.warn("Failed to sync notification to Firestore:", err);
+    handleFirestoreError(err, OperationType.WRITE, 'notifications', false);
+  }
 
   return { success: true, status, agentId };
 };
@@ -954,12 +984,14 @@ export const updateAgentVerificationInFirestore = async (
  */
 export const updatePropertyVerificationInFirestore = async (
   propertyId: string, 
-  status: 'approved' | 'rejected', 
+  status: 'approved' | 'changes_requested' | 'rejected' | 'removed', 
   adminEmail: string, 
   reason?: string,
   agentId?: string
 ) => {
   const isApproved = status === 'approved';
+  const isRemoved = status === 'removed';
+  const isChangesRequested = status === 'changes_requested';
   const now = new Date().toISOString();
 
   let targetAgentId = agentId;
@@ -977,10 +1009,29 @@ export const updatePropertyVerificationInFirestore = async (
     }
   }
 
+  const actionText = isApproved 
+    ? 'Listing Approved' 
+    : isChangesRequested 
+    ? 'Changes Requested' 
+    : isRemoved 
+    ? 'Listing Removed' 
+    : 'Listing Rejected';
+
+  const historyEntry = {
+    id: `hist_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    action: actionText,
+    status: status,
+    timestamp: now,
+    adminEmail: adminEmail || 'buildsafe247@gmail.com',
+    reason: reason || null
+  };
+
   const updatePayload: Record<string, any> = {
     verificationStatus: status,
-    status: isApproved ? 'approved' : 'rejected',
-    verificationUpdatedAt: now
+    status: status,
+    isVerified: isApproved,
+    verificationUpdatedAt: now,
+    verificationHistory: arrayUnion(historyEntry)
   };
 
   if (isApproved) {
@@ -988,6 +1039,9 @@ export const updatePropertyVerificationInFirestore = async (
     updatePayload.verifiedBy = adminEmail || 'buildsafe247@gmail.com';
     updatePayload.rejectionReason = null;
     updatePayload.aiBanReason = null;
+  } else if (isRemoved) {
+    updatePayload.removedAt = now;
+    updatePayload.removedBy = adminEmail || 'buildsafe247@gmail.com';
   } else {
     updatePayload.rejectedAt = now;
     updatePayload.rejectedBy = adminEmail || 'buildsafe247@gmail.com';
@@ -995,35 +1049,134 @@ export const updatePropertyVerificationInFirestore = async (
     updatePayload.aiBanReason = reason || 'Listing details require update.';
   }
 
-  await setDoc(listingRef, updatePayload, { merge: true });
+  try {
+    await setDoc(listingRef, updatePayload, { merge: true });
+    clientCache.invalidate('listings_query:');
+    clientCache.invalidate(`listing_detail:${propertyId}`);
+  } catch (err) {
+    console.warn("Failed to sync property status to Firestore listings collection:", err);
+    handleFirestoreError(err, OperationType.WRITE, `listings/${propertyId}`, false);
+  }
 
   if (targetAgentId) {
     const notifRef = collection(db, 'notifications');
-    const notifTitle = isApproved ? 'Hostel approved' : 'Hostel verification update';
+    const notifTitle = isApproved 
+      ? 'Hostel approved' 
+      : isChangesRequested 
+      ? 'Hostel changes requested' 
+      : isRemoved 
+      ? 'Hostel listing removed' 
+      : 'Hostel verification update';
+
     const notifMsg = isApproved
       ? 'Your hostel listing has been approved and is now eligible to appear on Dormiqa.'
+      : isChangesRequested
+      ? `Changes requested for your hostel listing.${reason ? ` Reason: ${reason}` : ''}`
+      : isRemoved
+      ? 'Your hostel listing was removed from Dormiqa by administrators.'
       : `Your hostel listing was not approved.${reason ? ` Reason: ${reason}` : ''}`;
 
-    await addDoc(notifRef, {
-      recipientId: targetAgentId,
-      userId: targetAgentId,
-      type: 'hostel_verification',
-      title: notifTitle,
-      message: notifMsg,
-      body: notifMsg,
-      read: false,
-      createdAt: now,
-      relatedId: propertyId,
-      metadata: {
-        rejectionReason: isApproved ? null : (reason || null),
-        verificationStatus: status,
-        propertyId,
-        adminEmail: adminEmail || 'admin'
-      }
-    });
+    try {
+      await addDoc(notifRef, {
+        recipientId: targetAgentId,
+        userId: targetAgentId,
+        type: 'hostel_verification',
+        title: notifTitle,
+        message: notifMsg,
+        body: notifMsg,
+        read: false,
+        createdAt: now,
+        relatedId: propertyId,
+        metadata: {
+          rejectionReason: isApproved ? null : (reason || null),
+          verificationStatus: status,
+          propertyId,
+          adminEmail: adminEmail || 'admin'
+        }
+      });
+    } catch (err) {
+      console.warn("Failed to sync notification to Firestore:", err);
+      handleFirestoreError(err, OperationType.WRITE, 'notifications', false);
+    }
   }
 
   return { success: true, status, propertyId };
+};
+
+export const deleteUserAccountData = async (uid: string) => {
+  if (!uid) return;
+
+  // 1. Delete user doc from users collection
+  try {
+    await deleteDoc(doc(db, 'users', uid));
+  } catch (err) {
+    console.warn("Could not delete user doc from 'users':", err);
+  }
+
+  // 2. Delete student doc from students collection
+  try {
+    await deleteDoc(doc(db, 'students', uid));
+  } catch (err) {
+    console.warn("Could not delete student doc from 'students':", err);
+  }
+
+  // 3. Delete agent doc from agents collection
+  try {
+    await deleteDoc(doc(db, 'agents', uid));
+  } catch (err) {
+    console.warn("Could not delete agent doc from 'agents':", err);
+  }
+
+  // 4. Delete agent listings
+  try {
+    const listingsSnap1 = await getDocs(query(collection(db, 'listings'), where('agentId', '==', uid)));
+    for (const d of listingsSnap1.docs) {
+      try { await deleteDoc(d.ref); } catch {}
+    }
+    const listingsSnap2 = await getDocs(query(collection(db, 'listings'), where('agent.id', '==', uid)));
+    for (const d of listingsSnap2.docs) {
+      try { await deleteDoc(d.ref); } catch {}
+    }
+  } catch (err) {
+    console.warn("Error wiping user listings:", err);
+  }
+
+  // 5. Delete user inspections
+  try {
+    const inspSnap1 = await getDocs(query(collection(db, 'inspections'), where('studentId', '==', uid)));
+    for (const d of inspSnap1.docs) {
+      try { await deleteDoc(d.ref); } catch {}
+    }
+    const inspSnap2 = await getDocs(query(collection(db, 'inspections'), where('agentId', '==', uid)));
+    for (const d of inspSnap2.docs) {
+      try { await deleteDoc(d.ref); } catch {}
+    }
+  } catch (err) {
+    console.warn("Error wiping user inspections:", err);
+  }
+
+  // 6. Delete user conversations
+  try {
+    const convSnap1 = await getDocs(query(collection(db, 'conversations'), where('studentId', '==', uid)));
+    for (const d of convSnap1.docs) {
+      try { await deleteDoc(d.ref); } catch {}
+    }
+    const convSnap2 = await getDocs(query(collection(db, 'conversations'), where('agentId', '==', uid)));
+    for (const d of convSnap2.docs) {
+      try { await deleteDoc(d.ref); } catch {}
+    }
+  } catch (err) {
+    console.warn("Error wiping user conversations:", err);
+  }
+
+  // 7. Delete Auth user if active
+  try {
+    if (auth.currentUser) {
+      await deleteUser(auth.currentUser);
+    }
+  } catch (err) {
+    console.warn("Auth user deletion note:", err);
+  }
 };
 
 export default app;

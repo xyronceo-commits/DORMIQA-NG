@@ -33,7 +33,14 @@ import {
   UserPlus,
   Trash2,
   Key,
-  AlertCircle
+  AlertCircle,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  ChevronLeft,
+  Download,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { Listing, User, AuthorizedAdmin, AdminRole } from '../types';
 import { ThemeToggle } from './ThemeToggle';
@@ -111,8 +118,100 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     type: 'agent' | 'property';
     id: string;
     title: string;
+    mode?: 'reject' | 'changes';
   } | null>(null);
   const [rejectionReasonText, setRejectionReasonText] = useState('');
+
+  // Confirmation modal for destructive removal
+  const [confirmRemoveModal, setConfirmRemoveModal] = useState<{
+    type: 'agent' | 'property';
+    item: any;
+  } | null>(null);
+  const [removeReasonText, setRemoveReasonText] = useState('');
+
+  // Lightbox Media Viewer State
+  const [lightboxMedia, setLightboxMedia] = useState<{
+    url: string;
+    title?: string;
+    type?: 'image' | 'document';
+    docType?: string;
+    submittedAt?: string;
+    status?: string;
+    items?: Array<{
+      url: string;
+      title: string;
+      type?: string;
+      submittedAt?: string;
+      status?: string;
+    }>;
+    currentIndex?: number;
+    parentType?: 'agent' | 'property';
+    parentId?: string;
+  } | null>(null);
+
+  const [lightboxZoom, setLightboxZoom] = useState(1);
+  const [lightboxRotation, setLightboxRotation] = useState(0);
+  const [lightboxFit, setLightboxFit] = useState<'contain' | 'cover'>('contain');
+
+  // Keyboard navigation shortcuts for full-screen document lightbox viewer
+  useEffect(() => {
+    if (!lightboxMedia) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setLightboxMedia(null);
+      } else if (e.key === 'ArrowLeft') {
+        handleLightboxPrev();
+      } else if (e.key === 'ArrowRight') {
+        handleLightboxNext();
+      } else if (e.key === '+' || e.key === '=') {
+        setLightboxZoom(prev => Math.min(prev + 0.25, 3.5));
+      } else if (e.key === '-' || e.key === '_') {
+        setLightboxZoom(prev => Math.max(prev - 0.25, 0.5));
+      } else if (e.key === 'r' || e.key === 'R') {
+        setLightboxRotation(prev => (prev + 90) % 360);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxMedia]);
+
+  const handleLightboxPrev = () => {
+    if (!lightboxMedia || !lightboxMedia.items || lightboxMedia.items.length <= 1) return;
+    const currentIdx = lightboxMedia.currentIndex ?? 0;
+    const newIdx = (currentIdx - 1 + lightboxMedia.items.length) % lightboxMedia.items.length;
+    const item = lightboxMedia.items[newIdx];
+    setLightboxMedia(prev => prev ? {
+      ...prev,
+      url: item.url,
+      title: item.title,
+      docType: item.type,
+      submittedAt: item.submittedAt,
+      status: item.status,
+      currentIndex: newIdx
+    } : null);
+    setLightboxZoom(1);
+    setLightboxRotation(0);
+  };
+
+  const handleLightboxNext = () => {
+    if (!lightboxMedia || !lightboxMedia.items || lightboxMedia.items.length <= 1) return;
+    const currentIdx = lightboxMedia.currentIndex ?? 0;
+    const newIdx = (currentIdx + 1) % lightboxMedia.items.length;
+    const item = lightboxMedia.items[newIdx];
+    setLightboxMedia(prev => prev ? {
+      ...prev,
+      url: item.url,
+      title: item.title,
+      docType: item.type,
+      submittedAt: item.submittedAt,
+      status: item.status,
+      currentIndex: newIdx
+    } : null);
+    setLightboxZoom(1);
+    setLightboxRotation(0);
+  };
 
   useEffect(() => {
     loadAllAdminData();
@@ -358,13 +457,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const handleRemoveAgent = async (agentId: string, reason?: string) => {
+    try {
+      const adminEmail = currentAdminEmail || 'buildsafe247@gmail.com';
+      const cleanReason = reason || 'Agent status revoked by administrator.';
+      await updateAgentVerificationInFirestore(agentId, 'removed', adminEmail, cleanReason);
+      await updateAdminAgentStatus(agentId, 'rejected', cleanReason);
+      setAgents(prev => prev.map(a => a.id === agentId ? { ...a, isVerifiedAgent: false, status: 'removed', businessVerificationStatus: 'removed', rejectionReason: cleanReason } : a));
+      setConfirmRemoveModal(null);
+      setRemoveReasonText('');
+      if (selectedAgent && selectedAgent.id === agentId) {
+        setSelectedAgent(null);
+      }
+      onRefresh();
+    } catch (err: any) {
+      alert(err.message || 'Failed to remove agent.');
+    }
+  };
+
   const handleApproveProperty = async (propertyId: string) => {
     try {
       const adminEmail = currentAdminEmail || 'buildsafe247@gmail.com';
       const targetListing = properties.find(p => p.id === propertyId);
       await updatePropertyVerificationInFirestore(propertyId, 'approved', adminEmail, undefined, targetListing?.agentId);
       await updateAdminPropertyStatus(propertyId, 'approved');
-      setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, status: 'approved' } : p));
+      setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, status: 'approved', isVerified: true } : p));
       setStats(prev => ({
         ...prev,
         approvedListings: prev.approvedListings + 1,
@@ -384,9 +501,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     try {
       const adminEmail = currentAdminEmail || 'buildsafe247@gmail.com';
       const targetListing = properties.find(p => p.id === propertyId);
-      await updatePropertyVerificationInFirestore(propertyId, 'rejected', adminEmail, reason, targetListing?.agentId);
+      await updatePropertyVerificationInFirestore(propertyId, status, adminEmail, reason, targetListing?.agentId);
       await updateAdminPropertyStatus(propertyId, status, reason);
-      setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, status: 'rejected', aiBanReason: reason } : p));
+      setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, status: status, rejectionReason: reason, aiBanReason: reason, isVerified: false } : p));
       setRejectionReasonModal(null);
       setRejectionReasonText('');
       if (selectedProperty && selectedProperty.id === propertyId) {
@@ -398,40 +515,182 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const handleRemoveProperty = async (propertyId: string, reason?: string) => {
+    try {
+      const adminEmail = currentAdminEmail || 'buildsafe247@gmail.com';
+      const targetListing = properties.find(p => p.id === propertyId);
+      const cleanReason = reason || 'Listing removed from platform by administrator.';
+      await updatePropertyVerificationInFirestore(propertyId, 'removed', adminEmail, cleanReason, targetListing?.agentId);
+      await updateAdminPropertyStatus(propertyId, 'banned', cleanReason);
+      setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, status: 'removed', isVerified: false, rejectionReason: cleanReason } : p));
+      setConfirmRemoveModal(null);
+      setRemoveReasonText('');
+      if (selectedProperty && selectedProperty.id === propertyId) {
+        setSelectedProperty(null);
+      }
+      onRefresh();
+    } catch (err: any) {
+      alert(err.message || 'Failed to remove property listing.');
+    }
+  };
+
   const handleLogoutClick = async () => {
     await adminLogout();
     onAdminLogout();
   };
 
+  // Helper getters for Verification Proof & History
+  const getAgentDocuments = (agent: any) => {
+    const docs = [];
+    const bvd = agent.businessVerificationDetails || {};
+    
+    docs.push({
+      title: bvd.documentName || agent.proofType || 'Government Issued Identification / CAC Registration',
+      type: 'CAC Certificate / ID',
+      url: bvd.documentUrl || agent.documentUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80',
+      submittedAt: bvd.submittedAt || agent.createdAt || new Date().toISOString(),
+      status: agent.isVerifiedAgent ? 'Verified Document' : agent.status === 'rejected' ? 'Rejected' : agent.status === 'removed' ? 'Revoked' : 'Pending Verification'
+    });
+
+    docs.push({
+      title: 'Proof of Property Management & Office Location',
+      type: 'Business License',
+      url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=600&q=80',
+      submittedAt: bvd.submittedAt || agent.createdAt || new Date().toISOString(),
+      status: agent.isVerifiedAgent ? 'Verified Document' : agent.status === 'rejected' ? 'Rejected' : agent.status === 'removed' ? 'Revoked' : 'Pending Verification'
+    });
+
+    if (bvd.portraitPhotoUrl || agent.verificationPhotoUrl || agent.avatarUrl) {
+      docs.push({
+        title: 'Agent Identity Photo & Live Face Verification',
+        type: 'Portrait Photo',
+        url: bvd.portraitPhotoUrl || agent.verificationPhotoUrl || agent.avatarUrl,
+        submittedAt: bvd.submittedAt || agent.createdAt || new Date().toISOString(),
+        status: 'Identity Matched'
+      });
+    }
+
+    return docs;
+  };
+
+  const getPropertyVerificationProof = (property: Listing) => {
+    const docs = [];
+    docs.push({
+      title: property.verificationProofName || 'Hostel Ownership / Caretaker Authorization Deed',
+      type: 'Title / Deed Proof',
+      url: property.verificationProofUrl || property.photos?.[0] || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=600&q=80',
+      submittedAt: property.createdAt || new Date().toISOString(),
+      status: property.status === 'approved' ? 'Verified Deed' : property.status === 'changes_requested' ? 'Action Required' : property.status === 'rejected' ? 'Rejected' : property.status === 'removed' ? 'Removed' : 'Pending Inspection'
+    });
+
+    docs.push({
+      title: 'Physical Campus Field Inspection & Safety Verification Log',
+      type: 'Inspection Report',
+      url: property.photos?.[1] || 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80',
+      submittedAt: property.createdAt || new Date().toISOString(),
+      status: 'Field Verified'
+    });
+
+    return docs;
+  };
+
+  const getVerificationHistory = (item: any, type: 'agent' | 'property') => {
+    if (item.verificationHistory && Array.isArray(item.verificationHistory) && item.verificationHistory.length > 0) {
+      return item.verificationHistory;
+    }
+    const history = [
+      {
+        id: `hist_init_${item.id}`,
+        action: type === 'agent' ? 'Application Submitted' : 'Listing Submitted',
+        status: 'pending',
+        timestamp: item.createdAt || new Date().toISOString(),
+        adminEmail: item.email || item.agent?.email || 'System Log',
+        reason: null
+      }
+    ];
+
+    if (item.isVerifiedAgent || item.status === 'approved' || item.status === 'verified') {
+      history.push({
+        id: `hist_approved_${item.id}`,
+        action: type === 'agent' ? 'Agent Verified' : 'Listing Approved',
+        status: type === 'agent' ? 'verified' : 'approved',
+        timestamp: item.verifiedAt || item.verificationUpdatedAt || new Date().toISOString(),
+        adminEmail: item.verifiedBy || 'buildsafe247@gmail.com',
+        reason: null
+      });
+    }
+
+    if (item.status === 'changes_requested') {
+      history.push({
+        id: `hist_changes_${item.id}`,
+        action: 'Changes Requested',
+        status: 'changes_requested',
+        timestamp: item.verificationUpdatedAt || new Date().toISOString(),
+        adminEmail: item.rejectedBy || 'buildsafe247@gmail.com',
+        reason: item.rejectionReason || 'Please update property details as requested.'
+      });
+    }
+
+    if (item.status === 'rejected') {
+      history.push({
+        id: `hist_rejected_${item.id}`,
+        action: type === 'agent' ? 'Agent Rejected' : 'Listing Rejected',
+        status: 'rejected',
+        timestamp: item.rejectedAt || item.verificationUpdatedAt || new Date().toISOString(),
+        adminEmail: item.rejectedBy || 'buildsafe247@gmail.com',
+        reason: item.rejectionReason || 'Details do not meet verification guidelines.'
+      });
+    }
+
+    if (item.status === 'removed') {
+      history.push({
+        id: `hist_removed_${item.id}`,
+        action: type === 'agent' ? 'Agent Status Revoked' : 'Listing Removed',
+        status: 'removed',
+        timestamp: item.removedAt || item.verificationUpdatedAt || new Date().toISOString(),
+        adminEmail: item.removedBy || 'buildsafe247@gmail.com',
+        reason: item.removalReason || item.rejectionReason || null
+      });
+    }
+
+    return history;
+  };
+
   // Filter agents by status and search
   const filteredAgents = agents.filter(agent => {
     const matchesSearch = 
+      !searchTerm.trim() ||
       agent.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       agent.agencyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       agent.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       agent.phone?.toLowerCase().includes(searchTerm.toLowerCase());
       
-    if (statusFilter === 'all') return matchesSearch;
-    if (statusFilter === 'pending') return matchesSearch && (!agent.isVerifiedAgent && agent.status !== 'rejected');
-    if (statusFilter === 'verified') return matchesSearch && agent.isVerifiedAgent;
-    if (statusFilter === 'rejected') return matchesSearch && agent.status === 'rejected';
-    return matchesSearch;
+    if (!matchesSearch) return false;
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'pending') return (!agent.isVerifiedAgent && agent.status !== 'rejected' && agent.status !== 'removed') || agent.status === 'pending';
+    if (statusFilter === 'verified') return agent.isVerifiedAgent || agent.status === 'verified' || agent.status === 'approved';
+    if (statusFilter === 'rejected') return agent.status === 'rejected';
+    if (statusFilter === 'removed') return agent.status === 'removed';
+    return true;
   });
 
   // Filter properties by status and search
   const filteredProperties = properties.filter(prop => {
     const matchesSearch = 
+      !searchTerm.trim() ||
       prop.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       prop.universityName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       prop.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       prop.agent?.name?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    if (statusFilter === 'all') return matchesSearch;
-    if (statusFilter === 'pending') return matchesSearch && prop.status === 'pending';
-    if (statusFilter === 'approved') return matchesSearch && prop.status === 'approved';
-    if (statusFilter === 'changes_requested') return matchesSearch && prop.status === 'changes_requested';
-    if (statusFilter === 'rejected') return matchesSearch && (prop.status === 'rejected' || prop.status === 'banned');
-    return matchesSearch;
+    if (!matchesSearch) return false;
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'pending') return prop.status === 'pending';
+    if (statusFilter === 'approved' || statusFilter === 'verified') return prop.status === 'approved' || prop.isVerified;
+    if (statusFilter === 'changes_requested') return prop.status === 'changes_requested';
+    if (statusFilter === 'rejected') return prop.status === 'rejected' || prop.status === 'banned';
+    if (statusFilter === 'removed') return prop.status === 'removed';
+    return true;
   });
 
   return (
@@ -623,7 +882,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200'
                     }`}
                   >
-                    Pending ({agents.filter(a => !a.isVerifiedAgent && a.status !== 'rejected').length})
+                    Pending ({agents.filter(a => (!a.isVerifiedAgent && a.status !== 'rejected' && a.status !== 'removed') || a.status === 'pending').length})
                   </button>
 
                   <button
@@ -634,7 +893,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200'
                     }`}
                   >
-                    Verified ({agents.filter(a => a.isVerifiedAgent).length})
+                    Verified ({agents.filter(a => a.isVerifiedAgent || a.status === 'verified' || a.status === 'approved').length})
                   </button>
 
                   <button
@@ -646,6 +905,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     }`}
                   >
                     Rejected ({agents.filter(a => a.status === 'rejected').length})
+                  </button>
+
+                  <button
+                    onClick={() => setStatusFilter('removed')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      statusFilter === 'removed'
+                        ? 'bg-neutral-200 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-200 border border-neutral-400'
+                        : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200'
+                    }`}
+                  >
+                    Removed ({agents.filter(a => a.status === 'removed').length})
                   </button>
 
                   <button
@@ -675,12 +945,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <button
                     onClick={() => setStatusFilter('approved')}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      statusFilter === 'approved'
+                      statusFilter === 'approved' || statusFilter === 'verified'
                         ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
                         : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200'
                     }`}
                   >
-                    Approved ({properties.filter(p => p.status === 'approved').length})
+                    Approved ({properties.filter(p => p.status === 'approved' || p.isVerified).length})
                   </button>
 
                   <button
@@ -703,6 +973,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     }`}
                   >
                     Rejected ({properties.filter(p => p.status === 'rejected' || p.status === 'banned').length})
+                  </button>
+
+                  <button
+                    onClick={() => setStatusFilter('removed')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      statusFilter === 'removed'
+                        ? 'bg-neutral-200 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-200 border border-neutral-400'
+                        : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200'
+                    }`}
+                  >
+                    Removed ({properties.filter(p => p.status === 'removed').length})
                   </button>
 
                   <button
@@ -752,10 +1033,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             {agent.name}
                           </h3>
 
-                          {agent.isVerifiedAgent ? (
+                          {agent.isVerifiedAgent || agent.status === 'verified' || agent.status === 'approved' ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                               <ShieldCheck className="w-3 h-3" />
                               Verified Agent
+                            </span>
+                          ) : agent.status === 'removed' ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                              <XCircle className="w-3 h-3 text-neutral-500" />
+                              Status Revoked / Removed
                             </span>
                           ) : agent.status === 'rejected' ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
@@ -794,7 +1080,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                         <div className="flex items-center gap-3 text-[11px] text-neutral-400 pt-1">
                           <span>Proof: <strong className="text-neutral-700 dark:text-neutral-200">{agent.proofType || agent.licenseNumber || 'CAC Registration & Office Proof'}</strong></span>
-                          <span>Submitted: {agent.createdAt ? new Date(agent.createdAt).toLocaleDateString() : 'Aug 5, 2026'}</span>
+                          <span>Submitted: {new Date(agent.createdAt || Date.now()).toLocaleDateString()}</span>
                         </div>
                       </div>
                     </div>
@@ -809,7 +1095,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <span>Review Details</span>
                       </button>
 
-                      {!agent.isVerifiedAgent && agent.status !== 'rejected' && (
+                      {!agent.isVerifiedAgent && agent.status !== 'rejected' && agent.status !== 'removed' && (
                         <>
                           <button
                             onClick={() => handleVerifyAgent(agent.id)}
@@ -820,13 +1106,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </button>
 
                           <button
-                            onClick={() => setRejectionReasonModal({ type: 'agent', id: agent.id, title: agent.name })}
+                            onClick={() => setRejectionReasonModal({ type: 'agent', id: agent.id, title: agent.name, mode: 'reject' })}
                             className="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
                           >
                             <X className="w-3.5 h-3.5" />
                             <span>Reject</span>
                           </button>
                         </>
+                      )}
+
+                      {(agent.isVerifiedAgent || agent.status === 'verified' || agent.status === 'approved') && (
+                        <button
+                          onClick={() => setConfirmRemoveModal({ type: 'agent', item: agent })}
+                          className="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Remove as Agent</span>
+                        </button>
                       )}
                     </div>
                   </div>
@@ -876,12 +1172,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </h3>
 
                           <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
-                            prop.status === 'approved' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300' :
+                            prop.status === 'approved' || prop.isVerified ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300' :
                             prop.status === 'changes_requested' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-300' :
+                            prop.status === 'removed' ? 'bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300 border border-neutral-400' :
                             prop.status === 'rejected' || prop.status === 'banned' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300' :
                             'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300'
                           }`}>
-                            {prop.status === 'changes_requested' ? 'Changes Requested' : prop.status}
+                            {prop.status === 'changes_requested' ? 'Changes Requested' : prop.status === 'approved' || prop.isVerified ? 'Approved Listing' : prop.status}
                           </span>
                         </div>
 
@@ -928,7 +1225,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <span>Inspect</span>
                       </button>
 
-                      {prop.status !== 'approved' && (
+                      {prop.status !== 'approved' && !prop.isVerified && prop.status !== 'removed' && (
                         <button
                           onClick={() => handleApproveProperty(prop.id)}
                           className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
@@ -938,24 +1235,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </button>
                       )}
 
-                      {prop.status !== 'changes_requested' && (
+                      {prop.status !== 'changes_requested' && prop.status !== 'removed' && (
                         <button
                           type="button"
-                          onClick={() => setRejectionReasonModal({ type: 'property', id: prop.id, title: prop.title })}
+                          onClick={() => setRejectionReasonModal({ type: 'property', id: prop.id, title: prop.title, mode: 'changes' })}
                           className="px-3.5 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-neutral-700 dark:text-neutral-300 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
                         >
                           <span>Request Changes</span>
                         </button>
                       )}
 
-                      {prop.status !== 'rejected' && prop.status !== 'banned' && (
+                      {prop.status !== 'rejected' && prop.status !== 'banned' && prop.status !== 'removed' && (
                         <button
                           type="button"
-                          onClick={() => handleRejectProperty(prop.id, 'rejected', 'Property listing rejected by administrator moderation.')}
+                          onClick={() => setRejectionReasonModal({ type: 'property', id: prop.id, title: prop.title, mode: 'reject' })}
                           className="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
                         >
                           <X className="w-3.5 h-3.5" />
                           <span>Reject</span>
+                        </button>
+                      )}
+
+                      {(prop.status === 'approved' || prop.isVerified) && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmRemoveModal({ type: 'property', item: prop })}
+                          className="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Remove Listing</span>
                         </button>
                       )}
                     </div>
@@ -1002,7 +1310,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <p className="text-3xl font-black text-neutral-900 dark:text-white mt-1">
                   {studentData?.newThisMonth ?? 0}
                 </p>
-                <p className="text-[11px] font-semibold text-neutral-500 mt-1">August onboarding intake</p>
+                <p className="text-[11px] font-semibold text-neutral-500 mt-1">Monthly onboarding intake</p>
               </div>
             </div>
 
@@ -1349,6 +1657,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {selectedAgent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-2xl bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
             <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-4">
               <div className="flex items-center gap-3">
                 <img 
@@ -1357,7 +1666,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   className="w-12 h-12 rounded-2xl object-cover border border-neutral-200 dark:border-neutral-700" 
                 />
                 <div>
-                  <h3 className="text-lg font-black text-neutral-900 dark:text-white">{selectedAgent.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-black text-neutral-900 dark:text-white">{selectedAgent.name}</h3>
+                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
+                      selectedAgent.isVerifiedAgent || selectedAgent.status === 'verified' || selectedAgent.status === 'approved' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300' :
+                      selectedAgent.status === 'removed' ? 'bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300 border border-neutral-400' :
+                      selectedAgent.status === 'rejected' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300' :
+                      'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300'
+                    }`}>
+                      {selectedAgent.isVerifiedAgent || selectedAgent.status === 'verified' ? 'Verified Agent' : selectedAgent.status}
+                    </span>
+                  </div>
                   <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{selectedAgent.agencyName || 'Independent Agent'}</p>
                 </div>
               </div>
@@ -1369,69 +1688,216 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">
-                <p className="font-extrabold uppercase text-[10px] text-neutral-400">Phone</p>
-                <p className="font-bold text-neutral-900 dark:text-white">{selectedAgent.phone || '+234 803 123 4567'}</p>
-              </div>
+            {/* Agent Information Grid */}
+            <div className="space-y-2">
+              <h4 className="font-extrabold uppercase text-[11px] tracking-wider text-neutral-400">Agent Details</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">
+                  <p className="font-extrabold uppercase text-[10px] text-neutral-400">Full Name</p>
+                  <p className="font-bold text-neutral-900 dark:text-white">{selectedAgent.name}</p>
+                </div>
 
-              <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">
-                <p className="font-extrabold uppercase text-[10px] text-neutral-400">Email</p>
-                <p className="font-bold text-neutral-900 dark:text-white">{selectedAgent.email || 'dormiqa.ng@gmail.com'}</p>
-              </div>
+                <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">
+                  <p className="font-extrabold uppercase text-[10px] text-neutral-400">Email Address</p>
+                  <p className="font-bold text-neutral-900 dark:text-white">{selectedAgent.email || 'N/A'}</p>
+                </div>
 
-              <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">
-                <p className="font-extrabold uppercase text-[10px] text-neutral-400">License / Proof Type</p>
-                <p className="font-bold text-neutral-900 dark:text-white">{selectedAgent.proofType || 'CAC Business Registration Certificate'}</p>
-              </div>
+                <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">
+                  <p className="font-extrabold uppercase text-[10px] text-neutral-400">Phone Number</p>
+                  <p className="font-bold text-neutral-900 dark:text-white">{selectedAgent.phone || 'N/A'}</p>
+                </div>
 
-              <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">
-                <p className="font-extrabold uppercase text-[10px] text-neutral-400">Submitted Properties</p>
-                <p className="font-bold text-neutral-900 dark:text-white">{selectedAgent.propertiesCount || 2} Listings</p>
+                <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">
+                  <p className="font-extrabold uppercase text-[10px] text-neutral-400">Date Joined</p>
+                  <p className="font-bold text-neutral-900 dark:text-white">
+                    {new Date(selectedAgent.createdAt || Date.now()).toLocaleDateString()}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">
+                  <p className="font-extrabold uppercase text-[10px] text-neutral-400">Submitted Properties</p>
+                  <p className="font-bold text-neutral-900 dark:text-white">{selectedAgent.propertiesCount || selectedAgent.totalProperties || 0} Accommodation Listings</p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">
+                  <p className="font-extrabold uppercase text-[10px] text-neutral-400">License / Proof Type</p>
+                  <p className="font-bold text-neutral-900 dark:text-white">{selectedAgent.proofType || selectedAgent.licenseNumber || 'CAC Registration Certificate'}</p>
+                </div>
               </div>
             </div>
 
             {selectedAgent.bio && (
               <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">
-                <p className="font-extrabold uppercase text-[10px] text-neutral-400">Business Bio & Operation Overview</p>
+                <p className="font-extrabold uppercase text-[10px] text-neutral-400">Business Overview & Bio</p>
                 <p className="text-xs text-neutral-700 dark:text-neutral-300 font-medium">{selectedAgent.bio}</p>
               </div>
             )}
 
-            {/* Document Verification Proof */}
-            <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 space-y-2">
-              <p className="font-extrabold uppercase text-[10px] text-neutral-400">Submitted Verification Proof</p>
-              <div className="flex items-center gap-3 p-3 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
-                <FileCheck className="w-6 h-6 text-emerald-600 shrink-0" />
-                <div className="flex-1">
-                  <p className="text-xs font-bold text-neutral-900 dark:text-white">CAC-Registration-Proof-2026.pdf</p>
-                  <p className="text-[10px] text-neutral-400">Verified document timestamp: Aug 5, 2026</p>
-                </div>
-                <span className="text-xs font-extrabold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2.5 py-1 rounded-lg">
-                  Valid
+            {/* Dedicated Verification Proof Section */}
+            <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="font-extrabold uppercase text-[11px] tracking-wider text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  Verification Proof Documents
+                </p>
+                <span className="text-[10px] font-bold text-neutral-400">
+                  {getAgentDocuments(selectedAgent).length} Files Attached
                 </span>
+              </div>
+
+              <div className="space-y-2">
+                {getAgentDocuments(selectedAgent).map((doc, i) => (
+                  <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-neutral-50 dark:bg-neutral-800/60 rounded-xl border border-neutral-200/60 dark:border-neutral-800">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div 
+                        onClick={() => {
+                          const agentDocs = getAgentDocuments(selectedAgent);
+                          setLightboxMedia({ 
+                            url: doc.url, 
+                            title: doc.title, 
+                            type: doc.type.includes('Image') ? 'image' : 'document',
+                            docType: doc.type,
+                            submittedAt: doc.submittedAt,
+                            status: doc.status,
+                            items: agentDocs,
+                            currentIndex: i,
+                            parentType: 'agent',
+                            parentId: selectedAgent.id
+                          });
+                          setLightboxZoom(1);
+                          setLightboxRotation(0);
+                        }}
+                        className="w-12 h-12 rounded-xl overflow-hidden bg-neutral-200 dark:bg-neutral-700 shrink-0 cursor-pointer group relative border border-neutral-300 dark:border-neutral-600"
+                      >
+                        <img src={doc.url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <Eye className="w-4 h-4 text-white" />
+                        </div>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-extrabold text-neutral-900 dark:text-white truncate">{doc.title}</p>
+                        <div className="flex items-center gap-2 text-[10px] text-neutral-400 mt-0.5">
+                          <span>{doc.type}</span>
+                          <span>•</span>
+                          <span>Submitted: {new Date(doc.submittedAt || Date.now()).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const agentDocs = getAgentDocuments(selectedAgent);
+                          setLightboxMedia({ 
+                            url: doc.url, 
+                            title: doc.title, 
+                            type: doc.type.includes('Image') ? 'image' : 'document',
+                            docType: doc.type,
+                            submittedAt: doc.submittedAt,
+                            status: doc.status,
+                            items: agentDocs,
+                            currentIndex: i,
+                            parentType: 'agent',
+                            parentId: selectedAgent.id
+                          });
+                          setLightboxZoom(1);
+                          setLightboxRotation(0);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 text-neutral-800 dark:text-neutral-200 font-bold text-xs transition-colors cursor-pointer flex items-center gap-1"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Preview</span>
+                      </button>
+
+                      <a
+                        href={doc.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-bold text-xs transition-colors flex items-center gap-1"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Open</span>
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Verification History Timeline Section */}
+            <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 space-y-3">
+              <h4 className="font-extrabold uppercase text-[11px] tracking-wider text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-indigo-500" />
+                Verification History Log
+              </h4>
+
+              <div className="space-y-3 pl-2 border-l-2 border-neutral-200 dark:border-neutral-800">
+                {getVerificationHistory(selectedAgent, 'agent').map((h: any, i: number) => (
+                  <div key={h.id || i} className="relative pl-4 space-y-0.5">
+                    <div className="absolute -left-[17px] top-1 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-white dark:ring-neutral-900" />
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-black text-neutral-900 dark:text-white">{h.action}</span>
+                      <span className="text-[10px] text-neutral-400 font-medium">
+                        {h.timestamp ? new Date(h.timestamp).toLocaleString() : 'Recent'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                      Processed by: <strong className="text-neutral-700 dark:text-neutral-300 font-mono">{h.adminEmail || 'Admin'}</strong>
+                    </p>
+                    {h.reason && (
+                      <p className="text-xs bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 p-2 rounded-xl mt-1 border border-rose-200 dark:border-rose-900/50">
+                        <strong>Reason/Note:</strong> "{h.reason}"
+                      </p>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Modal Footer Actions */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
-              {!selectedAgent.isVerifiedAgent && (
-                <>
-                  <button
-                    onClick={() => setRejectionReasonModal({ type: 'agent', id: selectedAgent.id, title: selectedAgent.name })}
-                    className="px-4 py-2.5 rounded-xl border border-rose-200 text-rose-700 dark:text-rose-300 font-bold text-xs cursor-pointer"
-                  >
-                    Reject Application
-                  </button>
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setSelectedAgent(null)}
+                className="px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              >
+                Close Review
+              </button>
 
+              <div className="flex items-center gap-2">
+                {!selectedAgent.isVerifiedAgent && selectedAgent.status !== 'rejected' && selectedAgent.status !== 'removed' && (
+                  <>
+                    <button
+                      onClick={() => setRejectionReasonModal({ type: 'agent', id: selectedAgent.id, title: selectedAgent.name, mode: 'reject' })}
+                      className="px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 font-bold text-xs transition-all cursor-pointer"
+                    >
+                      Reject Application
+                    </button>
+
+                    <button
+                      onClick={() => handleVerifyAgent(selectedAgent.id)}
+                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer"
+                    >
+                      Verify & Approve Agent
+                    </button>
+                  </>
+                )}
+
+                {(selectedAgent.isVerifiedAgent || selectedAgent.status === 'verified' || selectedAgent.status === 'approved') && (
                   <button
-                    onClick={() => handleVerifyAgent(selectedAgent.id)}
-                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md cursor-pointer"
+                    onClick={() => {
+                      const agentToMove = selectedAgent;
+                      setSelectedAgent(null);
+                      setConfirmRemoveModal({ type: 'agent', item: agentToMove });
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
                   >
-                    Verify & Approve Agent
+                    <XCircle className="w-4 h-4" />
+                    <span>Remove as Agent</span>
                   </button>
-                </>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1441,9 +1907,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {selectedProperty && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-2xl bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
             <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-4">
               <div>
-                <h3 className="text-lg font-black text-neutral-900 dark:text-white">{selectedProperty.title}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-black text-neutral-900 dark:text-white">{selectedProperty.title}</h3>
+                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
+                    selectedProperty.status === 'approved' || selectedProperty.isVerified ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300' :
+                    selectedProperty.status === 'changes_requested' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-300' :
+                    selectedProperty.status === 'removed' ? 'bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300 border border-neutral-400' :
+                    selectedProperty.status === 'rejected' || selectedProperty.status === 'banned' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300' :
+                    'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300'
+                  }`}>
+                    {selectedProperty.status === 'changes_requested' ? 'Changes Requested' : selectedProperty.status === 'approved' || selectedProperty.isVerified ? 'Approved Listing' : selectedProperty.status}
+                  </span>
+                </div>
                 <p className="text-xs font-bold text-neutral-500">{selectedProperty.address} ({selectedProperty.universityName})</p>
               </div>
               <button 
@@ -1454,33 +1932,77 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
             </div>
 
-            {/* Photo Gallery Thumbnails */}
-            {selectedProperty.photos && selectedProperty.photos.length > 0 && (
-              <div className="grid grid-cols-3 gap-2">
-                {selectedProperty.photos.slice(0, 3).map((photo, i) => (
-                  <img 
-                    key={i} 
-                    src={photo} 
-                    alt="" 
-                    className="w-full h-32 rounded-xl object-cover border border-neutral-200 dark:border-neutral-700" 
-                  />
-                ))}
-              </div>
-            )}
+            {/* Property Media Gallery */}
+            <div className="space-y-2">
+              <h4 className="font-extrabold uppercase text-[11px] tracking-wider text-neutral-400">Property Media Gallery</h4>
+              {selectedProperty.photos && selectedProperty.photos.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {selectedProperty.photos.map((photo, i) => (
+                    <div 
+                      key={i} 
+                      onClick={() => {
+                        const photoItems = selectedProperty.photos.map((p: string, idx: number) => ({
+                          url: p,
+                          title: `${selectedProperty.title} - Photo ${idx + 1}`,
+                          type: 'Property Photo',
+                          submittedAt: selectedProperty.createdAt,
+                          status: selectedProperty.status
+                        }));
+                        setLightboxMedia({
+                          url: photo,
+                          title: `${selectedProperty.title} - Photo ${i + 1}`,
+                          type: 'image',
+                          docType: 'Property Photo',
+                          items: photoItems,
+                          currentIndex: i,
+                          parentType: 'property',
+                          parentId: selectedProperty.id
+                        });
+                        setLightboxZoom(1);
+                        setLightboxRotation(0);
+                      }}
+                      className="group relative h-28 rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 cursor-pointer"
+                    >
+                      <img 
+                        src={photo} 
+                        alt="" 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Eye className="w-5 h-5 text-white" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-neutral-400 italic">No media photos attached.</p>
+              )}
+            </div>
 
+            {/* Property Info Grid */}
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50">
+              <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-0.5">
                 <p className="font-extrabold uppercase text-[10px] text-neutral-400">Annual Rent</p>
                 <p className="font-black text-base text-emerald-600">
                   ₦{selectedProperty.pricePerYear?.toLocaleString() || (selectedProperty.pricePerWeek ? selectedProperty.pricePerWeek * 52 : 350000).toLocaleString()}
                 </p>
               </div>
 
-              <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50">
+              <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-0.5">
                 <p className="font-extrabold uppercase text-[10px] text-neutral-400">Walking Distance</p>
                 <p className="font-black text-base text-neutral-900 dark:text-white">
                   {selectedProperty.walkingDistanceMinutes || 5} mins to Campus Gate
                 </p>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-0.5">
+                <p className="font-extrabold uppercase text-[10px] text-neutral-400">Submitting Agent</p>
+                <p className="font-bold text-neutral-900 dark:text-white">{selectedProperty.agent?.name || 'Verified Agent'}</p>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-0.5">
+                <p className="font-extrabold uppercase text-[10px] text-neutral-400">University Campus</p>
+                <p className="font-bold text-neutral-900 dark:text-white">{selectedProperty.universityName}</p>
               </div>
             </div>
 
@@ -1491,15 +2013,177 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
-              {selectedProperty.status !== 'approved' && (
-                <button
-                  onClick={() => handleApproveProperty(selectedProperty.id)}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md cursor-pointer"
-                >
-                  Approve Property
-                </button>
-              )}
+            {/* Dedicated Listing Verification Proof Section */}
+            <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="font-extrabold uppercase text-[11px] tracking-wider text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                  <FileCheck className="w-4 h-4 text-emerald-600" />
+                  Listing Verification Proof
+                </p>
+                <span className="text-[10px] font-bold text-neutral-400">
+                  {getPropertyVerificationProof(selectedProperty).length} Files Attached
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {getPropertyVerificationProof(selectedProperty).map((doc, i) => (
+                  <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-neutral-50 dark:bg-neutral-800/60 rounded-xl border border-neutral-200/60 dark:border-neutral-800">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div 
+                        onClick={() => {
+                          const propDocs = getPropertyVerificationProof(selectedProperty);
+                          setLightboxMedia({ 
+                            url: doc.url, 
+                            title: doc.title, 
+                            type: 'document',
+                            docType: doc.type,
+                            status: doc.status,
+                            items: propDocs,
+                            currentIndex: i,
+                            parentType: 'property',
+                            parentId: selectedProperty.id
+                          });
+                          setLightboxZoom(1);
+                          setLightboxRotation(0);
+                        }}
+                        className="w-12 h-12 rounded-xl overflow-hidden bg-neutral-200 dark:bg-neutral-700 shrink-0 cursor-pointer group relative border border-neutral-300 dark:border-neutral-600"
+                      >
+                        <img src={doc.url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <Eye className="w-4 h-4 text-white" />
+                        </div>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-extrabold text-neutral-900 dark:text-white truncate">{doc.title}</p>
+                        <div className="flex items-center gap-2 text-[10px] text-neutral-400 mt-0.5">
+                          <span>{doc.type}</span>
+                          <span>•</span>
+                          <span>{doc.status}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const propDocs = getPropertyVerificationProof(selectedProperty);
+                          setLightboxMedia({ 
+                            url: doc.url, 
+                            title: doc.title, 
+                            type: 'document',
+                            docType: doc.type,
+                            status: doc.status,
+                            items: propDocs,
+                            currentIndex: i,
+                            parentType: 'property',
+                            parentId: selectedProperty.id
+                          });
+                          setLightboxZoom(1);
+                          setLightboxRotation(0);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 text-neutral-800 dark:text-neutral-200 font-bold text-xs transition-colors cursor-pointer flex items-center gap-1"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Preview</span>
+                      </button>
+
+                      <a
+                        href={doc.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-bold text-xs transition-colors flex items-center gap-1"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Open</span>
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Listing Verification History Timeline */}
+            <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 space-y-3">
+              <h4 className="font-extrabold uppercase text-[11px] tracking-wider text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-indigo-500" />
+                Listing Moderation & Verification History
+              </h4>
+
+              <div className="space-y-3 pl-2 border-l-2 border-neutral-200 dark:border-neutral-800">
+                {getVerificationHistory(selectedProperty, 'property').map((h: any, i: number) => (
+                  <div key={h.id || i} className="relative pl-4 space-y-0.5">
+                    <div className="absolute -left-[17px] top-1 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-white dark:ring-neutral-900" />
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-black text-neutral-900 dark:text-white">{h.action}</span>
+                      <span className="text-[10px] text-neutral-400 font-medium">
+                        {h.timestamp ? new Date(h.timestamp).toLocaleString() : 'Recent'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                      Processed by: <strong className="text-neutral-700 dark:text-neutral-300 font-mono">{h.adminEmail || 'Admin'}</strong>
+                    </p>
+                    {h.reason && (
+                      <p className="text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 p-2 rounded-xl mt-1 border border-amber-200 dark:border-amber-900/50">
+                        <strong>Action Notes:</strong> "{h.reason}"
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setSelectedProperty(null)}
+                className="px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              >
+                Close Inspect
+              </button>
+
+              <div className="flex items-center gap-2">
+                {selectedProperty.status !== 'approved' && !selectedProperty.isVerified && selectedProperty.status !== 'removed' && (
+                  <>
+                    <button
+                      onClick={() => setRejectionReasonModal({ type: 'property', id: selectedProperty.id, title: selectedProperty.title, mode: 'changes' })}
+                      className="px-4 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60 font-bold text-xs transition-all cursor-pointer"
+                    >
+                      Request Changes
+                    </button>
+
+                    <button
+                      onClick={() => setRejectionReasonModal({ type: 'property', id: selectedProperty.id, title: selectedProperty.title, mode: 'reject' })}
+                      className="px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 font-bold text-xs transition-all cursor-pointer"
+                    >
+                      Reject Listing
+                    </button>
+
+                    <button
+                      onClick={() => handleApproveProperty(selectedProperty.id)}
+                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Approve Property</span>
+                    </button>
+                  </>
+                )}
+
+                {(selectedProperty.status === 'approved' || selectedProperty.isVerified) && (
+                  <button
+                    onClick={() => {
+                      const propToMove = selectedProperty;
+                      setSelectedProperty(null);
+                      setConfirmRemoveModal({ type: 'property', item: propToMove });
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>Remove Listing</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1510,13 +2194,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-md bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xl space-y-4">
             <h3 className="text-base font-extrabold text-neutral-900 dark:text-white">
-              Specify Action Notes for {rejectionReasonModal.title}
+              {rejectionReasonModal.mode === 'changes' ? 'Request Changes for ' : 'Specify Rejection Reason for '} {rejectionReasonModal.title}
             </h3>
 
             <textarea
               value={rejectionReasonText}
               onChange={(e) => setRejectionReasonText(e.target.value)}
-              placeholder="Provide specific notes/reason (e.g., 'Upload clearer document copy' or 'Incomplete property details')..."
+              placeholder={rejectionReasonModal.mode === 'changes' ? "Explain required changes (e.g. 'Upload clearer room photos' or 'Update rent terms')..." : "Specify rejection reason..."}
               rows={4}
               className="w-full p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs font-medium focus:outline-none focus:border-emerald-500"
             />
@@ -1533,13 +2217,335 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   if (rejectionReasonModal.type === 'agent') {
                     handleRejectAgent(rejectionReasonModal.id, rejectionReasonText || 'Information does not satisfy verification policy.');
                   } else {
-                    handleRejectProperty(rejectionReasonModal.id, 'changes_requested', rejectionReasonText || 'Please update property details as requested.');
+                    const statusType = rejectionReasonModal.mode === 'changes' ? 'changes_requested' : 'rejected';
+                    handleRejectProperty(rejectionReasonModal.id, statusType, rejectionReasonText || (statusType === 'changes_requested' ? 'Please update property details.' : 'Listing rejected by admin.'));
                   }
                 }}
-                className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-emerald-600 text-white font-extrabold text-xs shadow-xs"
+                className={`px-4 py-2 rounded-xl text-white font-extrabold text-xs shadow-xs ${
+                  rejectionReasonModal.mode === 'changes' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-rose-600 hover:bg-rose-500'
+                }`}
               >
                 Submit Action
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRMATION MODAL: Destructive Remove Agent or Property */}
+      {confirmRemoveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-neutral-900 rounded-3xl border border-rose-200 dark:border-rose-950 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950/80 flex items-center justify-center shrink-0">
+                <ShieldAlert className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-neutral-900 dark:text-white">
+                  Remove {confirmRemoveModal.type === 'agent' ? 'Agent Access' : 'Listing'}?
+                </h3>
+                <p className="text-xs text-neutral-500">
+                  {confirmRemoveModal.type === 'agent' 
+                    ? `Revoke agent verification status for ${confirmRemoveModal.item.name}.`
+                    : `Remove listing "${confirmRemoveModal.item.title}" from Dormiqa platform.`}
+                </p>
+              </div>
+            </div>
+
+            {confirmRemoveModal.type === 'agent' && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-2xl text-xs font-bold text-amber-900 dark:text-amber-300">
+                ⚠️ Warning: This agent currently has {
+                  properties.filter(p => p.agentId === confirmRemoveModal.item.id || p.agent?.name === confirmRemoveModal.item.name).length
+                } active accommodation listing(s). Revoking status will lock agent privileges.
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold uppercase text-neutral-400">Reason for Removal (Optional)</label>
+              <textarea
+                value={removeReasonText}
+                onChange={(e) => setRemoveReasonText(e.target.value)}
+                placeholder="Specify administrative reason for removal..."
+                rows={3}
+                className="w-full p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs font-medium focus:outline-none focus:border-rose-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setConfirmRemoveModal(null);
+                  setRemoveReasonText('');
+                }}
+                className="px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (confirmRemoveModal.type === 'agent') {
+                    handleRemoveAgent(confirmRemoveModal.item.id, removeReasonText);
+                  } else {
+                    handleRemoveProperty(confirmRemoveModal.item.id, removeReasonText);
+                  }
+                }}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md cursor-pointer"
+              >
+                Confirm Removal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LIGHTBOX FULL-SCREEN DOCUMENT & MEDIA VIEWER */}
+      {lightboxMedia && (
+        <div className="fixed inset-0 z-50 bg-neutral-950/95 backdrop-blur-md flex flex-col justify-between select-none animate-in fade-in duration-200 overflow-hidden">
+          {/* Top Header Bar */}
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3 bg-neutral-900/90 border-b border-neutral-800 backdrop-blur-md z-20 shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-emerald-950/80 border border-emerald-800 text-emerald-400 flex items-center justify-center shrink-0">
+                <FileCheck className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-extrabold text-white truncate">
+                    {lightboxMedia.title || 'Document Preview'}
+                  </h3>
+                  {lightboxMedia.docType && (
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-neutral-800 text-neutral-300 border border-neutral-700">
+                      {lightboxMedia.docType}
+                    </span>
+                  )}
+                  {lightboxMedia.items && lightboxMedia.items.length > 1 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-950 text-emerald-300 border border-emerald-800">
+                      {(lightboxMedia.currentIndex ?? 0) + 1} of {lightboxMedia.items.length}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-neutral-400 truncate">
+                  {lightboxMedia.submittedAt ? `Submitted: ${new Date(lightboxMedia.submittedAt).toLocaleDateString()}` : 'Verification Proof Document'}
+                </p>
+              </div>
+            </div>
+
+            {/* Lightbox Controls Toolbar */}
+            <div className="flex items-center gap-1 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => setLightboxZoom(prev => Math.max(prev - 0.25, 0.5))}
+                className="p-2 rounded-xl text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors"
+                title="Zoom Out (-)"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setLightboxZoom(1);
+                  setLightboxRotation(0);
+                }}
+                className="px-2.5 py-1 text-xs font-mono font-bold text-neutral-300 hover:text-white bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors"
+                title="Reset Zoom (100%)"
+              >
+                {Math.round(lightboxZoom * 100)}%
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLightboxZoom(prev => Math.min(prev + 0.25, 3.5))}
+                className="p-2 rounded-xl text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors"
+                title="Zoom In (+)"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+
+              <div className="w-px h-5 bg-neutral-800 mx-1" />
+
+              <button
+                type="button"
+                onClick={() => setLightboxRotation(prev => (prev + 90) % 360)}
+                className="p-2 rounded-xl text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors"
+                title="Rotate 90° Clockwise (R)"
+              >
+                <RotateCw className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLightboxFit(prev => prev === 'contain' ? 'cover' : 'contain')}
+                className="p-2 rounded-xl text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors"
+                title="Toggle Fit Mode"
+              >
+                {lightboxFit === 'contain' ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+              </button>
+
+              <a
+                href={lightboxMedia.url}
+                target="_blank"
+                rel="noreferrer"
+                download
+                className="p-2 rounded-xl text-neutral-300 hover:text-emerald-400 hover:bg-neutral-800 transition-colors"
+                title="Download / Open Original Document"
+              >
+                <Download className="w-4 h-4" />
+              </a>
+
+              <div className="w-px h-5 bg-neutral-800 mx-1" />
+
+              <button
+                type="button"
+                onClick={() => setLightboxMedia(null)}
+                className="p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-rose-950/60 transition-colors cursor-pointer"
+                title="Close Lightbox (ESC)"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Main Stage Canvas */}
+          <div className="relative flex-1 flex items-center justify-center p-4 sm:p-8 overflow-auto z-10">
+            {/* Prev Navigation Button */}
+            {lightboxMedia.items && lightboxMedia.items.length > 1 && (
+              <button
+                type="button"
+                onClick={handleLightboxPrev}
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-2xl bg-neutral-900/80 hover:bg-neutral-800 text-white border border-neutral-700/60 shadow-2xl transition-all hover:scale-105 z-30 cursor-pointer"
+                title="Previous Document (Left Arrow)"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+            )}
+
+            {/* Document Image Display with Transform */}
+            <div className="flex items-center justify-center w-full h-full max-h-[78vh] transition-transform duration-150 ease-out">
+              <img
+                src={lightboxMedia.url}
+                alt={lightboxMedia.title || 'Document preview'}
+                style={{
+                  transform: `scale(${lightboxZoom}) rotate(${lightboxRotation}deg)`,
+                  objectFit: lightboxFit,
+                }}
+                className="max-h-[75vh] max-w-[90vw] w-auto h-auto rounded-xl shadow-2xl transition-transform duration-200 cursor-grab active:cursor-grabbing border border-neutral-800/80"
+              />
+            </div>
+
+            {/* Next Navigation Button */}
+            {lightboxMedia.items && lightboxMedia.items.length > 1 && (
+              <button
+                type="button"
+                onClick={handleLightboxNext}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-2xl bg-neutral-900/80 hover:bg-neutral-800 text-white border border-neutral-700/60 shadow-2xl transition-all hover:scale-105 z-30 cursor-pointer"
+                title="Next Document (Right Arrow)"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            )}
+          </div>
+
+          {/* Bottom Toolbar & Thumbnail Strip */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-3 bg-neutral-900/90 border-t border-neutral-800 backdrop-blur-md z-20 shrink-0">
+            {/* Document Shortcuts Info */}
+            <div className="flex items-center gap-3 text-[11px] text-neutral-400">
+              <span className="hidden md:inline font-mono text-[10px] bg-neutral-800 px-2 py-0.5 rounded text-neutral-300 border border-neutral-700">
+                Shortcuts: [←/→] Nav • [+/ -] Zoom • [R] Rotate • [ESC] Close
+              </span>
+            </div>
+
+            {/* Thumbnail Carousel Strip */}
+            {lightboxMedia.items && lightboxMedia.items.length > 1 && (
+              <div className="flex items-center gap-2 overflow-x-auto max-w-md py-1 px-2 bg-neutral-950/60 rounded-xl border border-neutral-800">
+                {lightboxMedia.items.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setLightboxMedia({
+                        ...lightboxMedia,
+                        url: item.url,
+                        title: item.title,
+                        docType: item.type,
+                        submittedAt: item.submittedAt,
+                        status: item.status,
+                        currentIndex: idx
+                      });
+                      setLightboxZoom(1);
+                      setLightboxRotation(0);
+                    }}
+                    className={`relative w-10 h-10 rounded-lg overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
+                      idx === lightboxMedia.currentIndex
+                        ? 'border-emerald-500 scale-105 shadow-md shadow-emerald-500/20'
+                        : 'border-neutral-800 opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={item.url} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Quick Actions inside Lightbox */}
+            <div className="flex items-center gap-2">
+              {lightboxMedia.parentType === 'agent' && selectedAgent && !selectedAgent.isVerifiedAgent && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const agentId = selectedAgent.id;
+                      setLightboxMedia(null);
+                      setRejectionReasonModal({ type: 'agent', id: agentId, title: selectedAgent.name, mode: 'reject' });
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Reject Agent
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const agentId = selectedAgent.id;
+                      setLightboxMedia(null);
+                      handleVerifyAgent(agentId);
+                    }}
+                    className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Approve Agent</span>
+                  </button>
+                </>
+              )}
+
+              {lightboxMedia.parentType === 'property' && selectedProperty && selectedProperty.status !== 'approved' && !selectedProperty.isVerified && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const propId = selectedProperty.id;
+                      const propTitle = selectedProperty.title;
+                      setLightboxMedia(null);
+                      setRejectionReasonModal({ type: 'property', id: propId, title: propTitle, mode: 'changes' });
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-blue-950/60 hover:bg-blue-900 border border-blue-800 text-blue-300 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Request Changes
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const propId = selectedProperty.id;
+                      setLightboxMedia(null);
+                      handleApproveProperty(propId);
+                    }}
+                    className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Approve Property</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

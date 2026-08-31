@@ -409,7 +409,62 @@ async function getFirestoreUsers(): Promise<User[]> {
   }
 }
 
+// Server-Side In-Memory Cache Engine
+interface ServerCacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
+const apiServerCache = new Map<string, ServerCacheEntry<any>>();
+
+function isDevEnvironment(): boolean {
+  return process.env.NODE_ENV !== 'production';
+}
+
+function logServerCache(type: 'HIT' | 'MISS' | 'FETCH' | 'INVALIDATE', key: string, detail?: string) {
+  if (isDevEnvironment()) {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(`[SERVER CACHE ${type}] ${key}${detail ? ` (${detail})` : ''} - ${timestamp}`);
+  }
+}
+
+function getServerCache<T>(key: string): T | null {
+  const entry = apiServerCache.get(key);
+  if (!entry) {
+    logServerCache('MISS', key);
+    return null;
+  }
+  if (Date.now() > entry.expiresAt) {
+    logServerCache('MISS', key, 'Expired');
+    apiServerCache.delete(key);
+    return null;
+  }
+  logServerCache('HIT', key);
+  return entry.data as T;
+}
+
+function setServerCache<T>(key: string, data: T, ttlMs: number): T {
+  apiServerCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+  logServerCache('FETCH', key, `Cached for ${Math.round(ttlMs / 1000)}s`);
+  return data;
+}
+
+function invalidateServerListingsCache(listingId?: string) {
+  let count = 0;
+  for (const k of Array.from(apiServerCache.keys())) {
+    if (k === 'firestore_listings' || k.startsWith('listings_query:') || (listingId && k === `listing_detail:${listingId}`)) {
+      apiServerCache.delete(k);
+      count++;
+    }
+  }
+  logServerCache('INVALIDATE', listingId ? `listing:${listingId}` : 'all_listings', `Purged ${count} server cache keys`);
+}
+
 async function getFirestoreListings(): Promise<Listing[]> {
+  const cacheKey = 'firestore_listings';
+  const cached = getServerCache<Listing[]>(cacheKey);
+  if (cached) return cached;
+
   if (!firestoreDb) return listingsStore;
   try {
     const snap = await getDocs(collection(firestoreDb, 'listings'));
@@ -417,7 +472,8 @@ async function getFirestoreListings(): Promise<Listing[]> {
     snap.forEach(d => {
       realListings.push({ id: d.id, ...d.data() } as Listing);
     });
-    return realListings.length > 0 ? realListings : listingsStore;
+    const result = realListings.length > 0 ? realListings : listingsStore;
+    return setServerCache(cacheKey, result, 60 * 1000); // 60s TTL for raw Firestore queries
   } catch (err) {
     console.warn("Firestore listings query error:", err);
     return listingsStore;
@@ -574,7 +630,11 @@ async function startServer() {
 
   // Universities
   app.get('/api/universities', (req, res) => {
-    res.json(CLEAN_UNIVERSITIES);
+    const cacheKey = 'api_universities';
+    const cached = getServerCache(cacheKey);
+    if (cached) return res.json(cached);
+
+    return res.json(setServerCache(cacheKey, CLEAN_UNIVERSITIES, 60 * 60 * 1000));
   });
 
   // Route calculation cache on server
@@ -743,7 +803,18 @@ async function startServer() {
   });
 
   // Listings with advanced filtering
-  app.get('/api/listings', (req, res) => {
+  app.get('/api/listings', async (req, res) => {
+    const queryParams = new URLSearchParams(req.query as Record<string, string>);
+    const sortedKeys = Array.from(queryParams.keys()).sort();
+    const sortedQuery = new URLSearchParams();
+    sortedKeys.forEach(k => sortedQuery.append(k, queryParams.get(k) || ''));
+    const cacheKey = `listings_query:${sortedQuery.toString()}`;
+
+    const cached = getServerCache(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     const { 
       universityId, 
       minPrice, 
@@ -759,7 +830,8 @@ async function startServer() {
       sortBy
     } = req.query;
 
-    let result = [...listingsStore];
+    const baseListings = await getFirestoreListings();
+    let result = [...baseListings];
 
     // Filter by approval status (default to approved for public queries)
     if (status) {
@@ -833,17 +905,28 @@ async function startServer() {
       result.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
     }
 
+    setServerCache(cacheKey, result, 2 * 60 * 1000);
     res.json(result);
   });
 
   // Get single listing
-  app.get('/api/listings/:id', (req, res) => {
-    const listing = listingsStore.find(l => l.id === req.params.id);
+  app.get('/api/listings/:id', async (req, res) => {
+    const listingId = req.params.id;
+    const cacheKey = `listing_detail:${listingId}`;
+    const cached = getServerCache<Listing>(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
+    const baseListings = await getFirestoreListings();
+    const listing = baseListings.find(l => l.id === listingId) || listingsStore.find(l => l.id === listingId);
     if (!listing) {
       return res.status(404).json({ error: 'Listing not found' });
     }
     // Increment view count
     listing.viewCount = (listing.viewCount || 0) + 1;
+
+    setServerCache(cacheKey, listing, 3 * 60 * 1000);
     res.json(listing);
   });
 
@@ -903,6 +986,7 @@ async function startServer() {
     }
 
     listingsStore.unshift(newListing);
+    invalidateServerListingsCache(newListing.id);
     res.status(201).json(newListing);
   });
 
@@ -944,6 +1028,7 @@ async function startServer() {
     if (salesNote !== undefined) listing.salesNote = sanitizeInputString(salesNote, 500);
     if (isAvailableForSale !== undefined) listing.isAvailableForSale = Boolean(isAvailableForSale);
 
+    invalidateServerListingsCache(req.params.id);
     res.json(listing);
   });
 
@@ -970,6 +1055,7 @@ async function startServer() {
     const totalRatingSum = listing.reviews.reduce((sum, r) => sum + r.rating, 0);
     listing.rating = Math.round((totalRatingSum / listing.reviewCount) * 10) / 10;
 
+    invalidateServerListingsCache(req.params.id);
     res.status(201).json(listing);
   });
 
@@ -1660,6 +1746,7 @@ Return ONLY valid JSON matching this schema:
       }
     }
 
+    invalidateServerListingsCache(req.params.id);
     res.json(listing);
   });
 

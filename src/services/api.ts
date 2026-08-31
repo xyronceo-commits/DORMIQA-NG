@@ -1,4 +1,5 @@
 import { Listing, University, Inspection, Conversation, ChatMessage, Report, User, UserRole, AuthorizedAdmin, AdminRole } from '../types';
+import { clientCache, CACHE_TTL } from './cache';
 
 const API_BASE = '/api';
 
@@ -99,88 +100,100 @@ export async function safeFetchJson<T = any>(url: string, options?: RequestInit)
 }
 
 export async function fetchUniversities(): Promise<University[]> {
-  try {
-    const { fetchUniversitiesFromFirestore } = await import('./firebase');
-    return await fetchUniversitiesFromFirestore();
-  } catch (err) {
-    console.warn('API fetchUniversities error, falling back to local data:', err);
-    const { UNIVERSITIES } = await import('../data/mockData');
-    return UNIVERSITIES;
-  }
+  const cacheKey = 'universities_list';
+  return clientCache.dedupe(cacheKey, async () => {
+    try {
+      const { fetchUniversitiesFromFirestore } = await import('./firebase');
+      const result = await fetchUniversitiesFromFirestore();
+      return clientCache.set(cacheKey, result, CACHE_TTL.UNIVERSITIES);
+    } catch (err) {
+      console.warn('API fetchUniversities error, falling back to local data:', err);
+      const { UNIVERSITIES } = await import('../data/mockData');
+      return clientCache.set(cacheKey, UNIVERSITIES, CACHE_TTL.UNIVERSITIES);
+    }
+  });
 }
 
 export async function fetchListings(params: Record<string, any> = {}): Promise<Listing[]> {
-  try {
-    const query = new URLSearchParams();
-    Object.keys(params).forEach(key => {
-      if (params[key] !== undefined && params[key] !== '' && params[key] !== null) {
-        query.append(key, String(params[key]));
-      }
-    });
-    const res = await fetch(`${API_BASE}/listings?${query.toString()}`);
-    const parsed = await safeParseResponse<Listing[]>(res);
-    if (parsed.ok && parsed.data && Array.isArray(parsed.data)) {
-      return parsed.data;
+  const query = new URLSearchParams();
+  Object.keys(params).sort().forEach(key => {
+    if (params[key] !== undefined && params[key] !== '' && params[key] !== null) {
+      query.append(key, String(params[key]));
     }
-    throw new Error(parsed.error || 'Failed to fetch listings from backend');
-  } catch (err) {
-    console.warn('API fetchListings failed, querying Firestore fallback:', err);
+  });
+  const cacheKey = `listings_query:${query.toString()}`;
+
+  return clientCache.dedupe(cacheKey, async () => {
     try {
-      const { collection, getDocs, query, limit } = await import('firebase/firestore');
-      const { db } = await import('./firebase');
-      const listingsRef = collection(db, 'listings');
-      const q = query(listingsRef, limit(100));
-      const snap = await getDocs(q);
-      const fsListings: Listing[] = [];
-      snap.forEach(docSnap => {
-        fsListings.push({ id: docSnap.id, ...(docSnap.data() as Record<string, any>) } as Listing);
-      });
-      if (fsListings.length > 0) {
-        return fsListings;
+      const res = await fetch(`${API_BASE}/listings?${query.toString()}`);
+      const parsed = await safeParseResponse<Listing[]>(res);
+      if (parsed.ok && parsed.data && Array.isArray(parsed.data)) {
+        return clientCache.set(cacheKey, parsed.data, CACHE_TTL.LISTINGS);
       }
-    } catch (fsErr) {
-      console.warn('Firestore fallback fetch failed:', fsErr);
+      throw new Error(parsed.error || 'Failed to fetch listings from backend');
+    } catch (err) {
+      console.warn('API fetchListings failed, querying Firestore fallback:', err);
+      try {
+        const { collection, getDocs, query: fsQuery, limit } = await import('firebase/firestore');
+        const { db } = await import('./firebase');
+        const listingsRef = collection(db, 'listings');
+        const q = fsQuery(listingsRef, limit(100));
+        const snap = await getDocs(q);
+        const fsListings: Listing[] = [];
+        snap.forEach(docSnap => {
+          fsListings.push({ id: docSnap.id, ...(docSnap.data() as Record<string, any>) } as Listing);
+        });
+        if (fsListings.length > 0) {
+          return clientCache.set(cacheKey, fsListings, CACHE_TTL.LISTINGS);
+        }
+      } catch (fsErr) {
+        console.warn('Firestore fallback fetch failed:', fsErr);
+      }
+      const { MOCK_LISTINGS } = await import('../data/mockData');
+      return clientCache.set(cacheKey, MOCK_LISTINGS, CACHE_TTL.LISTINGS);
     }
-    const { MOCK_LISTINGS } = await import('../data/mockData');
-    return MOCK_LISTINGS;
-  }
+  });
 }
 
 export async function fetchListingById(id: string): Promise<Listing | null> {
   if (!id || !id.trim()) return null;
   const cleanId = id.trim();
+  const cacheKey = `listing_detail:${cleanId}`;
 
-  // 1. Try Backend API
-  let apiFailed = false;
-  try {
-    const res = await fetch(`${API_BASE}/listings/${encodeURIComponent(cleanId)}`);
-    const parsed = await safeParseResponse<Listing>(res);
-    if (parsed.ok && parsed.data) {
-      return parsed.data;
-    }
-    if (res.status === 404) {
+  return clientCache.dedupe(cacheKey, async () => {
+    // 1. Try Backend API
+    let apiFailed = false;
+    try {
+      const res = await fetch(`${API_BASE}/listings/${encodeURIComponent(cleanId)}`);
+      const parsed = await safeParseResponse<Listing>(res);
+      if (parsed.ok && parsed.data) {
+        return clientCache.set(cacheKey, parsed.data, CACHE_TTL.LISTING_DETAIL);
+      }
+      if (res.status === 404) {
+        apiFailed = true;
+      }
+    } catch (err) {
       apiFailed = true;
     }
-  } catch (err) {
-    apiFailed = true;
-  }
 
-  // 2. Query Firestore directly as authoritative lookup
-  try {
-    const { doc, getDoc } = await import('firebase/firestore');
-    const { db } = await import('./firebase');
-    const docRef = doc(db, 'listings', cleanId);
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-      return { id: snap.id, ...snap.data() } as Listing;
+    // 2. Query Firestore directly as authoritative lookup
+    try {
+      const { doc, getDoc } = await import('firebase/firestore');
+      const { db } = await import('./firebase');
+      const docRef = doc(db, 'listings', cleanId);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const item = { id: snap.id, ...snap.data() } as Listing;
+        return clientCache.set(cacheKey, item, CACHE_TTL.LISTING_DETAIL);
+      }
+      return null; // Genuinely not found in Firestore
+    } catch (firestoreErr: any) {
+      if (apiFailed) {
+        throw new Error("Unable to connect to property database. Please check your network connection.");
+      }
+      return null;
     }
-    return null; // Genuinely not found in Firestore
-  } catch (firestoreErr: any) {
-    if (apiFailed) {
-      throw new Error("Unable to connect to property database. Please check your network connection.");
-    }
-    return null;
-  }
+  });
 }
 
 export async function createListing(listingData: Partial<Listing>): Promise<Listing> {
@@ -264,6 +277,10 @@ export async function createListing(listingData: Partial<Listing>): Promise<List
     console.error('Failed to write created listing to Firestore:', fsErr);
   }
 
+  // Invalidate public listing caches
+  clientCache.invalidate('listings_query:');
+  clientCache.invalidate(`listing_detail:${created.id}`);
+
   return created;
 }
 
@@ -322,6 +339,10 @@ export async function updateListingStatusAndSales(
     throw new Error('Failed to persist listing updates to database');
   }
 
+  // Invalidate public listing caches
+  clientCache.invalidate('listings_query:');
+  clientCache.invalidate(`listing_detail:${listingId}`);
+
   return updated;
 }
 
@@ -375,6 +396,9 @@ export async function submitListingReview(
   if (!updated) {
     throw new Error('Failed to save property review to database');
   }
+
+  clientCache.invalidate('listings_query:');
+  clientCache.invalidate(`listing_detail:${listingId}`);
 
   return updated;
 }
@@ -939,6 +963,10 @@ export async function updateListingStatus(id: string, status: string): Promise<L
   });
   const parsed = await safeParseResponse<Listing>(res);
   if (!parsed.ok || !parsed.data) throw new Error(parsed.error || 'Failed to update listing status');
+
+  clientCache.invalidate('listings_query:');
+  clientCache.invalidate(`listing_detail:${id}`);
+
   return parsed.data;
 }
 

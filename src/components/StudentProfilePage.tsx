@@ -12,6 +12,7 @@ import {
   FileText, 
   ShieldCheck, 
   LogOut, 
+  Trash2,
   ChevronRight,
   CheckCircle2,
   Save,
@@ -22,6 +23,7 @@ import { User, University } from '../types';
 import { auth, saveUserToFirestore, saveStudentProfileToFirestore, validateAndNormalizePhoneNumber } from '../services/firebase';
 import { ThemeToggle } from './ThemeToggle';
 import { UniversitySelector } from './UniversitySelector';
+import { DeleteAccountModal } from './DeleteAccountModal';
 
 interface StudentProfilePageProps {
   user?: User;
@@ -31,6 +33,7 @@ interface StudentProfilePageProps {
   inspectionsCount: number;
   onNavigateView: (view: 'saved' | 'messages' | 'inspections' | 'search') => void;
   onSignOut: () => void;
+  onDeleteAccount?: () => void;
   onGoBack: () => void;
 }
 
@@ -42,9 +45,11 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
   inspectionsCount,
   onNavigateView,
   onSignOut,
+  onDeleteAccount,
   onGoBack
 }) => {
   const [activeModal, setActiveModal] = useState<'profile' | 'security' | 'notifications' | 'terms' | 'privacy' | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const [studentName, setStudentName] = useState(user?.name || auth.currentUser?.displayName || 'Student Account');
   const [studentPhone, setStudentPhone] = useState(user?.phone || user?.phoneNumber || '');
@@ -312,14 +317,39 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
           </div>
         </div>
 
-        {/* SIGN OUT BUTTON */}
-        <button
-          onClick={onSignOut}
-          className="w-full p-4 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/60 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
-        >
-          <LogOut className="w-4 h-4" />
-          Sign Out
-        </button>
+        {/* SIGN OUT & DELETE ACCOUNT BUTTONS */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={onSignOut}
+            className="flex-1 p-4 bg-neutral-100 hover:bg-neutral-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-neutral-200 dark:border-slate-700 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
+          >
+            <LogOut className="w-4 h-4 text-neutral-600 dark:text-slate-400" />
+            Sign Out
+          </button>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="flex-1 p-4 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete Account
+          </button>
+        </div>
+
+        {/* DELETE ACCOUNT CONFIRMATION MODAL */}
+        <DeleteAccountModal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirmDelete={async () => {
+            if (onDeleteAccount) {
+              await onDeleteAccount();
+            } else {
+              onSignOut();
+            }
+            setShowDeleteModal(false);
+          }}
+          userEmail={user?.email}
+          userName={user?.name}
+        />
 
       </main>
 

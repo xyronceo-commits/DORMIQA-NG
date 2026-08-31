@@ -1098,7 +1098,7 @@ export const MOCK_LISTINGS: Listing[] = UNIVERSITIES.flatMap((uni) => {
     const propertyLng = Number((targetCampus.lng + (idx * 0.001 - 0.002)).toFixed(5));
 
     return {
-      id: `${uni.id}-demo-${idx + 1}`,
+      id: `${uni.id}-prop-${idx + 1}`,
       title: `${uni.code} ${targetCampus.city ? `(${targetCampus.city}) ` : ''}${tmpl.titleSuffix}`,
       description: `Newly built and verified off-campus student accommodation near ${uni.name} (${targetCampus.shortName || targetCampus.city}). Situated around ${area}, close to campus gate. Equipped with reliable water supply, gated security, and prepaid meter.`,
       pricePerYear,

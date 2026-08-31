@@ -12,9 +12,10 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { University } from '../types';
+import { UNIVERSITIES } from '../data/mockData';
 
 interface UniversitySelectorProps {
-  universities: University[];
+  universities?: University[];
   selectedUniversityId?: string;
   onSelectUniversity: (university: University) => void;
   label?: string;
@@ -26,7 +27,7 @@ interface UniversitySelectorProps {
 }
 
 export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
-  universities,
+  universities = [],
   selectedUniversityId,
   onSelectUniversity,
   label = 'University',
@@ -41,6 +42,11 @@ export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
   const [comingSoonUni, setComingSoonUni] = useState<University | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Fallback to default UNIVERSITIES list if universities prop is empty or undefined
+  const effectiveUniversities = useMemo(() => {
+    return universities && universities.length > 0 ? universities : UNIVERSITIES;
+  }, [universities]);
+
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -54,14 +60,14 @@ export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
 
   // Currently selected university object
   const currentSelectedUni = useMemo(() => {
-    return universities.find(u => u.id === selectedUniversityId);
-  }, [universities, selectedUniversityId]);
+    return effectiveUniversities.find(u => u.id === selectedUniversityId);
+  }, [effectiveUniversities, selectedUniversityId]);
 
   // Split universities into "Available now" (active) and "Coming soon" (coming_soon)
   const { activeUniversities, comingSoonUniversities } = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
-    const filtered = universities.filter(u => {
+    const filtered = effectiveUniversities.filter(u => {
       if (!term) return true;
       const matchName = u.name.toLowerCase().includes(term);
       const matchCode = (u.code || u.shortName || '').toLowerCase().includes(term);
@@ -69,14 +75,22 @@ export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
       return matchName || matchCode || matchState;
     });
 
-    const active = filtered.filter(u => u.status === 'active' || u.isActive === true);
-    const comingSoon = filtered.filter(u => u.status === 'coming_soon' && u.isActive !== true);
+    const active = filtered.filter(u => 
+      u.status === 'active' || 
+      u.isActive === true || 
+      (!u.status && u.status !== 'coming_soon' && u.isActive !== false)
+    );
+
+    const comingSoon = filtered.filter(u => 
+      u.status === 'coming_soon' || 
+      (u.status !== 'active' && u.isActive === false)
+    );
 
     return {
       activeUniversities: active,
       comingSoonUniversities: comingSoon
     };
-  }, [universities, searchTerm]);
+  }, [effectiveUniversities, searchTerm]);
 
   const handleSelectActive = (uni: University) => {
     onSelectUniversity(uni);

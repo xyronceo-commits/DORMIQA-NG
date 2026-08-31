@@ -693,6 +693,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
               if (sec === 'calendar') setActiveNav('calendar');
             }}
             onSignOut={onSignOut}
+            onDeleteAccount={() => onDeleteAccount(activeAccountId)}
             onOpenInfoPage={onOpenInfoPage}
           />
         )}

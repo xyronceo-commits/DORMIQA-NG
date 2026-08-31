@@ -16,6 +16,7 @@ import {
 import { User, UserRole } from '../types';
 import { resendVerificationEmail, checkEmailVerified, saveUserToFirestore, auth } from '../services/firebase';
 import { EmailVerificationCard } from './EmailVerificationCard';
+import { DeleteAccountModal } from './DeleteAccountModal';
 
 interface AccountManagerProps {
   accounts: User[];
@@ -92,14 +93,21 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
             </div>
           </div>
 
-          {/* Sign Out Button */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Sign Out & Delete Account Buttons */}
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               onClick={onSignOut}
-              className="flex-1 sm:flex-none px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-neutral-800 dark:text-slate-200 font-extrabold text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 border border-neutral-200 dark:border-slate-700 cursor-pointer"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 text-neutral-600 dark:text-slate-300" />
               Sign Out
+            </button>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-2xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Account
             </button>
           </div>
         </div>
@@ -229,42 +237,13 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
       </div>
 
       {/* CONFIRM DELETE ACCOUNT MODAL */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 border border-rose-200 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3 text-rose-600">
-              <div className="w-10 h-10 rounded-2xl bg-rose-100 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-extrabold text-base text-slate-900">Delete Account Confirmation</h3>
-                <p className="text-xs text-rose-600 font-semibold">This action cannot be undone</p>
-              </div>
-            </div>
-
-            <p className="text-xs text-neutral-600 leading-relaxed bg-neutral-50 p-3 rounded-2xl border border-neutral-200">
-              Are you sure you want to delete your account (<strong className="text-neutral-900">{activeAccount?.email}</strong>)? 
-              You will be signed out immediately.
-            </p>
-
-            <div className="flex gap-2 pt-2">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-2.5 bg-neutral-100 text-neutral-700 font-bold text-xs rounded-xl hover:bg-neutral-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDeleteAccount}
-                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5"
-              >
-                <Trash2 className="w-4 h-4" />
-                Yes, Delete Account
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteAccountModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirmDelete={confirmDeleteAccount}
+        userEmail={activeAccount?.email}
+        userName={activeAccount?.name}
+      />
 
     </div>
   );

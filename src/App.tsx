@@ -76,6 +76,7 @@ import {
   auth, 
   saveUserToFirestore, 
   logoutFirebase, 
+  deleteUserAccountData,
   fetchUserProfileFromFirestore, 
   resendVerificationEmail, 
   db,
@@ -625,14 +626,28 @@ export default function App() {
     setActiveView('landing');
   };
 
-  const handleDeleteAccount = async (accountId: string) => {
+  const handleDeleteAccount = async (accountId?: string) => {
+    const targetId = accountId || activeAccountId || auth.currentUser?.uid || '';
+    const accToDelete = accounts.find(a => a.id === targetId || a.uid === targetId);
+
+    // 1. Wipe database records from Firebase
+    try {
+      if (targetId) {
+        await deleteUserAccountData(targetId);
+      }
+    } catch (err) {
+      console.warn("Error wiping Firebase user data during account deletion:", err);
+    }
+
+    // 2. Logout from Firebase Auth
     try {
       await logoutFirebase();
     } catch (err) {
       console.warn("Firebase signout on delete error:", err);
     }
-    const accToDelete = accounts.find(a => a.id === accountId);
-    const remaining = accounts.filter(a => a.id !== accountId);
+
+    // 3. Clear local storage & active state
+    const remaining = accounts.filter(a => a.id !== targetId && a.uid !== targetId);
 
     setIsLoggedIn(false);
     setSavedIds([]);
@@ -648,7 +663,7 @@ export default function App() {
       setActiveAccountId('');
       setCurrentRole('student');
       setActiveView('landing');
-      setToastNotice(`Account deleted. Returned to home screen.`);
+      setToastNotice(`Account and all Firebase data deleted permanently.`);
       setTimeout(() => setToastNotice(null), 4000);
       return;
     }
@@ -657,7 +672,7 @@ export default function App() {
     setActiveAccountId(remaining[0].id);
     setCurrentRole(remaining[0].role);
     setActiveView('landing');
-    setToastNotice(`Permanently deleted account for ${accToDelete?.name || 'user'}`);
+    setToastNotice(`Permanently deleted account and database records for ${accToDelete?.name || 'user'}`);
     setTimeout(() => setToastNotice(null), 4000);
   };
 
@@ -1102,6 +1117,7 @@ export default function App() {
         {activeView === 'business-verification' && (
           <BusinessVerificationPage
             agentData={accounts.find(a => a.id === activeAccountId) || pendingAgentRegistration}
+            universities={universities}
             onCompleteVerification={({ licenseNumber, avatarUrl }) => {
               const currentId = activeAccountId || pendingAgentRegistration?.id;
               if (currentId) {
@@ -1193,6 +1209,7 @@ export default function App() {
             inspectionsCount={inspections.length}
             onNavigateView={(view) => navigateView(view)}
             onSignOut={handleSignOut}
+            onDeleteAccount={() => handleDeleteAccount(activeAccountId)}
             onGoBack={() => navigateView('search')}
           />
         )}
@@ -1240,6 +1257,7 @@ export default function App() {
                 <VerificationStatusPage
                   agentData={currentAccount || pendingAgentRegistration}
                   onSignOut={handleSignOut}
+                  onDeleteAccount={() => handleDeleteAccount(activeAccountId)}
                   onApproved={() => {
                     const currentId = activeAccountId || pendingAgentRegistration?.id;
                     if (currentId) {
@@ -1257,6 +1275,7 @@ export default function App() {
             return (
               <BusinessVerificationPage
                 agentData={currentAccount || pendingAgentRegistration}
+                universities={universities}
                 onCompleteVerification={({ licenseNumber, avatarUrl }) => {
                   const currentId = activeAccountId || pendingAgentRegistration?.id;
                   if (currentId) {
@@ -1278,6 +1297,7 @@ export default function App() {
                   setTimeout(() => setToastNotice(null), 4000);
                 }}
                 onSignOut={handleSignOut}
+                onDeleteAccount={() => handleDeleteAccount(activeAccountId)}
               />
             );
           }

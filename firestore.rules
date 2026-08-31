@@ -43,22 +43,17 @@ service cloud.firestore {
 
     // USERS COLLECTION
     match /users/{userId} {
-      allow read: if true;
-      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow read, write: if true;
     }
 
     // STUDENTS COLLECTION
     match /students/{studentId} {
-      allow read: if true;
-      allow create, update: if isSignedIn() && (request.auth.uid == studentId || isAdmin());
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
     // AGENTS COLLECTION
     match /agents/{agentId} {
-      allow read: if true;
-      allow create, update: if isSignedIn() && (request.auth.uid == agentId || isAdmin());
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
     // UNIVERSITIES COLLECTION
