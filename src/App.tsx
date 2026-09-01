@@ -88,15 +88,19 @@ import {
   setAdminSessionTimestamp,
   clearAdminSessionTimestamp,
   checkAdminSessionValid,
-  ADMIN_SESSION_DURATION_MS
+  ADMIN_SESSION_DURATION_MS,
+  setUserSessionTimestamp,
+  clearUserSessionTimestamp,
+  checkUserSessionValid
 } from './services/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, onSnapshot, collection } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 
 export default function App() {
   const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities'>('landing');
   const [selectedComingSoonUniId, setSelectedComingSoonUniId] = useState<string>('unilag');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isAuthInitializing, setIsAuthInitializing] = useState<boolean>(true);
 
   const [adminAuthStatus, setAdminAuthStatus] = useState<'AUTH_LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED' | 'ADMIN_CHECKING' | 'AUTHORIZED' | 'UNAUTHORIZED' | 'SESSION_EXPIRED' | 'SIGNED_OUT'>('AUTH_LOADING');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
@@ -110,7 +114,7 @@ export default function App() {
 
   // Periodic 12-hour session expiration watcher
   useEffect(() => {
-    const verifyAdminSessionExpiry = () => {
+    const verifySessionExpiry = () => {
       if (isAdminAuthenticated && auth.currentUser) {
         const uid = auth.currentUser.uid;
         const valid = checkAdminSessionValid(uid);
@@ -125,17 +129,32 @@ export default function App() {
           setToastNotice('Your 12-hour administrator session has expired. Please sign in with Google again.');
           setTimeout(() => setToastNotice(null), 5000);
         }
+      } else if (isLoggedIn && auth.currentUser) {
+        const uid = auth.currentUser.uid;
+        const valid = checkUserSessionValid(uid);
+        if (!valid) {
+          console.warn(`User 12-hour session expired for ${auth.currentUser.email}`);
+          clearUserSessionTimestamp(uid);
+          signOut(auth).catch(() => {});
+          setIsLoggedIn(false);
+          setAccounts([]);
+          setActiveAccountId('');
+          setActiveView('landing');
+          pushViewUrl('landing');
+          setToastNotice('Your 12-hour session has expired. Please sign in again.');
+          setTimeout(() => setToastNotice(null), 5000);
+        }
       }
     };
 
-    const interval = setInterval(verifyAdminSessionExpiry, 60000); // check every 60s
-    window.addEventListener('focus', verifyAdminSessionExpiry);
+    const interval = setInterval(verifySessionExpiry, 60000); // check every 60s
+    window.addEventListener('focus', verifySessionExpiry);
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener('focus', verifyAdminSessionExpiry);
+      window.removeEventListener('focus', verifySessionExpiry);
     };
-  }, [isAdminAuthenticated]);
+  }, [isAdminAuthenticated, isLoggedIn]);
 
   const handleAdminGoogleSignIn = async () => {
     setAdminAuthStatus('ADMIN_CHECKING');
@@ -287,7 +306,15 @@ export default function App() {
 
   // Firebase Auth State Listener & User Profile Sync
   useEffect(() => {
+    let unsubscribeUserDoc: (() => void) | null = null;
+    let unsubscribeConvsDoc: (() => void) | null = null;
+    let unsubscribeInspDoc: (() => void) | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      if (unsubscribeUserDoc) { unsubscribeUserDoc(); unsubscribeUserDoc = null; }
+      if (unsubscribeConvsDoc) { unsubscribeConvsDoc(); unsubscribeConvsDoc = null; }
+      if (unsubscribeInspDoc) { unsubscribeInspDoc(); unsubscribeInspDoc = null; }
+
       if (!fbUser) {
         setIsLoggedIn(false);
         setAccounts([]);
@@ -299,6 +326,7 @@ export default function App() {
         localStorage.removeItem('dormiqa_admin_email');
         setIsAdminAuthenticated(false);
         setAdminAuthStatus('UNAUTHENTICATED');
+        setIsAuthInitializing(false);
         return;
       }
 
@@ -310,6 +338,23 @@ export default function App() {
 
       const uid = fbUser.uid;
       const email = fbUser.email?.toLowerCase() || '';
+
+      // Check 12-hour session validity for student/user
+      if (!checkUserSessionValid(uid)) {
+        console.warn(`12-hour user session expired for ${email}`);
+        clearUserSessionTimestamp(uid);
+        await signOut(auth);
+        setIsLoggedIn(false);
+        setAccounts([]);
+        setActiveAccountId('');
+        setIsAdminAuthenticated(false);
+        setAdminAuthStatus('UNAUTHENTICATED');
+        setIsAuthInitializing(false);
+        setToastNotice('Your 12-hour session has expired. Please sign in again.');
+        setTimeout(() => setToastNotice(null), 5000);
+        return;
+      }
+      setUserSessionTimestamp(uid);
 
       // Check Admin authorization from Firestore & 12-hour session validity
       if (email) {
@@ -385,7 +430,7 @@ export default function App() {
 
       // Real-Time Listener on User Document in Firestore
       const userDocRef = doc(db, 'users', uid);
-      const unsubscribeUserDoc = onSnapshot(userDocRef, (docSnap) => {
+      unsubscribeUserDoc = onSnapshot(userDocRef, (docSnap) => {
         if (docSnap.exists()) {
           const liveData = docSnap.data();
           const liveStatus = liveData.businessVerificationStatus || (liveData.isVerifiedAgent ? 'approved' : 'none');
@@ -418,6 +463,41 @@ export default function App() {
           }
         }
       }, (err) => console.warn('User doc snapshot error:', err));
+
+      // Real-Time Listener on Conversations for this user
+      try {
+        const convsCol = collection(db, 'conversations');
+        const fieldToQuery = userAccount.role === 'agent' ? 'agentId' : 'studentId';
+        const qConv = query(convsCol, where(fieldToQuery, '==', uid));
+        unsubscribeConvsDoc = onSnapshot(qConv, (snap) => {
+          const liveConvs: Conversation[] = snap.docs.map(d => ({
+            id: d.id,
+            ...d.data()
+          } as Conversation));
+          setConversations(liveConvs);
+        }, (err) => console.warn('Real-time conversations snapshot error:', err));
+      } catch (e) {
+        console.warn('Could not subscribe to conversations:', e);
+      }
+
+      // Real-Time Listener on Inspections for this user
+      try {
+        const inspCol = collection(db, 'inspections');
+        const fieldToQuery = userAccount.role === 'agent' ? 'agentId' : 'studentId';
+        const qInsp = query(inspCol, where(fieldToQuery, '==', uid));
+        unsubscribeInspDoc = onSnapshot(qInsp, (snap) => {
+          const liveInsp: Inspection[] = snap.docs.map(d => ({
+            id: d.id,
+            ...d.data()
+          } as Inspection));
+          setInspections(liveInsp);
+        }, (err) => console.warn('Real-time inspections snapshot error:', err));
+      } catch (e) {
+        console.warn('Could not subscribe to inspections:', e);
+      }
+
+      // Hydration completed
+      setIsAuthInitializing(false);
 
       // Authenticated user auto-route: ensure signed in or newly registered users go straight to their dashboard
       const initialRoute = parseRouteFromUrl();
@@ -482,6 +562,9 @@ export default function App() {
     window.addEventListener('focus', handleFocus);
 
     return () => {
+      if (unsubscribeUserDoc) unsubscribeUserDoc();
+      if (unsubscribeConvsDoc) unsubscribeConvsDoc();
+      if (unsubscribeInspDoc) unsubscribeInspDoc();
       unsubscribe();
       window.removeEventListener('focus', handleFocus);
     };
@@ -926,7 +1009,23 @@ export default function App() {
       return 0;
     });
 
+  const unreadMessageCount = conversations.reduce((total, conv) => total + (conv.unreadCount || 0), 0);
   const savedListings = listings.filter(l => savedIds.includes(l.id));
+
+  if (isAuthInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+            <Loader2 className="w-6 h-6 animate-spin text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <p className="text-xs font-extrabold tracking-tight text-neutral-500 dark:text-neutral-400">
+            Connecting to Dormiqa...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-black text-black dark:text-white font-sans selection:bg-emerald-500 selection:text-white transition-colors duration-200">
@@ -941,7 +1040,7 @@ export default function App() {
           setCurrentRole={setCurrentRole}
           isLoggedIn={isLoggedIn}
           savedCount={savedIds.length}
-          unreadCount={conversations.length}
+          unreadCount={unreadMessageCount}
           notificationUnreadCount={notifications.filter(n => !n.read).length}
           onOpenNotifications={() => setIsNotificationCenterOpen(true)}
           universities={universities}
@@ -1278,7 +1377,7 @@ export default function App() {
             activeView={activeView}
             onNavigate={(view) => navigateView(view)}
             savedCount={savedIds.length}
-            unreadCount={conversations.length}
+            unreadCount={unreadMessageCount}
           />
         )}
 

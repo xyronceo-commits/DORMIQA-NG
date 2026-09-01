@@ -52,34 +52,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   onDeleteAccount
 }) => {
   const [internalTab, setInternalTab] = useState<'inspections' | 'saved' | 'chats' | 'profile'>(activeTab);
-  const [localInspections, setLocalInspections] = useState<Inspection[]>(inspections);
-  const [localConversations, setLocalConversations] = useState<Conversation[]>(conversations);
-
-  // Real-time polling for student inspections & messages
-  React.useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const [freshInsps, freshConvs] = await Promise.all([
-          fetchInspections({ studentId: activeAccountId }),
-          fetchConversations(activeAccountId)
-        ]);
-        setLocalInspections(freshInsps);
-        setLocalConversations(freshConvs);
-      } catch (err) {
-        console.error('Real-time student sync error:', err);
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [activeAccountId]);
-
-  React.useEffect(() => {
-    setLocalInspections(inspections);
-  }, [inspections]);
-
-  React.useEffect(() => {
-    setLocalConversations(conversations);
-  }, [conversations]);
 
   const currentTab = activeTab || internalTab;
 
@@ -181,12 +153,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       {/* Tab 1: Inspections / Requests */}
       {currentTab === 'inspections' && (
         <div className="space-y-4">
-          {localInspections.length === 0 ? (
+          {inspections.length === 0 ? (
             <div className="p-8 text-center bg-white rounded-2xl border border-neutral-200 text-neutral-500 text-xs">
               No inspections booked yet. Browse housing and click "Book Free Inspection".
             </div>
           ) : (
-            localInspections.map((insp) => (
+            inspections.map((insp) => (
               <div
                 key={insp.id}
                 className="bg-white p-5 rounded-2xl border border-neutral-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
@@ -319,12 +291,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       {/* Tab 3: Agent Messages */}
       {currentTab === 'chats' && (
         <div className="space-y-3">
-          {localConversations.length === 0 ? (
+          {conversations.length === 0 ? (
             <div className="p-8 text-center bg-white rounded-2xl border border-neutral-200 text-neutral-500 text-xs">
               No chat conversations started yet. Click "Chat Agent" on any property listing to start messaging.
             </div>
           ) : (
-            localConversations.map((conv) => (
+            conversations.map((conv) => (
               <div
                 key={conv.id}
                 onClick={() => onOpenChat(conv)}

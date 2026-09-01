@@ -69,11 +69,13 @@ export const InfoPagesModal: React.FC<InfoPagesModalProps> = ({
     }
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     try {
-      navigator.clipboard.writeText(window.location.origin + '?doc=' + activeDocId);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 3000);
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(window.location.origin + '?doc=' + activeDocId);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 3000);
+      }
     } catch {
       // Fallback
     }

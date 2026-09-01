@@ -3,6 +3,8 @@ import { Send, X, ShieldCheck, UserCheck, MessageSquare, Building2, Clock, Check
 import { Conversation, ChatMessage, UserRole } from '../types';
 import { fetchMessages, sendMessage } from '../services/api';
 import { sendNotification } from '../services/notificationService';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
 
 interface ChatDrawerProps {
   conversation: Conversation | null;
@@ -22,34 +24,39 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const loadMessages = async () => {
-    if (!conversation) return;
-    setLoading(true);
-    try {
-      const data = await fetchMessages(conversation.id);
-      setMessages(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     if (!conversation) return;
-    loadMessages().catch(err => console.warn("Failed to load initial messages:", err));
 
-    // Real-time polling every 2.5s for instant message updates
-    const interval = setInterval(() => {
-      fetchMessages(conversation.id).then(data => {
-        setMessages(prev => {
-          if (data.length !== prev.length) return data;
-          return prev;
-        });
-      }).catch(console.error);
-    }, 2500);
+    // Reset unread message counter when conversation is opened
+    try {
+      updateDoc(doc(db, 'conversations', conversation.id), { unreadCount: 0 }).catch(() => {});
+    } catch (e) {}
 
-    return () => clearInterval(interval);
+    setLoading(true);
+
+    // Initial fallback fetch
+    fetchMessages(conversation.id)
+      .then(data => setMessages(data))
+      .catch(console.warn)
+      .finally(() => setLoading(false));
+
+    // Real-time Firestore snapshot listener for messages
+    const msgsRef = collection(db, 'conversations', conversation.id, 'messages');
+    const qMsgs = query(msgsRef, orderBy('createdAt', 'asc'));
+
+    const unsubscribe = onSnapshot(qMsgs, (snap) => {
+      const liveMsgs: ChatMessage[] = snap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      } as ChatMessage));
+      if (liveMsgs.length > 0) {
+        setMessages(liveMsgs);
+      }
+    }, (err) => {
+      console.warn('Real-time messages listener error:', err);
+    });
+
+    return () => unsubscribe();
   }, [conversation?.id]);
 
   const handleSend = async (e: React.FormEvent) => {

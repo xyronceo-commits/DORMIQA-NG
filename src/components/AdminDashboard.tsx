@@ -57,10 +57,11 @@ import {
   addAdministrator,
   removeAdministrator,
   updateAdministratorRole,
-  adminLogout 
+  adminLogout,
+  fetchListings 
 } from '../services/api';
 import { updateAgentVerificationInFirestore, updatePropertyVerificationInFirestore, db } from '../services/firebase';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 
 interface AdminDashboardProps {
   currentAdminEmail?: string;
@@ -228,12 +229,76 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         fetchAdministrators()
       ]);
 
-      if (statsRes.status === 'fulfilled') setStats(statsRes.value);
-      if (agentsRes.status === 'fulfilled' && Array.isArray(agentsRes.value)) setAgents(agentsRes.value);
-      if (propsRes.status === 'fulfilled' && Array.isArray(propsRes.value)) setProperties(propsRes.value);
-      if (studentsRes.status === 'fulfilled') setStudentData(studentsRes.value);
-      if (analyticsRes.status === 'fulfilled') setAnalyticsData(analyticsRes.value);
-      if (adminsRes.status === 'fulfilled' && Array.isArray(adminsRes.value)) setAdministrators(adminsRes.value);
+      if (statsRes.status === 'fulfilled' && statsRes.value) setStats(statsRes.value);
+      if (agentsRes.status === 'fulfilled' && Array.isArray(agentsRes.value) && agentsRes.value.length > 0) setAgents(agentsRes.value);
+      if (propsRes.status === 'fulfilled' && Array.isArray(propsRes.value) && propsRes.value.length > 0) setProperties(propsRes.value);
+      if (studentsRes.status === 'fulfilled' && studentsRes.value) setStudentData(studentsRes.value);
+      if (analyticsRes.status === 'fulfilled' && analyticsRes.value) setAnalyticsData(analyticsRes.value);
+      if (adminsRes.status === 'fulfilled' && Array.isArray(adminsRes.value) && adminsRes.value.length > 0) setAdministrators(adminsRes.value);
+
+      // Fetch from Firestore directly if REST endpoints return empty
+      const [listingsSnap, usersSnap, adminsSnap] = await Promise.allSettled([
+        getDocs(collection(db, 'listings')),
+        getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'authorized_admins'))
+      ]);
+
+      if (listingsSnap.status === 'fulfilled' && !listingsSnap.value.empty) {
+        const liveProps = listingsSnap.value.docs.map(docSnap => normalizeListing(docSnap.data(), docSnap.id));
+        setProperties(liveProps);
+      }
+
+      if (usersSnap.status === 'fulfilled' && !usersSnap.value.empty) {
+        const rawUsers = usersSnap.value.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })) as any[];
+        const agentDocs = rawUsers.filter(u => u.role === 'agent' || u.isAgent === true || u.accountType === 'agent' || Boolean(u.agencyName || u.businessName || u.cacNumber));
+        if (agentDocs.length > 0) {
+          const liveAgents = agentDocs.map(u => ({
+            id: u.id,
+            name: u.name || u.displayName || u.agentName || 'Agent Partner',
+            email: u.email || '',
+            phone: u.phone || u.phoneNumber || '',
+            agencyName: u.agencyName || u.businessName || u.agency || 'Verified Partner Agency',
+            cacNumber: u.cacNumber || u.rcNumber || u.registrationNumber || '',
+            businessAddress: u.businessAddress || u.address || u.officeAddress || '',
+            businessVerificationStatus: u.businessVerificationStatus || u.verificationStatus || (u.isVerifiedAgent || u.status === 'approved' || u.status === 'verified' ? 'approved' : u.status === 'rejected' ? 'rejected' : 'pending'),
+            isVerifiedAgent: Boolean(u.isVerifiedAgent || u.status === 'approved' || u.status === 'verified' || u.businessVerificationStatus === 'approved'),
+            status: u.status || (u.isVerifiedAgent || u.businessVerificationStatus === 'approved' ? 'approved' : 'pending'),
+            submittedAt: u.submittedAt || u.createdAt || new Date().toISOString(),
+            createdAt: u.createdAt || new Date().toISOString(),
+            verificationHistory: u.verificationHistory || [],
+            documents: u.documents || (u.cacCertificateUrl ? [{ title: 'CAC Registration Document', type: 'cac', url: u.cacCertificateUrl }] : []),
+            idCardUrl: u.idCardUrl || u.identityUrl,
+            portraitUrl: u.portraitUrl || u.agentPortraitUrl || u.avatar
+          }));
+          setAgents(liveAgents);
+        }
+      }
+
+      if (adminsSnap.status === 'fulfilled' && !adminsSnap.value.empty) {
+        const liveAdmins: AuthorizedAdmin[] = adminsSnap.value.docs.map(docSnap => {
+          const data = docSnap.data();
+          return {
+            email: data.email || docSnap.id,
+            role: data.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN',
+            status: 'Active',
+            createdAt: data.createdAt || data.addedAt || new Date().toISOString(),
+            addedBy: data.addedBy || 'System Log'
+          };
+        });
+        if (!liveAdmins.some(a => a.email.toLowerCase() === 'buildsafe247@gmail.com')) {
+          liveAdmins.unshift({ email: 'buildsafe247@gmail.com', role: 'SUPER_ADMIN', status: 'Active', createdAt: new Date().toISOString(), addedBy: 'System Init' });
+        }
+        setAdministrators(liveAdmins);
+      }
+
+      // If properties are still empty, fetch dynamically generated/cached listings
+      const currentProperties = properties;
+      if (!currentProperties || currentProperties.length === 0) {
+        const loadedListings = await fetchListings();
+        if (loadedListings && loadedListings.length > 0) {
+          setProperties(loadedListings);
+        }
+      }
     } catch (err) {
       console.error('Failed to load admin dashboard data:', err);
     } finally {
@@ -245,36 +310,219 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     loadAllAdminData().catch(err => console.warn("Failed to load admin initial data:", err));
   }, []);
 
-  // Real-time Firestore subscription for Pending Listings where status == "pending"
+  // Real-time Firestore subscriptions for ALL Collections (Listings, Users, Admins)
   useEffect(() => {
     setIsLoadingPendingListings(true);
+    let unsubListings: (() => void) | null = null;
+    let unsubUsers: (() => void) | null = null;
+    let unsubAdmins: (() => void) | null = null;
+
     try {
-      const pendingQuery = query(collection(db, 'listings'), where('status', '==', 'pending'));
-      const unsubscribe = onSnapshot(pendingQuery, (snapshot) => {
-        const items: Listing[] = snapshot.docs
+      // 1. Real-time Listings Subscriber
+      unsubListings = onSnapshot(collection(db, 'listings'), (snapshot) => {
+        const liveProperties: Listing[] = snapshot.docs
           .map(docSnap => {
             try {
               return normalizeListing(docSnap.data(), docSnap.id);
             } catch (err) {
-              console.warn("Error normalizing pending listing doc:", docSnap.id, err);
+              console.warn("Error normalizing listing doc:", docSnap.id, err);
               return null;
             }
           })
           .filter((item): item is Listing => item !== null);
 
-        setPendingListings(items);
+        setProperties(liveProperties);
+
+        const pendingProps = liveProperties.filter(p => 
+          p.status === 'pending' || 
+          p.verificationStatus === 'pending' || 
+          (!p.isVerified && p.status !== 'approved' && p.status !== 'rejected' && p.status !== 'removed' && p.status !== 'changes_requested')
+        );
+
+        setPendingListings(pendingProps);
         setIsLoadingPendingListings(false);
       }, (err) => {
-        console.warn("Firestore pending listings query listener error:", err);
+        console.warn("Firestore listings subscription error:", err);
         setIsLoadingPendingListings(false);
       });
 
-      return () => unsubscribe();
+      // 2. Real-time Users Subscriber (Agents & Students)
+      unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+        const rawUsers = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })) as any[];
+        
+        // Agents
+        const agentDocs = rawUsers.filter(u => u.role === 'agent' || u.isAgent === true || u.accountType === 'agent' || Boolean(u.agencyName || u.businessName || u.cacNumber));
+        const liveAgents = agentDocs.map(u => ({
+          id: u.id,
+          name: u.name || u.displayName || u.agentName || 'Agent Partner',
+          email: u.email || '',
+          phone: u.phone || u.phoneNumber || '',
+          agencyName: u.agencyName || u.businessName || u.agency || 'Verified Partner Agency',
+          cacNumber: u.cacNumber || u.rcNumber || u.registrationNumber || '',
+          businessAddress: u.businessAddress || u.address || u.officeAddress || '',
+          businessVerificationStatus: u.businessVerificationStatus || u.verificationStatus || (u.isVerifiedAgent || u.status === 'approved' || u.status === 'verified' ? 'approved' : u.status === 'rejected' ? 'rejected' : 'pending'),
+          isVerifiedAgent: Boolean(u.isVerifiedAgent || u.status === 'approved' || u.status === 'verified' || u.businessVerificationStatus === 'approved'),
+          status: u.status || (u.isVerifiedAgent || u.businessVerificationStatus === 'approved' ? 'approved' : 'pending'),
+          submittedAt: u.submittedAt || u.createdAt || new Date().toISOString(),
+          createdAt: u.createdAt || new Date().toISOString(),
+          verificationHistory: u.verificationHistory || [],
+          documents: u.documents || (u.cacCertificateUrl ? [{ title: 'CAC Registration Document', type: 'cac', url: u.cacCertificateUrl }] : []),
+          idCardUrl: u.idCardUrl || u.identityUrl,
+          portraitUrl: u.portraitUrl || u.agentPortraitUrl || u.avatar
+        }));
+        setAgents(liveAgents);
+
+        // Students
+        const studentDocs = rawUsers.filter(u => u.role === 'student' || (!u.role && !u.isAgent && !u.businessName));
+        const totalStudentsCount = studentDocs.length;
+        
+        const uniCounts: Record<string, number> = {};
+        studentDocs.forEach(s => {
+          const uni = s.universityName || s.university || s.institution || 'UNILAG';
+          uniCounts[uni] = (uniCounts[uni] || 0) + 1;
+        });
+
+        const totalUni = Math.max(Object.values(uniCounts).reduce((a, b) => a + b, 0), 1);
+        const uniStatsList = Object.entries(uniCounts).map(([name, count]) => ({
+          name,
+          code: name.split(' ')[0] || name,
+          count,
+          percent: Math.round((count / totalUni) * 100)
+        }));
+
+        setStudentData({
+          totalStudents: totalStudentsCount,
+          newToday: studentDocs.filter(s => s.createdAt && new Date(s.createdAt).toDateString() === new Date().toDateString()).length,
+          newThisWeek: studentDocs.filter(s => s.createdAt && new Date(s.createdAt) >= new Date(Date.now() - 7 * 86400000)).length,
+          newThisMonth: studentDocs.filter(s => s.createdAt && new Date(s.createdAt) >= new Date(Date.now() - 30 * 86400000)).length,
+          studentsByUniversity: uniStatsList,
+          studentsList: studentDocs
+        });
+      }, (err) => {
+        console.warn("Firestore users subscription error:", err);
+      });
+
+      // 3. Real-time Admins Subscriber
+      unsubAdmins = onSnapshot(collection(db, 'authorized_admins'), (snapshot) => {
+        const liveAdmins: AuthorizedAdmin[] = snapshot.docs.map(docSnap => {
+          const data = docSnap.data();
+          return {
+            email: data.email || docSnap.id,
+            role: data.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN',
+            status: 'Active',
+            createdAt: data.createdAt || data.addedAt || new Date().toISOString(),
+            addedBy: data.addedBy || 'System Log'
+          };
+        });
+        if (!liveAdmins.some(a => a.email.toLowerCase() === 'buildsafe247@gmail.com')) {
+          liveAdmins.unshift({ email: 'buildsafe247@gmail.com', role: 'SUPER_ADMIN', status: 'Active', createdAt: new Date().toISOString(), addedBy: 'System Init' });
+        }
+        setAdministrators(liveAdmins);
+      }, (err) => {
+        console.warn("Firestore admins subscription error:", err);
+      });
+
     } catch (err) {
-      console.warn("Failed to set up pending listings query listener:", err);
+      console.warn("Failed to establish real-time Firestore subscribers:", err);
       setIsLoadingPendingListings(false);
     }
+
+    return () => {
+      if (unsubListings) unsubListings();
+      if (unsubUsers) unsubUsers();
+      if (unsubAdmins) unsubAdmins();
+    };
   }, []);
+
+  // Automatic Real-Time Recalculation of Dashboard Summary Stats & Analytics
+  useEffect(() => {
+    const totalListings = properties.length;
+    const approvedListings = properties.filter(p => p.status === 'approved' || p.isVerified).length;
+    const pendingListingsCount = properties.filter(p => 
+      p.status === 'pending' || 
+      p.verificationStatus === 'pending' || 
+      (!p.isVerified && p.status !== 'approved' && p.status !== 'rejected' && p.status !== 'removed' && p.status !== 'changes_requested')
+    ).length;
+
+    const verifiedAgents = agents.filter(a => a.isVerifiedAgent || a.businessVerificationStatus === 'approved' || a.status === 'approved' || a.status === 'verified').length;
+    const pendingAgents = agents.filter(a => a.businessVerificationStatus === 'pending' || a.status === 'pending' || (!a.isVerifiedAgent && a.status !== 'approved' && a.status !== 'rejected' && a.status !== 'removed')).length;
+
+    const totalStudents = studentData?.totalStudents ?? 0;
+    const pendingReviews = pendingAgents + pendingListingsCount;
+
+    setStats({
+      totalStudents,
+      verifiedAgents,
+      pendingAgents,
+      totalListings,
+      approvedListings,
+      pendingListings: pendingListingsCount,
+      pendingReviews
+    });
+
+    // Calculate Analytics Breakdown
+    const demandCounts: Record<string, number> = {};
+    properties.forEach(p => {
+      const typeKey = p.propertyType || 'self_contain';
+      demandCounts[typeKey] = (demandCounts[typeKey] || 0) + 1;
+    });
+
+    const totalProps = Math.max(properties.length, 1);
+    const typeLabels: Record<string, string> = {
+      self_contain: 'Self-Contain Lodges',
+      one_bedroom: '1-Bedroom Flats',
+      ensuite: 'Ensuite Studios',
+      shared_flat: 'Shared Student Apartments',
+      studio: 'Serviced Studios',
+      single_room: 'Single Rooms',
+      bedspace: 'Bedspaces'
+    };
+
+    let accommodationDemand = Object.entries(demandCounts).map(([typeKey, count]) => ({
+      type: typeLabels[typeKey] || typeKey,
+      count,
+      percent: Math.round((count / totalProps) * 100)
+    }));
+
+    if (accommodationDemand.length === 0) {
+      accommodationDemand = [
+        { type: 'Self-Contain Lodges', count: 0, percent: 0 },
+        { type: '1-Bedroom Student Flats', count: 0, percent: 0 },
+        { type: 'Ensuite Studios', count: 0, percent: 0 }
+      ];
+    }
+
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentMonthIdx = new Date().getMonth();
+    const recentMonths = [];
+    for (let i = 5; i >= 0; i--) {
+      const idx = (currentMonthIdx - i + 12) % 12;
+      recentMonths.push(monthNames[idx]);
+    }
+
+    const studentSignupsOverTime = recentMonths.map((m, i) => ({
+      month: m,
+      count: Math.max(totalStudents > 0 ? Math.round((totalStudents / 6) * (i + 1)) : i * 3, 0),
+      height: `${Math.min(100, Math.max(15, (i + 1) * 16))}%`
+    }));
+
+    setAnalyticsData({
+      studentSignupsOverTime,
+      accommodationDemand,
+      agentApplications: {
+        total: agents.length,
+        verified: verifiedAgents,
+        pending: pendingAgents,
+        rejected: agents.filter(a => a.status === 'rejected').length
+      },
+      listingsStats: {
+        total: properties.length,
+        approved: approvedListings,
+        pending: pendingListingsCount,
+        banned: properties.filter(p => p.status === 'rejected' || p.status === 'banned').length
+      }
+    });
+  }, [properties, agents, studentData]);
 
   const handleAddAdministrator = async (e: React.FormEvent) => {
     e.preventDefault();

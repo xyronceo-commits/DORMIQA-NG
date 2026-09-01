@@ -79,7 +79,7 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
       }
     };
 
-    handleIncomingActionCode();
+    handleIncomingActionCode().catch(err => console.warn("Action code check warning:", err));
 
     return () => {
       isMounted = false;
@@ -110,7 +110,7 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
       }
     };
 
-    checkInitialState();
+    checkInitialState().catch(err => console.warn("Initial verification check warning:", err));
 
     const intervalId = setInterval(async () => {
       if (!isMounted || isVerified) return;

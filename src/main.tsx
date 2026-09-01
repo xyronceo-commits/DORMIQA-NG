@@ -8,11 +8,13 @@ import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 // Global Unhandled Rejection & Runtime Error Handler
 if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', (event) => {
-    console.error('[Global Unhandled Promise Rejection]:', event.reason);
+    console.warn('[Global Unhandled Promise Rejection caught]:', event.reason);
+    // Prevent default browser behavior for non-fatal background promise rejections
+    event.preventDefault();
   });
 
   window.addEventListener('error', (event) => {
-    console.error('[Global Unhandled Runtime Error]:', event.error || event.message);
+    console.warn('[Global Unhandled Runtime Error caught]:', event.error || event.message);
   });
 }
 

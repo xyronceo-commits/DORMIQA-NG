@@ -788,6 +788,51 @@ export const setAdminSessionTimestamp = (uid: string) => {
   }
 };
 
+export const USER_SESSION_DURATION_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+export const setUserSessionTimestamp = (uid: string) => {
+  try {
+    const payload = {
+      uid,
+      loginTime: Date.now(),
+      expiresAt: Date.now() + USER_SESSION_DURATION_MS
+    };
+    localStorage.setItem(`dormiqa_user_session_${uid}`, JSON.stringify(payload));
+  } catch (e) {
+    console.warn('Error setting user session timestamp:', e);
+  }
+};
+
+export const clearUserSessionTimestamp = (uid?: string) => {
+  try {
+    if (uid) {
+      localStorage.removeItem(`dormiqa_user_session_${uid}`);
+    } else {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('dormiqa_user_session_')) {
+          localStorage.removeItem(key);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Error clearing user session timestamp:', e);
+  }
+};
+
+export const checkUserSessionValid = (uid: string): boolean => {
+  try {
+    const raw = localStorage.getItem(`dormiqa_user_session_${uid}`);
+    if (!raw) return true;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.loginTime) return true;
+    const elapsed = Date.now() - Number(parsed.loginTime);
+    return elapsed >= 0 && elapsed < USER_SESSION_DURATION_MS;
+  } catch (e) {
+    return true;
+  }
+};
+
 export const clearAdminSessionTimestamp = (uid?: string) => {
   try {
     if (uid) {
