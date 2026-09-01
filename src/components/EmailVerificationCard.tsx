@@ -274,20 +274,12 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
           <div className={`p-4 rounded-2xl border text-xs flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1 ${
             noticeMessage.type === 'success'
               ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-300 font-bold'
-              : noticeMessage.type === 'warning'
-              ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-300 font-semibold'
-              : noticeMessage.type === 'info'
-              ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60 text-blue-900 dark:text-blue-300 font-semibold'
-              : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60 text-rose-900 dark:text-rose-300 font-semibold'
+              : 'bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 text-black dark:text-white font-semibold'
           }`}>
             {noticeMessage.type === 'success' ? (
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-            ) : noticeMessage.type === 'warning' ? (
-              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            ) : noticeMessage.type === 'info' ? (
-              <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
             ) : (
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <AlertCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             )}
             <span className="leading-relaxed">{noticeMessage.text}</span>
           </div>
@@ -360,29 +352,29 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
 
       {/* Spam Folder & Deliverability Guidance Box */}
       <div className="mt-6 pt-5 border-t border-neutral-200 dark:border-neutral-800 space-y-3">
-        <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-4 text-xs space-y-2">
-          <div className="flex items-center gap-2 text-amber-900 dark:text-amber-300 font-bold">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+        <div className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 text-xs space-y-2">
+          <div className="flex items-center gap-2 text-black dark:text-white font-bold">
+            <AlertCircle className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>Didn't receive the email in your primary inbox?</span>
           </div>
-          <p className="text-amber-800/90 dark:text-amber-400/90 text-[11px] leading-relaxed">
+          <p className="text-neutral-600 dark:text-neutral-400 text-[11px] leading-relaxed">
             Automated verification emails are sometimes routed to alternate folders by email providers.
           </p>
-          <ul className="space-y-1.5 pt-1 text-[11px] text-amber-900 dark:text-amber-300 font-medium">
+          <ul className="space-y-1.5 pt-1 text-[11px] text-neutral-700 dark:text-neutral-300 font-medium">
             <li className="flex items-start gap-1.5">
-              <span className="text-amber-600 font-bold">•</span>
+              <span className="text-emerald-600 font-bold">•</span>
               <span><strong>Check Spam / Junk Folder:</strong> Search for sender <em>Firebase / Dormiqa</em> or subject <em>Verify your email</em>.</span>
             </li>
             <li className="flex items-start gap-1.5">
-              <span className="text-amber-600 font-bold">•</span>
+              <span className="text-emerald-600 font-bold">•</span>
               <span><strong>Check Gmail Promotions Tab:</strong> Look under "Promotions", "Social", or "Updates" categories.</span>
             </li>
             <li className="flex items-start gap-1.5">
-              <span className="text-amber-600 font-bold">•</span>
+              <span className="text-emerald-600 font-bold">•</span>
               <span><strong>Mark as "Not Spam":</strong> If found in Spam, click "Report not spam" so links work properly.</span>
             </li>
             <li className="flex items-start gap-1.5">
-              <span className="text-amber-600 font-bold">•</span>
+              <span className="text-emerald-600 font-bold">•</span>
               <span><strong>Search All Mail:</strong> Enter <code>noreply</code> or <code>verify</code> in your email search bar.</span>
             </li>
           </ul>

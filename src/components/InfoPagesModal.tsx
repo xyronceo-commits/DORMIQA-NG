@@ -285,12 +285,12 @@ export const InfoPagesModal: React.FC<InfoPagesModalProps> = ({
             </div>
 
             {/* Important Notice Callout Box */}
-            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-900 text-xs sm:text-sm space-y-1.5">
-              <div className="flex items-center gap-2 font-bold text-amber-900">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <div className="p-4 rounded-xl bg-neutral-50 border border-neutral-300 text-black text-xs sm:text-sm space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-black">
+                <AlertTriangle className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>Intermediary Platform Notice</span>
               </div>
-              <p className="text-amber-800 leading-relaxed">
+              <p className="text-neutral-700 leading-relaxed">
                 Dormiqa is an independent technology venue connecting tertiary institution students directly with verified property hosts and caretakers. Dormiqa does not own, rent, manage, or process payments for accommodation. All rental agreements and payments are made directly between the student and the agent/landlord.
               </p>
             </div>

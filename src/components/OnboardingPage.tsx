@@ -574,8 +574,8 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           </div>
 
           {authError && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-rose-700 text-xs font-semibold">
-              <AlertCircle className="w-4 h-4 shrink-0" />
+            <div className="p-3 bg-black text-white border border-neutral-800 rounded-xl flex items-center gap-2 text-xs font-semibold">
+              <AlertCircle className="w-4 h-4 shrink-0 text-emerald-400" />
               <span>{authError}</span>
             </div>
           )}
@@ -668,14 +668,14 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
             {/* Coming Soon Notice */}
             {isComingSoon && selectedUniObj && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-3 animate-in fade-in">
+              <div className="p-4 bg-black text-white rounded-2xl space-y-3 animate-in fade-in">
                 <div className="flex items-start gap-2.5">
-                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <AlertCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="font-extrabold text-xs text-amber-900">
+                    <h4 className="font-extrabold text-xs text-white">
                       Dormiqa isn't available at this university yet.
                     </h4>
-                    <p className="text-xs text-amber-700 mt-0.5">
+                    <p className="text-xs text-neutral-300 mt-0.5">
                       We're expanding rapidly! Join our waitlist to get early access when we launch at {selectedUniObj.name}.
                     </p>
                   </div>
@@ -684,7 +684,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   href={`https://dormiqa-waitlist.vercel.app?university=${encodeURIComponent(selectedUniObj.shortName || selectedUniObj.code || selectedUniObj.name)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-xs"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-black font-extrabold text-xs rounded-xl transition-all shadow-xs"
                 >
                   <span>Join the waitlist →</span>
                 </a>
@@ -943,8 +943,8 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           </div>
 
           {authError && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-rose-700 text-xs font-medium mb-4">
-              <AlertCircle className="w-4 h-4 shrink-0" />
+            <div className="p-3 bg-black text-white rounded-xl flex items-center gap-2 text-xs font-medium mb-4 border border-neutral-800">
+              <AlertCircle className="w-4 h-4 shrink-0 text-emerald-400" />
               <span>{authError}</span>
             </div>
           )}

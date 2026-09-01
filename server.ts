@@ -322,7 +322,7 @@ let conversationsStore: Conversation[] = [];
 let messagesStore: ChatMessage[] = [];
 let reportsStore: Report[] = [];
 
-const CLEAN_UNIVERSITIES = UNIVERSITIES.map(u => ({ ...u, totalListings: 5 }));
+const CLEAN_UNIVERSITIES = UNIVERSITIES.map(u => ({ ...u, totalListings: 0 }));
 
 // In-memory Rate Limiter Store
 interface RateLimitBucket {

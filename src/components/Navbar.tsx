@@ -26,6 +26,7 @@ interface NavbarProps {
   setActiveView: (view: 'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash') => void;
   currentRole: UserRole;
   setCurrentRole: (role: UserRole) => void;
+  isLoggedIn?: boolean;
   savedCount: number;
   unreadCount: number;
   notificationUnreadCount?: number;
@@ -48,6 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveView,
   currentRole,
   setCurrentRole,
+  isLoggedIn = false,
   savedCount,
   unreadCount,
   notificationUnreadCount = 0,
@@ -83,6 +85,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               if (currentRole === 'agent') {
                 setActiveView('agent-dash');
                 if (onNavigateAgentTab) onNavigateAgentTab('availability');
+              } else if (isLoggedIn) {
+                setActiveView('search');
               } else {
                 setActiveView('landing');
               }
@@ -126,7 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       >
                         <span className="truncate">{uni.name}</span>
                         {uni.id !== 'uniosun' ? (
-                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 shrink-0 ml-1">
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-black text-white dark:bg-white dark:text-black shrink-0 ml-1">
                             Coming Soon
                           </span>
                         ) : (
@@ -177,7 +181,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                   }`}
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span>Hostels</span>
                 </button>
 
@@ -212,7 +216,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                   }`}
                 >
-                  <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span>Calendar</span>
                 </button>
               </>
@@ -242,10 +246,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                       : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                   }`}
                 >
-                  <Heart className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                  <Heart className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span>Saved</span>
                   {savedCount > 0 && (
-                    <span className="px-1.5 py-0.2 text-[10px] font-black rounded-md bg-rose-500 text-white">
+                    <span className="px-1.5 py-0.2 text-[10px] font-black rounded-md bg-emerald-600 text-white">
                       {savedCount}
                     </span>
                   )}
@@ -262,10 +266,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                       : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                   }`}
                 >
-                  <MessageSquare className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span>Messages</span>
                   {unreadCount > 0 && (
-                    <span className="px-1.5 py-0.2 text-[10px] font-black rounded-md bg-blue-600 text-white">
+                    <span className="px-1.5 py-0.2 text-[10px] font-black rounded-md bg-emerald-600 text-white">
                       {unreadCount}
                     </span>
                   )}
@@ -299,7 +303,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setActiveView('onboarding')}
-                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-neutral-900 text-white font-extrabold text-xs transition-all shadow-2xs cursor-pointer active:scale-95"
+                className="px-3.5 py-2 rounded-xl bg-black hover:bg-neutral-900 dark:bg-white dark:text-black dark:hover:bg-neutral-100 text-white font-extrabold text-xs transition-all shadow-2xs cursor-pointer active:scale-95"
               >
                 Sign Up / Sign In
               </button>
@@ -339,7 +343,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <Bell className="w-4 h-4 text-neutral-800 dark:text-neutral-200" />
                 {notificationUnreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-rose-600 text-white font-black text-[9px] px-1 py-0.2 rounded-full min-w-[16px] text-center shadow-xs">
+                  <span className="absolute -top-1 -right-1 bg-emerald-600 text-white font-black text-[9px] px-1 py-0.2 rounded-full min-w-[16px] text-center shadow-xs">
                     {notificationUnreadCount}
                   </span>
                 )}
@@ -354,13 +358,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Three-line Menu Toggle Button */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="flex items-center justify-center p-2 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-slate-900 dark:hover:border-white bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-bold text-xs transition-all active:scale-95 shadow-2xs cursor-pointer"
+                className="flex items-center justify-center p-2 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-black dark:hover:border-white bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 font-bold text-xs transition-all active:scale-95 shadow-2xs cursor-pointer"
                 aria-label="Toggle navigation menu"
               >
                 {mobileMenuOpen ? (
-                  <X className="w-5 h-5 text-rose-600" />
+                  <X className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 ) : (
-                  <Menu className="w-5 h-5 text-slate-900 dark:text-white" />
+                  <Menu className="w-5 h-5 text-black dark:text-white" />
                 )}
               </button>
             </>
@@ -378,7 +382,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Account Role Banner & Campus Selector (Mobile) */}
             <div className="p-3.5 bg-neutral-50 dark:bg-neutral-800/80 rounded-2xl border border-neutral-200 dark:border-neutral-700/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-slate-900 dark:bg-neutral-700 text-emerald-400 flex items-center justify-center font-black text-xs shrink-0">
+                <div className="w-8 h-8 rounded-xl bg-black dark:bg-neutral-800 text-emerald-400 flex items-center justify-center font-black text-xs shrink-0">
                   {currentRole.charAt(0).toUpperCase()}
                 </div>
                 <div>
@@ -423,7 +427,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         : 'bg-neutral-50 dark:bg-neutral-800/80 hover:bg-neutral-100 dark:hover:bg-neutral-700/80 border-neutral-200 dark:border-neutral-700'
                     }`}
                   >
-                    <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center shrink-0">
                       <Search className="w-4 h-4 text-emerald-400" />
                     </div>
                     <div>
@@ -440,12 +444,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     className={`p-3 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
                       activeView === 'saved'
-                        ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800'
                         : 'bg-neutral-50 dark:bg-neutral-800/80 hover:bg-neutral-100 dark:hover:bg-neutral-700/80 border-neutral-200 dark:border-neutral-700'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                         <Heart className="w-4 h-4" />
                       </div>
                       <div>
@@ -454,7 +458,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </div>
                     </div>
                     {savedCount > 0 && (
-                      <span className="bg-rose-600 text-white text-xs font-black px-2 py-0.5 rounded-md">
+                      <span className="bg-emerald-600 text-white text-xs font-black px-2 py-0.5 rounded-md">
                         {savedCount}
                       </span>
                     )}
@@ -468,12 +472,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     className={`p-3 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
                       activeView === 'messages'
-                        ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-800'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800'
                         : 'bg-neutral-50 dark:bg-neutral-800/80 hover:bg-neutral-100 dark:hover:bg-neutral-700/80 border-neutral-200 dark:border-neutral-700'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                         <MessageSquare className="w-4 h-4" />
                       </div>
                       <div>
@@ -482,7 +486,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </div>
                     </div>
                     {unreadCount > 0 && (
-                      <span className="bg-blue-600 text-white text-xs font-black px-2 py-0.5 rounded-md">
+                      <span className="bg-emerald-600 text-white text-xs font-black px-2 py-0.5 rounded-md">
                         {unreadCount}
                       </span>
                     )}
@@ -496,7 +500,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/80 hover:bg-neutral-100 dark:hover:bg-neutral-700/80 border border-neutral-200 dark:border-neutral-700 text-left flex items-center gap-3 transition-all cursor-pointer"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                       <Calendar className="w-4 h-4" />
                     </div>
                     <div>
@@ -513,7 +517,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/80 hover:bg-neutral-100 dark:hover:bg-neutral-700/80 border border-neutral-200 dark:border-neutral-700 text-left flex items-center gap-3 transition-all cursor-pointer"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 flex items-center justify-center shrink-0">
                       <UserIcon className="w-4 h-4" />
                     </div>
                     <div>
@@ -551,7 +555,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/80 hover:bg-neutral-100 dark:hover:bg-neutral-700/80 border border-neutral-200 dark:border-neutral-700 text-left flex items-center gap-3 transition-all cursor-pointer"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                       <CheckCircle2 className="w-4 h-4" />
                     </div>
                     <div>

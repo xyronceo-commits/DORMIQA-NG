@@ -71,6 +71,7 @@ import { AdminAccessScreen } from './components/AdminAccessScreen';
 import { InfoPagesModal } from './components/InfoPagesModal';
 import { ComingSoonPage } from './components/ComingSoonPage';
 import { ListingGridSkeleton, ListItemRowSkeleton, DashboardSkeleton, ChatDrawerSkeleton } from './components/SkeletonLoader';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { checkAdminSession, clearAdminToken } from './services/api';
 import { 
   auth, 
@@ -388,10 +389,10 @@ export default function App() {
         }
       }, (err) => console.warn('User doc snapshot error:', err));
 
-      // Existing user auto-route: If authenticated user lands on onboarding or agent pages, route strictly
+      // Authenticated user auto-route: ensure signed in or newly registered students go straight to discovery page ('search')
       const initialRoute = parseRouteFromUrl();
-      if (initialRoute.type === 'view' && (initialRoute.view === 'onboarding' || initialRoute.view === 'agent-dash' || initialRoute.view === 'agent-landing')) {
-        if (userAccount.role === 'agent') {
+      if (userAccount.role === 'agent') {
+        if (initialRoute.type === 'view' && (initialRoute.view === 'onboarding' || initialRoute.view === 'agent-dash' || initialRoute.view === 'agent-landing')) {
           if (!isVerified) {
             setActiveView('agent-landing');
             pushViewUrl('agent-landing');
@@ -402,10 +403,24 @@ export default function App() {
             setActiveView('agent-dash');
             pushViewUrl('agent-dash');
           }
-        } else {
-          setActiveView('search');
-          pushViewUrl('search');
         }
+      } else {
+        // STUDENT ROLE:
+        // When a student signs in, signs up, or holds an active session while on landing/onboarding/agent-landing view,
+        // take them straight to discovery page ('search')!
+        setActiveView(prev => {
+          if (
+            prev === 'landing' || 
+            prev === 'onboarding' || 
+            prev === 'agent-landing' ||
+            initialRoute.view === 'landing' ||
+            initialRoute.view === 'onboarding'
+          ) {
+            pushViewUrl('search');
+            return 'search';
+          }
+          return prev;
+        });
       }
 
       if (!isVerified && email) {
@@ -698,9 +713,9 @@ export default function App() {
     try {
       localStorage.removeItem('campora_saved_ids');
     } catch (e) {}
-    loadUniversitiesData();
-    loadInspectionsData();
-    loadConversationsData();
+    loadUniversitiesData().catch(err => console.warn('Failed to load universities data:', err));
+    loadInspectionsData().catch(err => console.warn('Failed to load inspections data:', err));
+    loadConversationsData().catch(err => console.warn('Failed to load conversations data:', err));
   }, []);
 
   useEffect(() => {
@@ -755,8 +770,12 @@ export default function App() {
   }, [savedIds]);
 
   const loadUniversitiesData = async () => {
-    const data = await fetchUniversities();
-    setUniversities(data);
+    try {
+      const data = await fetchUniversities();
+      setUniversities(data);
+    } catch (err) {
+      console.warn("Failed to load universities:", err);
+    }
   };
 
   const loadListingsData = async () => {
@@ -782,17 +801,25 @@ export default function App() {
   };
 
   const loadInspectionsData = async () => {
-    const currentUserId = auth.currentUser?.uid || activeAccountId;
-    if (!currentUserId) return;
-    const data = await fetchInspections({ studentId: currentUserId });
-    setInspections(data);
+    try {
+      const currentUserId = auth.currentUser?.uid || activeAccountId;
+      if (!currentUserId) return;
+      const data = await fetchInspections({ studentId: currentUserId });
+      setInspections(data);
+    } catch (err) {
+      console.warn("Failed to load inspections:", err);
+    }
   };
 
   const loadConversationsData = async () => {
-    const currentUserId = auth.currentUser?.uid || activeAccountId;
-    if (!currentUserId) return;
-    const data = await fetchConversations(currentUserId);
-    setConversations(data);
+    try {
+      const currentUserId = auth.currentUser?.uid || activeAccountId;
+      if (!currentUserId) return;
+      const data = await fetchConversations(currentUserId);
+      setConversations(data);
+    } catch (err) {
+      console.warn("Failed to load conversations:", err);
+    }
   };
 
   const toggleSave = async (listingId: string) => {
@@ -889,7 +916,7 @@ export default function App() {
   const savedListings = listings.filter(l => savedIds.includes(l.id));
 
   return (
-    <div className="min-h-screen flex flex-col bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 font-sans selection:bg-emerald-500 selection:text-white transition-colors duration-200">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-black text-black dark:text-white font-sans selection:bg-emerald-500 selection:text-white transition-colors duration-200">
       
       {/* Global Navbar for Public/Student Pages without embedded header */}
       {(currentRole !== 'student' || ['landing', 'onboarding', 'coming-soon'].includes(activeView)) && 
@@ -899,6 +926,7 @@ export default function App() {
           setActiveView={navigateView as any}
           currentRole={currentRole}
           setCurrentRole={setCurrentRole}
+          isLoggedIn={isLoggedIn}
           savedCount={savedIds.length}
           unreadCount={conversations.length}
           notificationUnreadCount={notifications.filter(n => !n.read).length}
@@ -922,10 +950,10 @@ export default function App() {
 
       {/* Unverified Email Warning Banner for Existing Logged-In Users */}
       {isLoggedIn && auth.currentUser && !auth.currentUser.emailVerified && !auth.currentUser.providerData.some(p => p.providerId === 'google.com') && (
-        <div className="bg-amber-500/10 dark:bg-amber-500/20 border-b border-amber-500/30 px-4 py-2.5 text-xs font-medium text-amber-900 dark:text-amber-200 transition-colors">
+        <div className="bg-black text-white border-b border-emerald-500 px-4 py-2.5 text-xs font-medium transition-colors">
           <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2.5">
             <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <AlertCircle className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>
                 <strong>Email Verification Pending:</strong> Your email address <strong>({auth.currentUser.email})</strong> is not verified yet. Please check your inbox for the link.
               </span>
@@ -941,7 +969,7 @@ export default function App() {
                   setTimeout(() => setToastNotice(null), 5000);
                 }
               }}
-              className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition-colors cursor-pointer shrink-0 shadow-2xs"
+              className="px-3 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black font-bold text-[11px] transition-colors cursor-pointer shrink-0 shadow-2xs"
             >
               Resend Verification Link
             </button>
@@ -1017,206 +1045,222 @@ export default function App() {
 
         {/* Onboarding Gateway Page */}
         {activeView === 'onboarding' && (
-          <OnboardingPage
-            universities={universities}
-            onCompleteOnboarding={(userData) => {
-              setIsLoggedIn(true);
-              localStorage.setItem('dormiqa_is_logged_in', 'true');
-              setCurrentRole(userData.role);
+          <ErrorBoundary sectionName="Auth Gateway">
+            <OnboardingPage
+              universities={universities}
+              onCompleteOnboarding={(userData) => {
+                setIsLoggedIn(true);
+                localStorage.setItem('dormiqa_is_logged_in', 'true');
+                setCurrentRole(userData.role);
 
-              const currentUid = auth.currentUser?.uid || `usr_${Date.now()}`;
-              const currentEmail = auth.currentUser?.email || userData.email || '';
-              const isVerified = auth.currentUser ? (auth.currentUser.emailVerified || auth.currentUser.providerData.some(p => p.providerId === 'google.com')) : (userData.isEmailVerified === true);
+                const currentUid = auth.currentUser?.uid || `usr_${Date.now()}`;
+                const currentEmail = auth.currentUser?.email || userData.email || '';
+                const isVerified = auth.currentUser ? (auth.currentUser.emailVerified || auth.currentUser.providerData.some(p => p.providerId === 'google.com')) : (userData.isEmailVerified === true);
 
-              const newAccount: User = {
-                id: currentUid,
-                name: userData.name || currentEmail.split('@')[0] || 'User',
-                email: currentEmail,
-                role: userData.role,
-                avatarUrl: userData.avatarUrl || auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
-                phone: userData.phone,
-                universityName: userData.universityName,
-                agencyName: userData.agencyName,
-                isVerifiedAgent: false,
-                isEmailVerified: isVerified,
-                createdAt: new Date().toISOString().split('T')[0]
-              };
+                const newAccount: User = {
+                  id: currentUid,
+                  name: userData.name || currentEmail.split('@')[0] || 'User',
+                  email: currentEmail,
+                  role: userData.role,
+                  avatarUrl: userData.avatarUrl || auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
+                  phone: userData.phone,
+                  universityName: userData.universityName,
+                  agencyName: userData.agencyName,
+                  isVerifiedAgent: false,
+                  isEmailVerified: isVerified,
+                  createdAt: new Date().toISOString().split('T')[0]
+                };
 
-              saveUserToFirestore(newAccount);
+                saveUserToFirestore(newAccount);
 
-              setAccounts([newAccount]);
-              setActiveAccountId(newAccount.id);
+                setAccounts([newAccount]);
+                setActiveAccountId(newAccount.id);
 
-              const isSignup = Boolean(userData.isSignup);
+                const isSignup = Boolean(userData.isSignup);
 
-              if (userData.role === 'agent') {
-                setCurrentRole('agent');
-                setShowOnboardingShowcase(false);
-                if (!isSignup) {
-                  // RETURNING AGENT SIGN IN -> Directly to Agent Caretaker Dashboard
-                  setActiveView('agent-dash');
-                  pushViewUrl('agent-dash');
-                  setToastNotice(`Welcome back to your Caretaker Dashboard, ${newAccount.name}!`);
+                if (userData.role === 'agent') {
+                  setCurrentRole('agent');
+                  setShowOnboardingShowcase(false);
+                  if (!isSignup) {
+                    // RETURNING AGENT SIGN IN -> Directly to Agent Caretaker Dashboard
+                    setActiveView('agent-dash');
+                    pushViewUrl('agent-dash');
+                    setToastNotice(`Welcome back to your Caretaker Dashboard, ${newAccount.name}!`);
+                    setTimeout(() => setToastNotice(null), 4000);
+                  } else {
+                    // NEW AGENT SIGNUP -> Directly to Business Verification or Caretaker Dashboard
+                    setPendingAgentRegistration(newAccount);
+                    setActiveView('business-verification');
+                    pushViewUrl('business-verification');
+                    setToastNotice(`Agent account registered! Redirecting to business verification...`);
+                    setTimeout(() => setToastNotice(null), 4000);
+                  }
+                } else if (!isSignup) {
+                  // RETURNING STUDENT SIGN IN -> Directly to Student Discover (search) page
+                  setCurrentRole('student');
+                  setActiveView('search');
+                  pushViewUrl('search');
+                  setToastNotice(`Welcome back, ${newAccount.name}!`);
                   setTimeout(() => setToastNotice(null), 4000);
                 } else {
-                  // NEW AGENT SIGNUP -> Directly to Business Verification or Caretaker Dashboard
-                  setPendingAgentRegistration(newAccount);
-                  setActiveView('business-verification');
-                  pushViewUrl('business-verification');
-                  setToastNotice(`Agent account registered! Redirecting to business verification...`);
+                  // NEW STUDENT SIGNUP -> Directly to Student Discover page with showcase modal
+                  setCurrentRole('student');
+                  setActiveView('search');
+                  pushViewUrl('search');
+                  setShowOnboardingShowcase(true);
+                  setToastNotice(`Welcome to Dormiqa, ${newAccount.name}!`);
                   setTimeout(() => setToastNotice(null), 4000);
                 }
-              } else if (!isSignup) {
-                // RETURNING STUDENT SIGN IN -> Directly to Student Discover (search) page
-                setCurrentRole('student');
-                setActiveView('search');
-                pushViewUrl('search');
-                setToastNotice(`Welcome back, ${newAccount.name}!`);
-                setTimeout(() => setToastNotice(null), 4000);
-              } else {
-                // NEW STUDENT SIGNUP -> Directly to Student Discover page with showcase modal
-                setCurrentRole('student');
-                setActiveView('search');
-                pushViewUrl('search');
-                setShowOnboardingShowcase(true);
-                setToastNotice(`Welcome to Dormiqa, ${newAccount.name}!`);
-                setTimeout(() => setToastNotice(null), 4000);
-              }
-            }}
-            onBackToLanding={() => setActiveView('landing')}
-          />
+              }}
+              onBackToLanding={() => setActiveView('landing')}
+            />
+          </ErrorBoundary>
         )}
 
         {/* Agent Portal Landing Page (Unauthenticated / Unverified Entry Point) */}
         {activeView === 'agent-landing' && (
-          <AgentPortalLanding
-            universities={universities}
-            onAgentAuthenticated={(agentUser) => {
-              setAccounts([agentUser]);
-              setActiveAccountId(agentUser.id);
-              setIsLoggedIn(true);
-              setCurrentRole('agent');
-              setPendingAgentRegistration(agentUser);
+          <ErrorBoundary sectionName="Agent Portal">
+            <AgentPortalLanding
+              universities={universities}
+              onAgentAuthenticated={(agentUser) => {
+                setAccounts([agentUser]);
+                setActiveAccountId(agentUser.id);
+                setIsLoggedIn(true);
+                setCurrentRole('agent');
+                setPendingAgentRegistration(agentUser);
 
-              if (!agentUser.isEmailVerified) {
-                setActiveView('agent-landing');
-              } else if (agentUser.businessVerificationStatus !== 'approved') {
-                setActiveView('business-verification');
-                pushViewUrl('business-verification');
-              } else {
-                setActiveView('agent-dash');
-                pushViewUrl('agent-dash');
-              }
-            }}
-            onOpenAdminAccess={() => navigateView('admin-dash')}
-            onGoToStudentView={() => setActiveView('landing')}
-          />
+                if (!agentUser.isEmailVerified) {
+                  setActiveView('agent-landing');
+                } else if (agentUser.businessVerificationStatus !== 'approved') {
+                  setActiveView('business-verification');
+                  pushViewUrl('business-verification');
+                } else {
+                  setActiveView('agent-dash');
+                  pushViewUrl('agent-dash');
+                }
+              }}
+              onOpenAdminAccess={() => navigateView('admin-dash')}
+              onGoToStudentView={() => setActiveView('landing')}
+            />
+          </ErrorBoundary>
         )}
 
         {/* Business Verification Page for Agent Verification Gate */}
         {activeView === 'business-verification' && (
-          <BusinessVerificationPage
-            agentData={accounts.find(a => a.id === activeAccountId) || pendingAgentRegistration}
-            universities={universities}
-            onCompleteVerification={({ licenseNumber, avatarUrl }) => {
-              const currentId = activeAccountId || pendingAgentRegistration?.id;
-              if (currentId) {
-                setAccounts(prev => prev.map(a => 
-                  a.id === currentId
-                    ? { 
-                        ...a, 
-                        licenseNumber, 
-                        isVerifiedAgent: false,
-                        businessVerificationStatus: 'pending',
-                        avatarUrl: avatarUrl || a.avatarUrl,
-                        isAvatarLocked: true,
-                        verificationPhotoUrl: avatarUrl || a.avatarUrl
-                      }
-                    : a
-                ));
-              }
-              setToastNotice('Business verification details submitted! Verification is now in progress.');
-              setTimeout(() => setToastNotice(null), 4000);
-            }}
-            onSignOut={handleSignOut}
-          />
+          <ErrorBoundary sectionName="Business Verification">
+            <BusinessVerificationPage
+              agentData={accounts.find(a => a.id === activeAccountId) || pendingAgentRegistration}
+              universities={universities}
+              onCompleteVerification={({ licenseNumber, avatarUrl }) => {
+                const currentId = activeAccountId || pendingAgentRegistration?.id;
+                if (currentId) {
+                  setAccounts(prev => prev.map(a => 
+                    a.id === currentId
+                      ? { 
+                          ...a, 
+                          licenseNumber, 
+                          isVerifiedAgent: false,
+                          businessVerificationStatus: 'pending',
+                          avatarUrl: avatarUrl || a.avatarUrl,
+                          isAvatarLocked: true,
+                          verificationPhotoUrl: avatarUrl || a.avatarUrl
+                        }
+                      : a
+                  ));
+                }
+                setToastNotice('Business verification details submitted! Verification is now in progress.');
+                setTimeout(() => setToastNotice(null), 4000);
+              }}
+              onSignOut={handleSignOut}
+            />
+          </ErrorBoundary>
         )}
 
         {/* 2. Redesigned Student Portal Views */}
         {activeView === 'search' && currentRole === 'student' && (
-          <StudentDiscoverPage
-            listings={displayListings}
-            isListingsLoading={isListingsLoading}
-            savedIds={savedIds}
-            onToggleSave={toggleSave}
-            onOpenDetail={(l) => handleOpenListingDetail(l)}
-            onBookInspection={(l) => setBookingListing(l)}
-            onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
-            universities={universities}
-            selectedUniversityId={filters.universityId}
-            onSelectUniversity={(uniId) => handleSelectUniversity(uniId)}
-            selectedCampus={selectedCampus}
-            notificationCount={notifications.filter(n => !n.read).length}
-            onOpenNotifications={() => setIsNotificationCenterOpen(true)}
-            onOpenProfile={() => navigateView('student-dash')}
-            userAvatar={auth.currentUser?.photoURL || undefined}
-            userName={auth.currentUser?.displayName || undefined}
-          />
+          <ErrorBoundary sectionName="Student Discover">
+            <StudentDiscoverPage
+              listings={displayListings}
+              isListingsLoading={isListingsLoading}
+              savedIds={savedIds}
+              onToggleSave={toggleSave}
+              onOpenDetail={(l) => handleOpenListingDetail(l)}
+              onBookInspection={(l) => setBookingListing(l)}
+              onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
+              universities={universities}
+              selectedUniversityId={filters.universityId}
+              onSelectUniversity={(uniId) => handleSelectUniversity(uniId)}
+              selectedCampus={selectedCampus}
+              notificationCount={notifications.filter(n => !n.read).length}
+              onOpenNotifications={() => setIsNotificationCenterOpen(true)}
+              onOpenProfile={() => navigateView('student-dash')}
+              userAvatar={auth.currentUser?.photoURL || undefined}
+              userName={auth.currentUser?.displayName || undefined}
+            />
+          </ErrorBoundary>
         )}
 
         {/* Saved Page */}
         {activeView === 'saved' && (
-          <SavedPage
-            savedListings={savedListings}
-            savedIds={savedIds}
-            onToggleSave={toggleSave}
-            onOpenDetail={(l) => handleOpenListingDetail(l)}
-            onBookInspection={(l) => setBookingListing(l)}
-            onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
-            onGoBack={() => navigateView('search')}
-            selectedCampus={selectedCampus}
-          />
+          <ErrorBoundary sectionName="Saved Lodgings">
+            <SavedPage
+              savedListings={savedListings}
+              savedIds={savedIds}
+              onToggleSave={toggleSave}
+              onOpenDetail={(l) => handleOpenListingDetail(l)}
+              onBookInspection={(l) => setBookingListing(l)}
+              onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
+              onGoBack={() => navigateView('search')}
+              selectedCampus={selectedCampus}
+            />
+          </ErrorBoundary>
         )}
 
         {/* Messages / Chats Page */}
         {activeView === 'messages' && (
-          <ChatsPage
-            conversations={conversations}
-            onOpenChat={(conv) => setActiveConversation(conv)}
-            onGoBack={() => navigateView('search')}
-            currentRole={currentRole}
-          />
+          <ErrorBoundary sectionName="Messages">
+            <ChatsPage
+              conversations={conversations}
+              onOpenChat={(conv) => setActiveConversation(conv)}
+              onGoBack={() => navigateView('search')}
+              currentRole={currentRole}
+            />
+          </ErrorBoundary>
         )}
 
         {/* Inspections & Requests Page */}
         {activeView === 'inspections' && (
-          <InspectionsPage
-            inspections={inspections}
-            allListings={listings}
-            onOpenListing={(l) => handleOpenListingDetail(l)}
-            onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
-            onGoBack={() => navigateView('search')}
-          />
+          <ErrorBoundary sectionName="Inspections">
+            <InspectionsPage
+              inspections={inspections}
+              allListings={listings}
+              onOpenListing={(l) => handleOpenListingDetail(l)}
+              onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
+              onGoBack={() => navigateView('search')}
+            />
+          </ErrorBoundary>
         )}
 
         {/* Student Profile Page */}
         {activeView === 'student-dash' && (
-          <StudentProfilePage
-            user={accounts.find(a => a.id === activeAccountId)}
-            universities={universities}
-            savedCount={savedIds.length}
-            chatsCount={conversations.length}
-            inspectionsCount={inspections.length}
-            onNavigateView={(view) => navigateView(view)}
-            onSignOut={handleSignOut}
-            onDeleteAccount={() => handleDeleteAccount(activeAccountId)}
-            onGoBack={() => navigateView('search')}
-          />
+          <ErrorBoundary sectionName="Student Profile">
+            <StudentProfilePage
+              user={accounts.find(a => a.id === activeAccountId)}
+              universities={universities}
+              savedCount={savedIds.length}
+              chatsCount={conversations.length}
+              inspectionsCount={inspections.length}
+              onNavigateView={(view) => navigateView(view)}
+              onSignOut={handleSignOut}
+              onDeleteAccount={() => handleDeleteAccount(activeAccountId)}
+              onGoBack={() => navigateView('search')}
+            />
+          </ErrorBoundary>
         )}
 
         {/* Mobile Bottom Navigation Bar for Student Portal */}
         {currentRole === 'student' && 
-         ['search', 'landing', 'saved', 'messages', 'inspections', 'student-dash'].includes(activeView) && (
+         ['search', 'saved', 'messages', 'inspections', 'student-dash'].includes(activeView) && (
           <BottomNav
             activeView={activeView}
             onNavigate={(view) => navigateView(view)}
@@ -1304,30 +1348,32 @@ export default function App() {
 
           // Fully Authenticated & Verified -> Render Agent Dashboard
           return (
-            <AgentDashboard
-              listings={listings}
-              inspections={inspections}
-              conversations={conversations}
-              universities={universities}
-              onOpenAddModal={() => setAddModalOpen(true)}
-              onOpenChat={(conv) => setActiveConversation(conv)}
-              onOpenListingDetail={(l) => handleOpenListingDetail(l)}
-              onOpenNotificationCenter={() => setIsNotificationCenterOpen(true)}
-              onOpenAdminAccess={() => navigateView('admin-dash')}
-              onOpenInfoPage={handleOpenInfoPage}
-              activeTab={agentTab}
-              onTabChange={setAgentTab}
-              accounts={accounts}
-              activeAccountId={activeAccountId}
-              onSignOut={handleSignOut}
-              onDeleteAccount={handleDeleteAccount}
-              onListingUpdate={(updatedListing) => {
-                setListings(prev => prev.map(l => l.id === updatedListing.id ? updatedListing : l));
-                if (detailListing?.id === updatedListing.id) {
-                  setDetailListing(updatedListing);
-                }
-              }}
-            />
+            <ErrorBoundary sectionName="Agent Caretaker Portal">
+              <AgentDashboard
+                listings={listings}
+                inspections={inspections}
+                conversations={conversations}
+                universities={universities}
+                onOpenAddModal={() => setAddModalOpen(true)}
+                onOpenChat={(conv) => setActiveConversation(conv)}
+                onOpenListingDetail={(l) => handleOpenListingDetail(l)}
+                onOpenNotificationCenter={() => setIsNotificationCenterOpen(true)}
+                onOpenAdminAccess={() => navigateView('admin-dash')}
+                onOpenInfoPage={handleOpenInfoPage}
+                activeTab={agentTab}
+                onTabChange={setAgentTab}
+                accounts={accounts}
+                activeAccountId={activeAccountId}
+                onSignOut={handleSignOut}
+                onDeleteAccount={handleDeleteAccount}
+                onListingUpdate={(updatedListing) => {
+                  setListings(prev => prev.map(l => l.id === updatedListing.id ? updatedListing : l));
+                  if (detailListing?.id === updatedListing.id) {
+                    setDetailListing(updatedListing);
+                  }
+                }}
+              />
+            </ErrorBoundary>
           );
         })()}
 
@@ -1335,24 +1381,26 @@ export default function App() {
         {activeView === 'admin-dash' && (() => {
           if (adminAuthStatus === 'AUTHORIZED' && isAdminAuthenticated) {
             return (
-              <AdminDashboard
-                currentAdminEmail={adminEmail}
-                currentAdminRole={adminRole}
-                onRefresh={loadListingsData}
-                onAdminLogout={async () => {
-                  const uid = auth.currentUser?.uid;
-                  clearAdminSessionTimestamp(uid);
-                  await signOut(auth);
-                  clearAdminToken();
-                  setIsAdminAuthenticated(false);
-                  setAdminAuthStatus('SIGNED_OUT');
-                  setCurrentRole('student');
-                  setActiveView('admin-dash');
-                  pushViewUrl('admin-dash');
-                  setToastNotice('Admin session logged out.');
-                  setTimeout(() => setToastNotice(null), 3000);
-                }}
-              />
+              <ErrorBoundary sectionName="Admin Portal">
+                <AdminDashboard
+                  currentAdminEmail={adminEmail}
+                  currentAdminRole={adminRole}
+                  onRefresh={loadListingsData}
+                  onAdminLogout={async () => {
+                    const uid = auth.currentUser?.uid;
+                    clearAdminSessionTimestamp(uid);
+                    await signOut(auth);
+                    clearAdminToken();
+                    setIsAdminAuthenticated(false);
+                    setAdminAuthStatus('SIGNED_OUT');
+                    setCurrentRole('student');
+                    setActiveView('admin-dash');
+                    pushViewUrl('admin-dash');
+                    setToastNotice('Admin session logged out.');
+                    setTimeout(() => setToastNotice(null), 3000);
+                  }}
+                />
+              </ErrorBoundary>
             );
           }
 
@@ -1377,8 +1425,8 @@ export default function App() {
 
       {/* Global Toast Notification */}
       {toastNotice && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-2 animate-bounce">
-          <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <div className="fixed bottom-6 right-6 z-50 bg-black text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-xl border border-emerald-500 flex items-center gap-2 animate-bounce">
+          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
           {toastNotice}
         </div>
       )}

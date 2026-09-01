@@ -355,32 +355,32 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               {listing.hotelName && (
-                <span className="text-xs font-extrabold text-purple-900 bg-purple-100 px-3 py-1 rounded-md border border-purple-200 uppercase tracking-wider">
+                <span className="text-xs font-extrabold text-white bg-black dark:bg-white dark:text-black px-3 py-1 rounded-md border border-black dark:border-white uppercase tracking-wider">
                   Hotel / Building: {listing.hotelName}
                 </span>
               )}
 
               {/* Unit Posted Status Badge */}
               {listing.unitStatus === 'occupied' ? (
-                <span className="text-xs font-extrabold text-rose-900 bg-rose-100 px-3 py-1 rounded-md border border-rose-200">
-                  🔴 FULLY OCCUPIED / RENTED
+                <span className="text-xs font-extrabold text-white bg-black dark:bg-white dark:text-black px-3 py-1 rounded-md border border-black dark:border-white">
+                  ⚫ FULLY OCCUPIED / RENTED
                 </span>
               ) : listing.unitStatus === 'under_renovation' ? (
-                <span className="text-xs font-extrabold text-orange-900 bg-orange-100 px-3 py-1 rounded-md border border-orange-200">
-                  🟠 UNDER RENOVATION / WORK IN PROGRESS
+                <span className="text-xs font-extrabold text-white bg-black dark:bg-white dark:text-black px-3 py-1 rounded-md border border-black dark:border-white">
+                  ⚪ UNDER RENOVATION / WORK IN PROGRESS
                 </span>
               ) : listing.unitStatus === 'remaining' || listing.vacanciesCount ? (
-                <span className="text-xs font-extrabold text-amber-900 bg-amber-100 px-3 py-1 rounded-md border border-amber-200">
-                  🟡 FEW UNITS REMAINING ({listing.vacanciesCount || 1} Rooms Left)
+                <span className="text-xs font-extrabold text-emerald-900 bg-emerald-100 px-3 py-1 rounded-md border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300">
+                  🟢 FEW UNITS REMAINING ({listing.vacanciesCount || 1} Rooms Left)
                 </span>
               ) : (
-                <span className="text-xs font-extrabold text-emerald-900 bg-emerald-100 px-3 py-1 rounded-md border border-emerald-200">
+                <span className="text-xs font-extrabold text-emerald-900 bg-emerald-100 px-3 py-1 rounded-md border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300">
                   🟢 VACANT & AVAILABLE FOR MOVE-IN
                 </span>
               )}
 
               {listing.promoDiscount && (
-                <span className="text-xs font-extrabold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-md border border-emerald-300">
+                <span className="text-xs font-extrabold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-md border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300">
                   🎉 {listing.promoDiscount}
                 </span>
               )}
@@ -388,20 +388,20 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
 
             {/* Sales & Fee Info Note Banner */}
             {(listing.unitStatusNote || listing.agencyFeeNote || listing.salesNote) && (
-              <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-2xl space-y-1.5 text-xs">
+              <div className="p-3 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl space-y-1.5 text-xs">
                 {listing.unitStatusNote && (
-                  <p className="text-neutral-800 font-semibold flex items-center gap-1.5">
-                    <span className="font-bold text-slate-900">Unit Status Detail:</span> {listing.unitStatusNote}
+                  <p className="text-neutral-800 dark:text-neutral-200 font-semibold flex items-center gap-1.5">
+                    <span className="font-bold text-black dark:text-white">Unit Status Detail:</span> {listing.unitStatusNote}
                   </p>
                 )}
                 {listing.agencyFeeNote && (
-                  <p className="text-neutral-700 flex items-center gap-1.5">
-                    <span className="font-bold text-slate-900">Agency & Agreement Terms:</span> {listing.agencyFeeNote}
+                  <p className="text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
+                    <span className="font-bold text-black dark:text-white">Agency & Agreement Terms:</span> {listing.agencyFeeNote}
                   </p>
                 )}
                 {listing.salesNote && (
-                  <p className="text-neutral-700 flex items-center gap-1.5">
-                    <span className="font-bold text-slate-900">Payment & Sales Notes:</span> {listing.salesNote}
+                  <p className="text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
+                    <span className="font-bold text-black dark:text-white">Payment & Sales Notes:</span> {listing.salesNote}
                   </p>
                 )}
               </div>
@@ -548,19 +548,19 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
               </ul>
             </div>
 
-            <div className="p-4 bg-blue-50/60 rounded-xl border border-blue-200/80 space-y-2">
-              <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-blue-700" />
+            <div className="p-4 bg-neutral-100 dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 space-y-2">
+              <h4 className="text-xs font-bold text-black dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-emerald-600" />
                 Lease Terms
               </h4>
-              <p className="text-xs text-blue-950 font-medium">
+              <p className="text-xs text-neutral-800 dark:text-neutral-200 font-medium">
                 Minimum tenancy duration: <strong>{listing.minLeaseMonths} months</strong>. Suitable for university students with verified enrolment status.
               </p>
             </div>
           </div>
 
           {/* 8. Verified Agent Profile Card */}
-          <div className="p-5 bg-slate-900 text-white rounded-2xl space-y-4">
+          <div className="p-5 bg-black text-white rounded-2xl space-y-4 border border-neutral-800">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <img
@@ -572,31 +572,31 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                   <div className="flex items-center gap-1.5">
                     <h4 className="font-bold text-white text-base">{listing.agent.name}</h4>
                     {listing.agent.isVerified && (
-                      <span className="bg-emerald-500 text-slate-950 text-[10px] font-extrabold px-1.5 py-0.2 rounded" title="Verified Agent">
+                      <span className="bg-emerald-500 text-black text-[10px] font-extrabold px-1.5 py-0.2 rounded" title="Verified Agent">
                         VERIFIED
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-400 font-medium">{listing.agent.agencyName}</p>
+                  <p className="text-xs text-neutral-400 font-medium">{listing.agent.agencyName}</p>
                 </div>
               </div>
 
               <div className="text-right">
-                <div className="flex items-center gap-1 text-amber-400 text-sm font-bold">
-                  <Star className="w-4 h-4 fill-amber-400" />
+                <div className="flex items-center gap-1 text-emerald-400 text-sm font-bold">
+                  <Star className="w-4 h-4 fill-emerald-400 text-emerald-400" />
                   <span>{listing.agent.rating}</span>
-                  <span className="text-slate-400 font-normal">({listing.agent.totalReviews})</span>
+                  <span className="text-neutral-400 font-normal">({listing.agent.totalReviews})</span>
                 </div>
-                <p className="text-[10px] text-slate-400 font-medium">Response: {listing.agent.responseTime}</p>
+                <p className="text-[10px] text-neutral-400 font-medium">Response: {listing.agent.responseTime}</p>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-300">
+            <div className="pt-3 border-t border-neutral-800 flex items-center justify-between text-xs text-neutral-300">
               <span>Agent Phone: {listing.agent.phone}</span>
               {!isAgentView && (
                 <button
                   onClick={() => onStartChat(listing.agentId, listing.id)}
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg transition-colors flex items-center gap-1.5"
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-lg transition-colors flex items-center gap-1.5"
                 >
                   <MessageSquare className="w-4 h-4" /> Start Direct Chat
                 </button>
@@ -883,7 +883,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                     href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="p-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-900 rounded-2xl font-bold flex flex-col items-center gap-1.5 transition-colors"
+                    className="p-3 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-900 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 text-black dark:text-white rounded-2xl font-bold flex flex-col items-center gap-1.5 transition-colors"
                   >
                     <span className="text-lg">📘</span>
                     <span>Facebook</span>
@@ -891,7 +891,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
 
                   <a
                     href={`mailto:?subject=${encodeURIComponent('Check out ' + listing.title + ' on DORMIQA')}&body=${encodeURIComponent(shareMessage + '\n\n' + url)}`}
-                    className="p-3 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 rounded-2xl font-bold flex flex-col items-center gap-1.5 transition-colors"
+                    className="p-3 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-900 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 text-black dark:text-white rounded-2xl font-bold flex flex-col items-center gap-1.5 transition-colors"
                   >
                     <span className="text-lg">✉️</span>
                     <span>Email</span>
@@ -905,16 +905,16 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
               <label className="text-[11px] font-bold uppercase text-neutral-400 tracking-wider block">
                 Direct Shareable Property URL
               </label>
-              <div className="flex items-center gap-2 p-1.5 bg-neutral-100 border border-neutral-300 rounded-2xl">
+              <div className="flex items-center gap-2 p-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-2xl">
                 <input
                   type="text"
                   readOnly
                   value={getShareUrl()}
-                  className="w-full px-2.5 py-1 text-xs font-mono text-neutral-800 bg-transparent focus:outline-none truncate"
+                  className="w-full px-2.5 py-1 text-xs font-mono text-black dark:text-white bg-transparent focus:outline-none truncate"
                 />
                 <button
                   onClick={handleCopyLink}
-                  className="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-black hover:bg-neutral-900 dark:bg-white dark:hover:bg-neutral-100 dark:text-black text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
                 >
                   {copySuccess ? (
                     <>

@@ -13,7 +13,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.5158,
     lng: 3.3898,
     popularAreas: ['Abule Oja', 'Akoka Main Gate', 'Onike', 'Sabo Yaba', 'Bariga', 'Iwaya'],
-    totalListings: 84,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80',
     description: 'Premier federal university situated in Akoka, Yaba with bustling off-campus student hubs around Abule Oja and Onike.'
   },
@@ -28,7 +28,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.4658,
     lng: 3.1998,
     popularAreas: ['Ojo Main Gate', 'Iyana Iba', 'Okokomaiko', 'Igando', 'PPL Road', 'Iba Housing Estate'],
-    totalListings: 68,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80',
     description: 'Premier state university in Lagos. Off-campus student housing stretches across Ojo, Iyana Iba, and PPL Road.'
   },
@@ -43,7 +43,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.6211,
     lng: 3.5089,
     popularAreas: ['First Gate Ikorodu', 'Ota-Ona', 'Sabun-Gari', 'Ogunrun-Ori', 'Odonguyan'],
-    totalListings: 42,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80',
     description: 'Formerly LASPOTECH, now converted to a state science university. High-density student lodges in Ikorodu.'
   },
@@ -58,7 +58,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.4889,
     lng: 3.0912,
     popularAreas: ['Ijanikin Main Gate', 'Vespa Axis', 'Agbara Road', 'Epe Campus Gate', 'Papa Area'],
-    totalListings: 35,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80',
     description: 'State education university created from AOCOED and MOCPED campuses in Ijanikin and Epe.'
   },
@@ -73,7 +73,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.4678,
     lng: 3.7891,
     popularAreas: ['Eleko Junction', 'Awoyaya', 'Bogije', 'Lakowe Lakes', 'Free Trade Zone Road'],
-    totalListings: 24,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80',
     description: 'Prestigious private university along Lekki-Epe expressway. Serviced modern apartments around Eleko & Awoyaya.'
   },
@@ -88,7 +88,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.6456,
     lng: 3.6521,
     popularAreas: ['Imota Main Gate', 'Ikorodu Road Axis', 'Adamo', 'Agewuru', 'Itamaga'],
-    totalListings: 28,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1507992781348-310259076fe0?auto=format&fit=crop&w=1200&q=80',
     description: 'Fast-growing private Christian university in Imota, Ikorodu corridor.'
   },
@@ -103,7 +103,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.5821,
     lng: 3.9821,
     popularAreas: ['Ilara-Epe Main Gate', 'Epe Town Center', 'Poka Axis', 'Mojoda'],
-    totalListings: 18,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1520986606214-8b456906c813?auto=format&fit=crop&w=1200&q=80',
     description: 'Catholic private university in Ilara, Epe offering serene environment and residential options.'
   },
@@ -118,7 +118,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.6089,
     lng: 3.2421,
     popularAreas: ['Ayobo Main Bus Stop', 'Iyana Ipaja Axis', 'Megida', 'Baruwa'],
-    totalListings: 22,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80',
     description: 'Deeper Life Christian Ministry private university located in Ayobo-Ipaja, Lagos.'
   },
@@ -133,7 +133,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.5182,
     lng: 3.3721,
     popularAreas: ['Yabatech Back Gate', 'Akoka', 'Sabo Yaba', 'Jibowu', 'Montgomery Road'],
-    totalListings: 60,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80',
     description: 'Nigeria\'s premier polytechnic located in Yaba. Off-campus self-contains around Sabo, Akoka & Jibowu.'
   },
@@ -150,7 +150,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.5177,
     lng: 4.5273,
     popularAreas: ['Mayfair', 'Asherifa Gate', 'Maintenance', 'Lagere', 'Ede Road', 'Modakeke Axis'],
-    totalListings: 65,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80',
     description: 'Iconic Great Ife campus. Student housing is densely concentrated around Mayfair, Asherifa, and Road 7.'
   },
@@ -165,7 +165,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.7821,
     lng: 4.5621,
     popularAreas: ['Osogbo Main Campus Axis', 'Oke-Baale', 'Ejigbo Town', 'Okuku Road', 'Ifetedo Campus', 'Ikire Campus'],
-    totalListings: 55,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80',
     description: 'Multi-campus state university with campuses in Osogbo, Ejigbo, Okuku, Ikire, Ifetedo, and Ipetu-Ijesha.'
   },
@@ -180,7 +180,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.7321,
     lng: 4.4321,
     popularAreas: ['RCCG RUN Main Gate', 'Ede Town Center', 'Sekona Road', 'Agip Junction Ede'],
-    totalListings: 32,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?auto=format&fit=crop&w=1200&q=80',
     description: 'RCCG-owned top private university situated in Ede, Osun State.'
   },
@@ -195,7 +195,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.7412,
     lng: 4.4512,
     popularAreas: ['Adeleke Permanent Site', 'Ede Osogbo Road', 'Oke-Gada', 'Cottage Area'],
-    totalListings: 28,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1507992781348-310259076fe0?auto=format&fit=crop&w=1200&q=80',
     description: 'Ultra-modern private university in Ede founded by Dr. Adedeji Adeleke.'
   },
@@ -210,7 +210,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.6321,
     lng: 4.1812,
     popularAreas: ['Bowen Main Gate', 'Iwo Town Center', 'Ogbomoso Road Iwo', 'Agbowo Iwo'],
-    totalListings: 30,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1520986606214-8b456906c813?auto=format&fit=crop&w=1200&q=80',
     description: 'Premier Baptist private university situated in historic Iwo town.'
   },
@@ -225,7 +225,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.7712,
     lng: 4.5412,
     popularAreas: ['Oke-Osun', 'Alekuwodo', 'Osogbo Ring Road', 'Gbongan Road'],
-    totalListings: 22,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80',
     description: 'Islamic faith-based private university located in Osogbo.'
   },
@@ -240,7 +240,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.5412,
     lng: 4.4812,
     popularAreas: ['Ipetumodu Gate', 'Yakooyo', 'Asipa Road', 'Ife Express Road'],
-    totalListings: 26,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80',
     description: 'Private university in Ipetumodu, near Ile-Ife, Osun State.'
   },
@@ -255,7 +255,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.5912,
     lng: 4.4112,
     popularAreas: ['Ode-Omu Gate', 'Gbongan Axis', 'Ibadan-Ife Expressway'],
-    totalListings: 16,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80',
     description: 'Private university in Ode-Omu, Osun State founded by KICC.'
   },
@@ -270,7 +270,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.7211,
     lng: 4.4421,
     popularAreas: ['North Campus Gate', 'South Campus', 'Oke-Gada', 'Poly Junction', 'Akoda Road'],
-    totalListings: 45,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80',
     description: 'Major federal polytechnic with dual campuses in Ede town.'
   },
@@ -285,7 +285,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.9123,
     lng: 4.6891,
     popularAreas: ['Iree Gate', 'Ada Road', 'Oke-Iree', 'Koko Area', 'Poly Road'],
-    totalListings: 38,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80',
     description: 'Renowned Osun state polytechnic situated in Iree town.'
   },
@@ -300,7 +300,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.7389,
     lng: 4.8891,
     popularAreas: ['Esa-Oke Gate', 'Ilesa Road', 'College View', 'Oke-Esa'],
-    totalListings: 30,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80',
     description: 'State technology college in Esa-Oke near Ilesa, Osun State.'
   },
@@ -317,7 +317,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.4443,
     lng: 3.8997,
     popularAreas: ['Agbowo Main Gate', 'Samonda', 'Bodija', 'Ajibode', 'Ojoo'],
-    totalListings: 72,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80',
     description: 'Nigeria\'s premier university in Ibadan. Off-campus student lodges span Agbowo, Samonda, and Ajibode.'
   },
@@ -332,7 +332,7 @@ export const UNIVERSITIES: University[] = [
     lat: 8.1611,
     lng: 4.2678,
     popularAreas: ['Under G', 'Adenike', 'Stadium Area', 'Aroje', 'General Area'],
-    totalListings: 62,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80',
     description: 'Renowned technology state university. Under G and Adenike are premier off-campus student townships.'
   },
@@ -347,7 +347,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.3211,
     lng: 3.8412,
     popularAreas: ['Lagos-Ibadan Express Axis', 'Toll Gate Ibadan', 'Guru Maharaji Axis'],
-    totalListings: 20,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80',
     description: 'Oyo State tertiary technical university located along Lagos-Ibadan expressway.'
   },
@@ -362,7 +362,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.3412,
     lng: 3.8812,
     popularAreas: ['Toll Gate Ibadan', 'Tollgate Area', 'Challenge', 'New Garage'],
-    totalListings: 35,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1520986606214-8b456906c813?auto=format&fit=crop&w=1200&q=80',
     description: 'Dynamic private university in Ibadan near Challenge and Tollgate.'
   },
@@ -377,7 +377,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.8312,
     lng: 3.9312,
     popularAreas: ['Oyo-Ibadan Road', 'Oyo Town Center', 'Akesan Market Axis', 'Isokun'],
-    totalListings: 25,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?auto=format&fit=crop&w=1200&q=80',
     description: 'Anglican Church private university in historical Oyo town.'
   },
@@ -392,7 +392,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.4258,
     lng: 3.8691,
     popularAreas: ['Sango Area', 'Poly South Gate', 'Eleyele Road', 'Apete', 'Ijokodo'],
-    totalListings: 52,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80',
     description: 'Famous polytechnic in Ibadan. Apete, Sango, and Poly Gate are popular off-campus student hubs.'
   },
@@ -409,7 +409,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.2289,
     lng: 3.4412,
     popularAreas: ['Camp Junction', 'Alabata Gate', 'Isolu', 'Kotopo', 'Odeda Road'],
-    totalListings: 55,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80',
     description: 'Premier federal agricultural university. Camp and Isolu are dense student communities.'
   },
@@ -424,7 +424,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.9458,
     lng: 3.9234,
     popularAreas: ['Mini Campus Road', 'Ago-Iwoye Town', 'Ijesha Road', 'Permanent Site Road', 'Ibu'],
-    totalListings: 45,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1520986606214-8b456906c813?auto=format&fit=crop&w=1200&q=80',
     description: 'Leading Ogun State university. Student housing is concentrated around Ago-Iwoye town and Permanent Site.'
   },
@@ -439,7 +439,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.8123,
     lng: 3.9123,
     popularAreas: ['Ijagun Main Gate', 'Ilese Ijebu', 'Ijebu-Ode Town', 'Imowo Road'],
-    totalListings: 38,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80',
     description: 'Nigeria\'s premier specialized university of education in Ijagun, Ijebu-Ode.'
   },
@@ -454,7 +454,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.6731,
     lng: 3.1581,
     popularAreas: ['Canaanland Gate', 'Iyana Iyesi', 'Sango Ota', 'Ota Town Center', 'Toll Gate'],
-    totalListings: 32,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?auto=format&fit=crop&w=1200&q=80',
     description: 'Top-ranked private university in Nigeria. Off-campus housing for postgrads & visitors around Canaanland Gate.'
   },
@@ -469,7 +469,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.8921,
     lng: 3.7121,
     popularAreas: ['Ilishan Main Gate', 'Babcock High School Road', 'Babcock Medical Axis', 'Sagamu Junction'],
-    totalListings: 28,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1507992781348-310259076fe0?auto=format&fit=crop&w=1200&q=80',
     description: 'Prestigious Adventist private university in Ilishan-Remo. Surrounding private student apartments.'
   },
@@ -484,7 +484,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.6891,
     lng: 3.1789,
     popularAreas: ['Bells Gate', 'Abeokuta-Lagos Expressway', 'Idi-Iroko Road', 'Sango Ota'],
-    totalListings: 24,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80',
     description: 'First private technology university in Nigeria located in Ota, Ogun State.'
   },
@@ -499,7 +499,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.1211,
     lng: 3.3211,
     popularAreas: ['Onikolobo', 'Panseke', 'Ojere Gate', 'Adigbe', 'Ibara'],
-    totalListings: 50,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80',
     description: 'Historic Ogun state polytechnic with Onikolobo and Adigbe as major student townships.'
   },
@@ -514,7 +514,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.8891,
     lng: 3.0123,
     popularAreas: ['Poly Gate', 'Leshi Area', 'Orita Ilaro', 'Ibese Road'],
-    totalListings: 35,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80',
     description: 'Renowned federal polytechnic in Ilaro, Ogun State.'
   },
@@ -531,7 +531,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.3034,
     lng: 5.1388,
     popularAreas: ['South Gate', 'North Gate', 'FUTA Junction', 'Apatapiti', 'Ilesha Garage'],
-    totalListings: 50,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80',
     description: 'Top technology federal institution. South Gate and Apatapiti are packed with modern solar-powered student lodges.'
   },
@@ -546,7 +546,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.4721,
     lng: 5.7381,
     popularAreas: ['Permanent Site Gate', 'Akungba Town', 'Ibaka', 'Mediplex Axis', 'Supare Road'],
-    totalListings: 40,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80',
     description: 'Vibrant Ondo State institution. Akungba offers affordable self-contain rooms and student lodges.'
   },
@@ -561,7 +561,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.7981,
     lng: 5.3321,
     popularAreas: ['Oye Main Gate', 'Falani Area', 'Atiba', 'Ikole Campus Road', 'Ayegbaju Axis'],
-    totalListings: 48,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80',
     description: 'Fastest growing federal university in Ekiti State with dual campuses in Oye and Ikole.'
   },
@@ -576,7 +576,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.7123,
     lng: 5.2412,
     popularAreas: ['Iworoko-Ekiti', 'EKSU Main Gate', 'Adekunle Estate', 'Kila', 'Ado Town Center'],
-    totalListings: 52,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80',
     description: 'Premier Ekiti State university. Iworoko-Ekiti town is a massive off-campus student hub.'
   },
@@ -591,7 +591,7 @@ export const UNIVERSITIES: University[] = [
     lat: 7.6012,
     lng: 5.3012,
     popularAreas: ['ABUAD Main Gate', 'Ijan Road', 'Poly Junction Ado', 'Afe Babalola Medical City'],
-    totalListings: 30,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1507992781348-310259076fe0?auto=format&fit=crop&w=1200&q=80',
     description: 'World-class private university in Ado-Ekiti founded by Aare Afe Babalola.'
   },
@@ -608,7 +608,7 @@ export const UNIVERSITIES: University[] = [
     lat: 8.9774,
     lng: 7.0782,
     popularAreas: ['Gwagwalada Main', 'Permanent Site Road', 'Mini Campus Road', 'Passali', 'Dagiri'],
-    totalListings: 38,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80',
     description: 'Federal university in the nation\'s capital. Student accommodations span Gwagwalada town and Passali.'
   },
@@ -623,7 +623,7 @@ export const UNIVERSITIES: University[] = [
     lat: 8.9982,
     lng: 7.3912,
     popularAreas: ['Airport Road', 'Jabi District', 'Utako', 'Life Camp', 'Gwarinpa'],
-    totalListings: 25,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80',
     description: 'Premium private institution in Abuja. Serviced luxury student apartments around Airport Road & Jabi.'
   },
@@ -638,7 +638,7 @@ export const UNIVERSITIES: University[] = [
     lat: 9.2812,
     lng: 7.3812,
     popularAreas: ['Bwari Town Center', 'Law School Junction', 'Ushafa', 'KUBWA Axis'],
-    totalListings: 20,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1520986606214-8b456906c813?auto=format&fit=crop&w=1200&q=80',
     description: 'Catholic university of Nigeria located in Bwari area of Abuja.'
   },
@@ -653,7 +653,7 @@ export const UNIVERSITIES: University[] = [
     lat: 9.0212,
     lng: 7.4112,
     popularAreas: ['Cadastral Zone C00', 'Jabi', 'Kuchingoro', 'Gwarinpa'],
-    totalListings: 22,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?auto=format&fit=crop&w=1200&q=80',
     description: 'Leading private university in central Abuja with modern facilities.'
   },
@@ -668,7 +668,7 @@ export const UNIVERSITIES: University[] = [
     lat: 8.4799,
     lng: 4.6746,
     popularAreas: ['Tanke', 'Sanrab', 'Oke-Odo', 'Tipper Garage', 'F-Division'],
-    totalListings: 58,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1520986606214-8b456906c813?auto=format&fit=crop&w=1200&q=80',
     description: 'Better By Far federal university in Ilorin. Tanke and Sanrab offer high-density student apartments.'
   },
@@ -683,7 +683,7 @@ export const UNIVERSITIES: University[] = [
     lat: 8.7123,
     lng: 4.4891,
     popularAreas: ['Malete Gate', 'Shao Road', 'Elemere', 'Post Office Ilorin Axis'],
-    totalListings: 42,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80',
     description: 'Kwara state university located in Malete, near Ilorin.'
   },
@@ -698,7 +698,7 @@ export const UNIVERSITIES: University[] = [
     lat: 9.5891,
     lng: 6.5412,
     popularAreas: ['Gidan Kwano Gate', 'Bosso Campus Road', 'GK Junction', 'Maikunkele'],
-    totalListings: 44,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80',
     description: 'Top federal technology university in Minna with campuses at Bosso and Gidan Kwano.'
   },
@@ -713,7 +713,7 @@ export const UNIVERSITIES: University[] = [
     lat: 9.9512,
     lng: 8.8912,
     popularAreas: ['Bauchi Road Main Gate', 'Naraguta Hostels Axis', 'Village Gate', 'Farin Gada'],
-    totalListings: 38,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80',
     description: 'Historic federal university in cold Jos town. Farin Gada is a popular off-campus housing node.'
   },
@@ -728,7 +728,7 @@ export const UNIVERSITIES: University[] = [
     lat: 8.8412,
     lng: 7.8712,
     popularAreas: ['High Court Keffi', 'Angwan Lambu', 'NSUK Gate', 'Gimbiya', 'Pyanku'],
-    totalListings: 40,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80',
     description: 'Nasarawa state university in Keffi, serving Abuja commuters and student populace.'
   },
@@ -745,7 +745,7 @@ export const UNIVERSITIES: University[] = [
     lat: 11.1524,
     lng: 7.6521,
     popularAreas: ['Samaru Main Gate', 'Hayin Dogo', 'Banzazzau', 'Danraka', 'Kongo Campus'],
-    totalListings: 46,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80',
     description: 'Prestigious federal university in Northern Nigeria. Samaru and Kongo environs house thousands of off-campus students.'
   },
@@ -760,7 +760,7 @@ export const UNIVERSITIES: University[] = [
     lat: 11.9812,
     lng: 8.4812,
     popularAreas: ['New Campus Gate', 'Old Campus Kabuga', 'Rijiyar Zaki', 'Dala', 'Kofar Ruwa'],
-    totalListings: 40,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80',
     description: 'Federal university in Kano city with expansive New and Old campuses.'
   },
@@ -775,7 +775,7 @@ export const UNIVERSITIES: University[] = [
     lat: 13.1211,
     lng: 5.2112,
     popularAreas: ['Main Campus Gate', 'Dundaye', 'Runjin Sambo', 'Gidan Yaro', 'Gwadabawa Axis'],
-    totalListings: 30,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80',
     description: 'Federal seat of learning in Sokoto, Dundaye and Runjin Sambo host student lodges.'
   },
@@ -790,7 +790,7 @@ export const UNIVERSITIES: University[] = [
     lat: 10.5123,
     lng: 7.4289,
     popularAreas: ['Tudun Wada', 'Ungwan Rimi', 'Sabon Tasha', 'Main Campus Gate', 'Barnawa'],
-    totalListings: 35,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80',
     description: 'Largest polytechnic in West Africa. Environs in Tudun Wada and Sabon Tasha feature student housing.'
   },
@@ -807,7 +807,7 @@ export const UNIVERSITIES: University[] = [
     lat: 11.8123,
     lng: 13.1981,
     popularAreas: ['University Gate 1', 'Bama Road', 'Custom Area', 'Post Office Maiduguri'],
-    totalListings: 25,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80',
     description: 'Federal university situated in Maiduguri, Borno State.'
   },
@@ -822,7 +822,7 @@ export const UNIVERSITIES: University[] = [
     lat: 10.3123,
     lng: 9.8412,
     popularAreas: ['Yelwa Campus Gate', 'Gubi Campus Road', 'Kano Road Bauchi', 'Yelwa Makeri'],
-    totalListings: 30,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80',
     description: 'Federal technology university in Bauchi with Yelwa and Gubi campuses.'
   },
@@ -839,7 +839,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.4011,
     lng: 5.6148,
     popularAreas: ['Ugbowo', 'Ekosodin', 'BDPA Estate', 'Osasogie', 'Lagos Street Gate'],
-    totalListings: 60,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1507992781348-310259076fe0?auto=format&fit=crop&w=1200&q=80',
     description: 'Great Uniben Ugbowo campus. Ekosodin and BDPA Estate feature modern self-contains and gated student lodges.'
   },
@@ -854,7 +854,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.7412,
     lng: 6.0812,
     popularAreas: ['Ujoelen', 'Emaudo', 'Ihnanuma', 'Ekpoma Town Center'],
-    totalListings: 45,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1520986606214-8b456906c813?auto=format&fit=crop&w=1200&q=80',
     description: 'Historic Edo state university in Ekpoma town with dense student communities in Ujoelen.'
   },
@@ -869,7 +869,7 @@ export const UNIVERSITIES: University[] = [
     lat: 4.8992,
     lng: 6.9248,
     popularAreas: ['Choba Main Gate', 'Aluu', 'Abuja Campus Axis', 'Delta Campus', 'Rumuekini'],
-    totalListings: 42,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80',
     description: 'Unique Uniport in the Niger Delta. Choba and Aluu host abundant self-contained apartments for students.'
   },
@@ -884,7 +884,7 @@ export const UNIVERSITIES: University[] = [
     lat: 4.7981,
     lng: 6.9812,
     popularAreas: ['Nkpolu-Oroworukwo', 'Mile 3 Diobu', 'Agip Flyover Axis', 'Eagle Island'],
-    totalListings: 38,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80',
     description: 'State university in heart of Port Harcourt city at Nkpolu.'
   },
@@ -899,7 +899,7 @@ export const UNIVERSITIES: University[] = [
     lat: 4.9512,
     lng: 8.3412,
     popularAreas: ['Etta Agbor Gate', 'Malabor Axis', 'Marian Road', 'Atimbo', 'Anantigha'],
-    totalListings: 35,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?auto=format&fit=crop&w=1200&q=80',
     description: 'Malabor Republic federal university in scenic Calabar town.'
   },
@@ -914,7 +914,7 @@ export const UNIVERSITIES: University[] = [
     lat: 5.0412,
     lng: 7.9212,
     popularAreas: ['Ikpa Road Town Campus', 'Permanent Site Nwaniba', 'Udo Udoma Axis', 'Itam'],
-    totalListings: 36,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80',
     description: 'Federal university in Akwa Ibom state with Town campus and Permanent Site along Nwaniba.'
   },
@@ -929,7 +929,7 @@ export const UNIVERSITIES: University[] = [
     lat: 5.7891,
     lng: 6.1012,
     popularAreas: ['Campus 2 Gate', 'Campus 3 Main', 'Ethor Road', 'Ethiope River View', 'Police Station Road'],
-    totalListings: 45,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80',
     description: 'Delta state university in Abraka town known for student lodges around Ethiope River.'
   },
@@ -946,7 +946,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.8653,
     lng: 7.4082,
     popularAreas: ['Hilltop', 'Odim Gate', 'Zik Flat Axis', 'Ogui Road', 'Onuiyi'],
-    totalListings: 54,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?auto=format&fit=crop&w=1200&q=80',
     description: 'To Restore The Dignity Of Man. Off-campus student lodges flourish around Hilltop and Odim Gate.'
   },
@@ -961,7 +961,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.3123,
     lng: 7.5412,
     popularAreas: ['Agbani Town', 'ESUT Permanent Gate', 'Akwuke', 'Gariki Enugu Axis'],
-    totalListings: 32,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80',
     description: 'State technology university located in Agbani near Enugu urban center.'
   },
@@ -976,7 +976,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.2412,
     lng: 7.0812,
     popularAreas: ['Ifite Awka Gate', 'UNIZIK Junction', 'Amansea', 'Regina Caeli', 'Unizik Back Gate'],
-    totalListings: 50,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1520986606214-8b456906c813?auto=format&fit=crop&w=1200&q=80',
     description: 'Great Unizik Awka. Ifite Awka and Amansea house tens of thousands of off-campus students.'
   },
@@ -991,7 +991,7 @@ export const UNIVERSITIES: University[] = [
     lat: 5.3812,
     lng: 6.9912,
     popularAreas: ['Ihiagwa Main Gate', 'Eziobodo', 'Obinze', 'Umuerim', 'FUTO Junction'],
-    totalListings: 48,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1507992781348-310259076fe0?auto=format&fit=crop&w=1200&q=80',
     description: 'Premier engineering & tech federal university. Ihiagwa and Eziobodo are core student lodges.'
   },
@@ -1006,7 +1006,7 @@ export const UNIVERSITIES: University[] = [
     lat: 5.8212,
     lng: 7.3912,
     popularAreas: ['Uturu Main Gate', 'Okigwe Axis', 'ABSU Junction', 'Isuikwuato Road'],
-    totalListings: 35,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80',
     description: 'Abia state university located in Uturu town.'
   },
@@ -1021,7 +1021,7 @@ export const UNIVERSITIES: University[] = [
     lat: 6.1212,
     lng: 8.1212,
     popularAreas: ['Ikwo Main Gate', 'Ndufu-Alike Town', 'Abakaliki Expressway Axis'],
-    totalListings: 28,
+    totalListings: 0,
     imageUrl: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80',
     description: 'Federal university in Ebonyi state situated in Ikwo.'
   }
@@ -1076,81 +1076,7 @@ const TEMPLATES = [
   { titleSuffix: 'University Gate Residency', propertyType: 'self_contain' as const, pricePerYear: 340000, walkMin: 4, featured: false }
 ];
 
-export const MOCK_LISTINGS: Listing[] = UNIVERSITIES.flatMap((uni) => {
-  const uniCampuses = getCampusesByUniversityId(uni.id, UNIVERSITIES);
-  
-  return TEMPLATES.map((tmpl, idx) => {
-    // For multi-campus universities, distribute properties across the campuses
-    const targetCampus = uniCampuses[idx % uniCampuses.length] || {
-      lat: uni.lat,
-      lng: uni.lng,
-      city: uni.city,
-      state: uni.state,
-      shortName: uni.code
-    };
-
-    const area = uni.popularAreas[idx % uni.popularAreas.length] || `${targetCampus.city} Campus Area`;
-    const photos = PHOTO_SETS[idx % PHOTO_SETS.length];
-    const pricePerYear = tmpl.pricePerYear;
-    
-    // Offset coordinates slightly from campus center for realistic 300m - 500m walk distance
-    const propertyLat = Number((targetCampus.lat + (idx * 0.001 - 0.002)).toFixed(5));
-    const propertyLng = Number((targetCampus.lng + (idx * 0.001 - 0.002)).toFixed(5));
-
-    return {
-      id: `${uni.id}-prop-${idx + 1}`,
-      title: `${uni.code} ${targetCampus.city ? `(${targetCampus.city}) ` : ''}${tmpl.titleSuffix}`,
-      description: `Newly built and verified off-campus student accommodation near ${uni.name} (${targetCampus.shortName || targetCampus.city}). Situated around ${area}, close to campus gate. Equipped with reliable water supply, gated security, and prepaid meter.`,
-      pricePerYear,
-      pricePerMonth: Math.round(pricePerYear / 12),
-      pricePerWeek: Math.round(pricePerYear / 52),
-      currency: 'NGN',
-      billsIncluded: idx % 2 === 0,
-      deposit: Math.round(pricePerYear * 0.1),
-      propertyType: tmpl.propertyType,
-      universityId: uni.id,
-      universityName: uni.name,
-      walkingDistanceMinutes: tmpl.walkMin,
-      walkingDistanceMeters: tmpl.walkMin * 80,
-      address: `${10 + idx * 4} ${area}, ${targetCampus.city || uni.city}`,
-      city: targetCampus.city || uni.city,
-      state: targetCampus.state || uni.state,
-      lat: propertyLat,
-      lng: propertyLng,
-      photos,
-      vacanciesCount: 3 - (idx % 3),
-      unitStatus: idx === 3 ? 'remaining' : 'vacant',
-      facilities: ['24/7 Water Supply', 'Security Guard', 'Prepaid Meter', 'Tiled Floor', 'Pop Ceiling', 'Fenced Gate'],
-      genderPreference: 'any',
-      availableFrom: '2026-09-01',
-      minLeaseMonths: 12,
-      totalBedrooms: 1,
-      totalBathrooms: 1,
-      isVerified: true,
-      status: 'approved',
-      agentId: 'agent-1',
-      agent: {
-        id: 'agent-1',
-        name: 'Chief Tunde Adebayo',
-        agencyName: 'Dormiqa Campus Rentals Ltd',
-        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-        phone: '+234 803 123 4567',
-        email: 'dormiqa.ng@gmail.com',
-        responseRate: '99%',
-        responseTime: '< 10 mins',
-        isVerified: true,
-        rating: 5.0,
-        totalReviews: 0
-      },
-      reviews: [],
-      rules: ['No loud music late at night', 'Keep common areas clean', 'Prompt payment of PHCN tokens'],
-      rating: 0,
-      reviewCount: 0,
-      featured: tmpl.featured,
-      createdAt: new Date().toISOString()
-    };
-  });
-});
+export const MOCK_LISTINGS: Listing[] = [];
 
 export const MOCK_INSPECTIONS: Inspection[] = [];
 

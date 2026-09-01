@@ -259,20 +259,20 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
 
           {/* Rejection Banner if rejected */}
           {currentStatus === 'rejected' && (
-            <div className="p-4 bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-800 rounded-2xl text-xs text-rose-900 dark:text-rose-200 space-y-1">
+            <div className="p-4 bg-black text-white border border-neutral-800 rounded-2xl text-xs space-y-1">
               <div className="flex items-center gap-2 font-bold">
-                <AlertTriangle className="w-4 h-4 text-rose-600" />
+                <AlertTriangle className="w-4 h-4 text-emerald-400" />
                 <span>Previous Verification Application Needs Correction</span>
               </div>
-              <p className="text-[11px]">
+              <p className="text-[11px] text-neutral-300">
                 Reason: {agentData?.rejectionReason || 'Uploaded documents were unreadable or information requires updating.'} Please review your details and resubmit.
               </p>
             </div>
           )}
 
           {errorMessage && (
-            <div className="p-3.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-2xl flex items-center gap-2 text-xs text-rose-800 dark:text-rose-300 font-semibold">
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <div className="p-3.5 bg-black text-white border border-neutral-800 rounded-2xl flex items-center gap-2 text-xs font-semibold">
+              <AlertTriangle className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>{errorMessage}</span>
             </div>
           )}

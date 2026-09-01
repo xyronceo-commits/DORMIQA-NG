@@ -21,11 +21,11 @@ export const Footer: React.FC<FooterProps> = ({
   };
 
   return (
-    <footer className="bg-white dark:bg-slate-950 text-neutral-800 dark:text-neutral-200 pt-8 pb-6 border-t border-neutral-200 dark:border-slate-800">
+    <footer className="bg-white dark:bg-black text-neutral-800 dark:text-neutral-200 pt-8 pb-6 border-t border-neutral-200 dark:border-neutral-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Main Footer Content */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-6 border-b border-neutral-200 dark:border-slate-800">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-6 border-b border-neutral-200 dark:border-neutral-800">
           
           {/* Brand & Mission */}
           <div className="md:col-span-2 space-y-3">
@@ -39,7 +39,7 @@ export const Footer: React.FC<FooterProps> = ({
               Verified student accommodation technology platform connecting university students directly with verified caretakers and lodge agents near campus.
             </p>
             <div className="flex items-center gap-2 pt-1">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 dark:bg-slate-900 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-slate-800 rounded-md text-xs font-semibold">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-800 rounded-md text-xs font-semibold">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>Verified Campus Lodges</span>
               </span>

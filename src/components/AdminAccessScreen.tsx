@@ -18,13 +18,13 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
 }) => {
   if (status === 'AUTH_LOADING' || status === 'ADMIN_CHECKING') {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-neutral-950">
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 bg-white dark:bg-black">
         <div className="flex flex-col items-center gap-4 text-center max-w-sm p-8 bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 shadow-xl">
           <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-200/50">
             <Loader2 className="w-7 h-7 animate-spin" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-neutral-900 dark:text-white">
+            <h3 className="text-base font-bold text-black dark:text-white">
               Dormiqa Admin
             </h3>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
@@ -38,14 +38,14 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
 
   if (status === 'UNAUTHORIZED') {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-neutral-950">
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 bg-white dark:bg-black">
         <div className="w-full max-w-md bg-white dark:bg-neutral-900 rounded-3xl p-8 border border-neutral-200 dark:border-neutral-800 shadow-xl text-center space-y-6 animate-in fade-in duration-200">
-          <div className="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto border border-rose-200/50 dark:border-rose-900/50">
-            <ShieldAlert className="w-8 h-8" />
+          <div className="w-16 h-16 rounded-2xl bg-black text-white dark:bg-white dark:text-black flex items-center justify-center mx-auto">
+            <ShieldAlert className="w-8 h-8 text-emerald-400 dark:text-emerald-600" />
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-xl font-black text-neutral-900 dark:text-white tracking-tight">
+            <h2 className="text-xl font-black text-black dark:text-white tracking-tight">
               Access denied
             </h2>
             <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed max-w-xs mx-auto">
@@ -61,14 +61,14 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
           <div className="pt-2 space-y-2">
             <button
               onClick={onBackToDormiqa}
-              className="w-full py-3.5 px-4 rounded-2xl bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-white dark:text-neutral-900 text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3.5 px-4 rounded-2xl bg-black hover:bg-neutral-900 dark:bg-white dark:hover:bg-neutral-100 dark:text-black text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back to Dormiqa</span>
             </button>
             <button
               onClick={onContinueWithGoogle}
-              className="w-full py-2.5 px-4 rounded-2xl text-xs font-bold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
+              className="w-full py-2.5 px-4 rounded-2xl text-xs font-bold text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
             >
               Sign in with another Google account
             </button>
@@ -82,14 +82,14 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
 
   // Default: UNAUTHENTICATED
   return (
-    <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-neutral-950">
+    <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 bg-white dark:bg-black">
       <div className="w-full max-w-md bg-white dark:bg-neutral-900 rounded-3xl p-8 border border-neutral-200 dark:border-neutral-800 shadow-xl text-center space-y-6 animate-in fade-in duration-200">
         <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200/50 dark:border-emerald-800/50">
           <Shield className="w-8 h-8" />
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-2xl font-black text-neutral-900 dark:text-white tracking-tight">
+          <h2 className="text-2xl font-black text-black dark:text-white tracking-tight">
             Dormiqa Admin
           </h2>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
@@ -98,8 +98,8 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
         </div>
 
         {isExpired && (
-          <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 text-xs font-semibold space-y-1">
-            <p className="font-extrabold text-amber-900 dark:text-amber-200">Session Expired</p>
+          <div className="p-4 rounded-2xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-black dark:text-white text-xs font-semibold space-y-1">
+            <p className="font-extrabold text-black dark:text-white">Session Expired</p>
             <p className="text-[11px] leading-normal opacity-90">
               Your 12-hour administrator session has expired. Please sign in with Google to continue.
             </p>
@@ -107,7 +107,7 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
         )}
 
         {errorMessage && !isExpired && (
-          <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-semibold">
+          <div className="p-3.5 rounded-2xl bg-black text-white dark:bg-white dark:text-black border border-neutral-800 text-xs font-semibold">
             {errorMessage}
           </div>
         )}

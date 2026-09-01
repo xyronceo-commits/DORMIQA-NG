@@ -53,12 +53,12 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
 
   return (
     <div
-      className={`fixed top-20 right-4 z-50 max-w-sm w-full bg-slate-900 text-white rounded-2xl p-4 shadow-2xl border border-slate-800 transition-all duration-300 transform ${
+      className={`fixed top-20 right-4 z-50 max-w-sm w-full bg-black text-white rounded-2xl p-4 shadow-2xl border border-emerald-500/50 transition-all duration-300 transform ${
         visible ? 'translate-y-0 opacity-100 scale-100' : '-translate-y-4 opacity-0 scale-95 pointer-events-none'
       }`}
     >
       <div className="flex items-start gap-3">
-        <div className="p-2.5 rounded-xl bg-slate-800 border border-slate-700 shrink-0">
+        <div className="p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 shrink-0">
           {getIcon(notification.type)}
         </div>
 
@@ -67,14 +67,14 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
             <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800">
               {notification.type} ALERT
             </span>
-            <span className="text-[10px] text-slate-400 font-semibold">Just now</span>
+            <span className="text-[10px] text-neutral-400 font-semibold">Just now</span>
           </div>
 
           <h4 className="text-xs font-black text-white leading-snug">
             {notification.title}
           </h4>
 
-          <p className="text-[11px] text-slate-300 font-medium line-clamp-2 mt-1 leading-relaxed">
+          <p className="text-[11px] text-neutral-200 font-medium line-clamp-2 mt-1 leading-relaxed">
             {notification.body}
           </p>
 
@@ -91,7 +91,7 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
 
         <button
           onClick={() => setVisible(false)}
-          className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+          className="p-1 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-900 transition-colors"
         >
           <X className="w-4 h-4" />
         </button>

@@ -34,7 +34,7 @@ interface LandingPageProps {
 const WAITLIST_BASE_URL = 'https://dormiqa-waitlist.vercel.app';
 
 const DEFAULT_CURATED_UNIVERSITIES: University[] = [
-  { id: 'uniosun', name: 'Osun State University', code: 'UNIOSUN', country: 'Nigeria', type: 'state', lat: 7.771, lng: 4.56, popularAreas: ['Oke Baale', 'Kelebe', 'Isale Osun'], totalListings: 12, imageUrl: '', city: 'Osogbo', state: 'Osun State', status: 'active', description: 'Main campus, Osogbo & satellite campuses' },
+  { id: 'uniosun', name: 'Osun State University', code: 'UNIOSUN', country: 'Nigeria', type: 'state', lat: 7.771, lng: 4.56, popularAreas: ['Oke Baale', 'Kelebe', 'Isale Osun'], totalListings: 0, imageUrl: '', city: 'Osogbo', state: 'Osun State', status: 'active', description: 'Main campus, Osogbo & satellite campuses' },
   { id: 'ui', name: 'University of Ibadan', code: 'UI', country: 'Nigeria', type: 'federal', lat: 7.443, lng: 3.899, popularAreas: ['Agbowo', 'Bodija', 'Samonda'], totalListings: 0, imageUrl: '', city: 'Ibadan', state: 'Oyo State', status: 'coming_soon', description: 'Premier University' },
   { id: 'futa', name: 'Fed. Univ. of Tech, Akure', code: 'FUTA', country: 'Nigeria', type: 'federal', lat: 7.302, lng: 5.137, popularAreas: ['South Gate', 'North Gate', 'Obanla'], totalListings: 0, imageUrl: '', city: 'Akure', state: 'Ondo State', status: 'coming_soon', description: 'Federal University of Technology' },
   { id: 'fuoye', name: 'Federal University, Oye-Ekiti', code: 'FUOYE', country: 'Nigeria', type: 'federal', lat: 7.798, lng: 5.335, popularAreas: ['Oye Campus', 'Ikole Campus'], totalListings: 0, imageUrl: '', city: 'Oye-Ekiti', state: 'Ekiti State', status: 'coming_soon', description: 'Oye & Ikole Campuses' },
@@ -187,7 +187,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               {/* Quick Trust Highlights */}
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4 text-[11px] sm:text-xs font-medium text-neutral-500 pt-1">
                 <span className="flex items-center gap-1.5"><Footprints className="w-3.5 h-3.5 text-neutral-700" /> 3–15 min walk to gate</span>
-                <span className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-amber-500" /> Solar & Light specs</span>
+                <span className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-emerald-600" /> Solar & Light specs</span>
                 <span className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Verified caretakers</span>
               </div>
 
@@ -205,7 +205,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                 <div className="space-y-2.5 text-xs text-neutral-600">
                   <div className="p-2.5 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-0.5">
-                    <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
+                    <div className="flex items-center gap-2 text-black font-bold text-xs">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>Strict Physical Inspection</span>
                     </div>
@@ -215,8 +215,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </div>
 
                   <div className="p-2.5 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-0.5">
-                    <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
-                      <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <div className="flex items-center gap-2 text-black font-bold text-xs">
+                      <Zap className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>Transparent Utilities Audit</span>
                     </div>
                     <p className="text-[11px] text-neutral-500 pl-5 leading-relaxed">
@@ -225,8 +225,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </div>
 
                   <div className="p-2.5 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-0.5">
-                    <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
-                      <Shield className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <div className="flex items-center gap-2 text-black font-bold text-xs">
+                      <Shield className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>Verified Caretakers & Agents</span>
                     </div>
                     <p className="text-[11px] text-neutral-500 pl-5 leading-relaxed">
@@ -237,7 +237,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                 <button
                   onClick={() => onOpenAgentPortal()}
-                  className="w-full py-2.5 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                  className="w-full py-2.5 bg-black hover:bg-neutral-900 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
                 >
                   <Building2 className="w-4 h-4 text-emerald-400" />
                   <span>Agent / Caretaker Listing Portal</span>
@@ -383,8 +383,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     <span className="px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-neutral-100 text-neutral-700 rounded shrink-0">
                       {uni.code}
                     </span>
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
-                      <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-600 shrink-0" />
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-black uppercase tracking-wider bg-black text-white shrink-0">
+                      <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-400 shrink-0" />
                       <span>COMING SOON</span>
                     </span>
                   </div>

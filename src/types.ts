@@ -39,6 +39,7 @@ export interface BusinessVerificationDetails {
 
 export interface User {
   id: string;
+  uid?: string;
   name: string;
   email: string;
   role: UserRole;
@@ -46,6 +47,7 @@ export interface User {
   isAvatarLocked?: boolean;
   verificationPhotoUrl?: string;
   phone?: string;
+  phoneNumber?: string;
   universityId?: string;
   universityName?: string;
   isVerifiedAgent?: boolean;
@@ -85,6 +87,7 @@ export type InstitutionType = 'federal' | 'state' | 'private' | 'polytechnic' | 
 export interface University {
   id: string;
   name: string;
+  shortName?: string;
   city: string;
   state: string;
   country: string;
@@ -97,6 +100,7 @@ export interface University {
   imageUrl: string;
   description: string;
   status?: 'active' | 'coming_soon';
+  isActive?: boolean;
   waitlistUrl?: string;
 }
 
@@ -161,6 +165,7 @@ export interface Listing {
   totalBathrooms: number;
   isVerified: boolean;
   status: 'pending' | 'approved' | 'changes_requested' | 'rejected' | 'banned' | 'flagged' | 'removed';
+  verificationStatus?: 'pending' | 'approved' | 'changes_requested' | 'rejected' | 'banned' | 'flagged' | 'removed';
   aiBanReason?: string;
   isAiBanned?: boolean;
   rejectionReason?: string;

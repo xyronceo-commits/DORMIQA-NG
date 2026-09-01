@@ -59,23 +59,21 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
               <img
                 src={activeAccount?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'}
                 alt=""
-                className="w-16 h-16 rounded-full object-cover border-2 border-slate-900 shadow-xs"
+                className="w-16 h-16 rounded-full object-cover border-2 border-black dark:border-white shadow-xs"
               />
               {(activeAccount?.isVerifiedAgent || activeAccount?.isAvatarLocked || activeAccount?.role === 'agent') && (
-                <div className="absolute -bottom-1 -right-1 bg-slate-900 text-emerald-400 p-1.5 rounded-full border border-emerald-500 shadow-xs" title="Verified Identity Photo (Locked)">
+                <div className="absolute -bottom-1 -right-1 bg-black text-emerald-400 p-1.5 rounded-full border border-emerald-500 shadow-xs" title="Verified Identity Photo (Locked)">
                   <Lock className="w-3.5 h-3.5" />
                 </div>
               )}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-xl font-extrabold text-neutral-900">{activeAccount?.name || 'Account Holder'}</h3>
+                <h3 className="text-xl font-extrabold text-black dark:text-white">{activeAccount?.name || 'Account Holder'}</h3>
                 <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-md uppercase ${
                   activeAccount?.role === 'student'
                     ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                    : activeAccount?.role === 'agent'
-                    ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                    : 'bg-purple-100 text-purple-800 border border-purple-300'
+                    : 'bg-black text-white dark:bg-white dark:text-black border border-black dark:border-white'
                 }`}>
                   {activeAccount?.role || currentRole}
                 </span>
@@ -97,16 +95,16 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               onClick={onSignOut}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-neutral-800 dark:text-slate-200 font-extrabold text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 border border-neutral-200 dark:border-slate-700 cursor-pointer"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-black dark:text-white font-extrabold text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 border border-neutral-200 dark:border-neutral-700 cursor-pointer"
             >
-              <LogOut className="w-4 h-4 text-neutral-600 dark:text-slate-300" />
+              <LogOut className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
               Sign Out
             </button>
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-2xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-black hover:bg-neutral-900 text-white font-extrabold text-xs rounded-2xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-black dark:bg-white dark:text-black dark:border-white"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-4 h-4 text-emerald-400" />
               Delete Account
             </button>
           </div>
@@ -114,7 +112,7 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
 
         {/* Locked Profile Picture Non-Editable Notice */}
         {(activeAccount?.isVerifiedAgent || activeAccount?.isAvatarLocked || activeAccount?.role === 'agent') && (
-          <div className="p-4 bg-slate-900 text-white rounded-2xl flex items-center gap-3 text-xs border border-slate-800">
+          <div className="p-4 bg-black text-white rounded-2xl flex items-center gap-3 text-xs border border-neutral-800">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
               <Lock className="w-5 h-5" />
             </div>
@@ -127,7 +125,7 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
                   Non-Editable
                 </span>
               </div>
-              <p className="text-[11px] text-slate-300 font-medium leading-relaxed">
+              <p className="text-[11px] text-neutral-300 font-medium leading-relaxed">
                 Your profile picture was set during Agent Identity Verification (unblurred, clear face photo without mask). To protect students from scam listings and impersonation, verified profile photos cannot be edited.
               </p>
             </div>
@@ -135,18 +133,18 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
         )}
 
         {/* Email Verification Status Notice */}
-        <div className="p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs bg-slate-50 border-slate-200">
+        <div className="p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center gap-2.5">
             {activeAccount?.isEmailVerified ? (
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
             ) : (
-              <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+              <AlertCircle className="w-5 h-5 text-emerald-500 shrink-0" />
             )}
             <div>
-              <p className="font-extrabold text-slate-900">
+              <p className="font-extrabold text-black dark:text-white">
                 {activeAccount?.isEmailVerified ? 'Email Verified' : 'Email Verification Pending'}
               </p>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
                 {activeAccount?.isEmailVerified 
                   ? 'Your email address is fully verified and secure.' 
                   : 'Click the verification link sent to your email address.'}
@@ -228,9 +226,9 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
           </div>
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            className="px-3 py-2 bg-neutral-100 hover:bg-rose-50 text-rose-600 hover:text-rose-700 font-bold text-xs rounded-xl border border-neutral-200 hover:border-rose-200 transition-all flex items-center gap-1.5"
+            className="px-3 py-2 bg-black hover:bg-neutral-900 text-white font-bold text-xs rounded-xl border border-black dark:bg-white dark:text-black dark:border-white transition-all flex items-center gap-1.5"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 className="w-3.5 h-3.5 text-emerald-400" />
             Delete Account
           </button>
         </div>
