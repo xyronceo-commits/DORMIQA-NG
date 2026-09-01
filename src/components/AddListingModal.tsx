@@ -667,11 +667,11 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
             {submissionResult === 'approved' ? (
               <div className="p-6 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 rounded-3xl space-y-3">
                 <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-                <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-200">
-                  Hostel Submitted Successfully!
+                <h3 className="text-xl font-black text-amber-900 dark:text-amber-200">
+                  Hostel Submitted for Verification!
                 </h3>
-                <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium max-w-md mx-auto">
-                  Your hostel listing has passed initial validation and is now LIVE for students to view and request inspections.
+                <p className="text-xs text-amber-800 dark:text-amber-300 font-medium max-w-md mx-auto">
+                  Your hostel listing has been submitted and is currently <strong>Pending Admin Review</strong>. Once an administrator reviews and approves your submission, it will appear live for students on Student Discovery.
                 </p>
                 <button
                   type="button"

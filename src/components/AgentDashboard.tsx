@@ -26,6 +26,7 @@ import { sendNotification } from '../services/notificationService';
 import { auth, db } from '../services/firebase';
 import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { EditUnitStatusAndSalesModal } from './EditUnitStatusAndSalesModal';
+import { normalizeListing } from '../utils/normalizeListing';
 import { AgentProfilePage } from './AgentProfilePage';
 import { AgentCalendarPage } from './AgentCalendarPage';
 import { AgentBottomNav, AgentNavView } from './AgentBottomNav';
@@ -186,36 +187,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
       unsubListings = onSnapshot(q, (snap) => {
         if (!snap.empty) {
           const freshListings: Listing[] = snap.docs.map(docSnap => {
-            const data = docSnap.data();
-            return {
-              id: docSnap.id,
-              title: data.title || 'Accommodation',
-              pricePerYear: data.pricePerYear || data.price || 0,
-              pricePeriod: data.pricePeriod || data.period || 'year',
-              universityId: data.universityId || '',
-              universityName: data.universityName || '',
-              state: data.state || '',
-              city: data.city || '',
-              area: data.area || '',
-              propertyType: data.propertyType || data.type || 'self-contain',
-              genderPreference: data.genderPreference || 'mixed',
-              distanceMinutesWalk: data.distanceMinutesWalk || 5,
-              vacanciesCount: data.vacanciesCount !== undefined ? data.vacanciesCount : (data.availableUnits !== undefined ? data.availableUnits : 1),
-              photos: data.photos || data.imageUrls || ['https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80'],
-              videoUrl: data.videoUrl,
-              facilities: data.facilities || data.features || [],
-              description: data.description || '',
-              address: data.address || '',
-              agentId: data.agentId || data.userId || targetUid,
-              agentName: data.agentName || 'Agent',
-              agentPhone: data.agentPhone || '',
-              agentAvatar: data.agentAvatar || '',
-              isVerified: Boolean(data.isVerified || data.status === 'approved' || data.verificationStatus === 'approved'),
-              status: data.status || data.verificationStatus || 'pending',
-              verificationStatus: data.verificationStatus || data.status || 'pending',
-              rejectionReason: data.rejectionReason || data.aiBanReason || null,
-              createdAt: data.createdAt || new Date().toISOString()
-            } as unknown as Listing;
+            return normalizeListing(docSnap.data(), docSnap.id);
           });
 
           setLiveAgentListings(freshListings);
@@ -600,9 +572,21 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                         <span className="text-neutral-500">Price:</span>
                         <span className="font-black text-neutral-900 dark:text-white">₦{item.pricePerYear?.toLocaleString()} / yr</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between items-center">
                         <span className="text-neutral-500">Status:</span>
-                        <span className="font-bold text-emerald-600">Active Listing ✓</span>
+                        <span className={`font-extrabold text-[11px] px-2 py-0.5 rounded-md ${
+                          item.status === 'approved' || item.verificationStatus === 'approved' || item.isVerified
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                            : item.status === 'rejected' || item.verificationStatus === 'rejected'
+                            ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                        }`}>
+                          {item.status === 'approved' || item.verificationStatus === 'approved' || item.isVerified
+                            ? 'Approved / Active ✓'
+                            : item.status === 'rejected' || item.verificationStatus === 'rejected'
+                            ? 'Rejected'
+                            : 'Pending Review ⏳'}
+                        </span>
                       </div>
                     </div>
 

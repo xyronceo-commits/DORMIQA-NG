@@ -38,6 +38,7 @@ import {
 } from './components/PropertyRouteStateViews';
 
 import { Navbar } from './components/Navbar';
+import { normalizeListing } from './utils/normalizeListing';
 import { Footer } from './components/Footer';
 import { LandingPage } from './components/LandingPage';
 import { UniversitiesPage } from './components/UniversitiesPage';
@@ -162,7 +163,7 @@ export default function App() {
     }
   };
 
-  const navigateView = (view: 'landing' | 'onboarding' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities') => {
+  const navigateView = (view: 'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities') => {
     setIs404Route(false);
     setRoutePropertyError(null);
     setRoutePropertyUnavailableReason(null);
@@ -173,6 +174,35 @@ export default function App() {
       pushViewUrl('admin-dash');
       return;
     }
+
+    if (isLoggedIn) {
+      if (view === 'landing' || view === 'onboarding' || view === 'agent-landing') {
+        if (isAdminAuthenticated) {
+          setActiveView('admin-dash');
+          pushViewUrl('admin-dash');
+          setToastNotice('You are authenticated as Administrator.');
+          setTimeout(() => setToastNotice(null), 3000);
+          return;
+        }
+        if (currentRole === 'agent') {
+          const target = (accounts.find(a => a.id === activeAccountId)?.businessVerificationStatus === 'approved' || accounts.find(a => a.id === activeAccountId)?.isVerifiedAgent)
+            ? 'agent-dash' 
+            : 'business-verification';
+          setActiveView(target as any);
+          pushViewUrl(target as any);
+          setToastNotice('You are signed in as Agent.');
+          setTimeout(() => setToastNotice(null), 3000);
+          return;
+        }
+        // Student role
+        setActiveView('search');
+        pushViewUrl('search');
+        setToastNotice('You are signed in to Student Discovery.');
+        setTimeout(() => setToastNotice(null), 3000);
+        return;
+      }
+    }
+
     if (!isLoggedIn && view !== 'landing' && view !== 'onboarding' && view !== 'business-verification' && view !== 'search' && view !== 'coming-soon' && view !== 'universities') {
       setActiveView('onboarding');
       pushViewUrl('onboarding');
@@ -389,14 +419,19 @@ export default function App() {
         }
       }, (err) => console.warn('User doc snapshot error:', err));
 
-      // Authenticated user auto-route: ensure signed in or newly registered students go straight to discovery page ('search')
+      // Authenticated user auto-route: ensure signed in or newly registered users go straight to their dashboard
       const initialRoute = parseRouteFromUrl();
-      if (userAccount.role === 'agent') {
-        if (initialRoute.type === 'view' && (initialRoute.view === 'onboarding' || initialRoute.view === 'agent-dash' || initialRoute.view === 'agent-landing')) {
+      if (email && checkAdminSessionValid(uid) && (adminAuthStatus === 'AUTHORIZED' || email === 'buildsafe247@gmail.com')) {
+        if (initialRoute.view === 'landing' || initialRoute.view === 'onboarding' || activeView === 'landing' || activeView === 'onboarding') {
+          setActiveView('admin-dash');
+          pushViewUrl('admin-dash');
+        }
+      } else if (userAccount.role === 'agent') {
+        if (initialRoute.view === 'landing' || initialRoute.view === 'onboarding' || initialRoute.view === 'agent-dash' || initialRoute.view === 'agent-landing' || activeView === 'landing' || activeView === 'onboarding') {
           if (!isVerified) {
             setActiveView('agent-landing');
             pushViewUrl('agent-landing');
-          } else if (userAccount.businessVerificationStatus !== 'approved') {
+          } else if (userAccount.businessVerificationStatus !== 'approved' && !userAccount.isVerifiedAgent) {
             setActiveView('business-verification');
             pushViewUrl('business-verification');
           } else {
@@ -725,38 +760,16 @@ export default function App() {
     const listingsCol = collection(db, 'listings');
     const unsubscribeListings = onSnapshot(listingsCol, (snapshot) => {
       if (!snapshot.empty) {
-        const liveListings: Listing[] = snapshot.docs.map(docSnap => {
-          const data = docSnap.data();
-          return {
-            id: docSnap.id,
-            title: data.title || 'Accommodation',
-            pricePerYear: data.pricePerYear || data.price || 0,
-            pricePeriod: data.pricePeriod || data.period || 'year',
-            universityId: data.universityId || '',
-            universityName: data.universityName || '',
-            state: data.state || '',
-            city: data.city || '',
-            area: data.area || '',
-            propertyType: data.propertyType || data.type || 'self-contain',
-            genderPreference: data.genderPreference || 'mixed',
-            distanceMinutesWalk: data.distanceMinutesWalk || 5,
-            vacanciesCount: data.vacanciesCount !== undefined ? data.vacanciesCount : (data.availableUnits !== undefined ? data.availableUnits : 1),
-            photos: data.photos || data.imageUrls || ['https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80'],
-            videoUrl: data.videoUrl,
-            facilities: data.facilities || data.features || [],
-            description: data.description || '',
-            address: data.address || '',
-            agentId: data.agentId || data.userId || '',
-            agentName: data.agentName || 'Agent',
-            agentPhone: data.agentPhone || '',
-            agentAvatar: data.agentAvatar || '',
-            isVerified: Boolean(data.isVerified || data.status === 'approved' || data.verificationStatus === 'approved'),
-            status: data.status || data.verificationStatus || 'pending',
-            verificationStatus: data.verificationStatus || data.status || 'pending',
-            rejectionReason: data.rejectionReason || data.aiBanReason || null,
-            createdAt: data.createdAt || new Date().toISOString()
-          } as unknown as Listing;
-        });
+        const liveListings: Listing[] = snapshot.docs
+          .map(docSnap => {
+            try {
+              return normalizeListing(docSnap.data(), docSnap.id);
+            } catch (err) {
+              console.warn('Error normalizing listing doc in App:', docSnap.id, err);
+              return null;
+            }
+          })
+          .filter((l): l is Listing => l !== null);
 
         setListings(liveListings);
       }

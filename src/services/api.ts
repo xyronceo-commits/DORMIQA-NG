@@ -1,5 +1,6 @@
 import { Listing, University, Inspection, Conversation, ChatMessage, Report, User, UserRole, AuthorizedAdmin, AdminRole } from '../types';
 import { clientCache, CACHE_TTL } from './cache';
+import { normalizeListing } from '../utils/normalizeListing';
 
 const API_BASE = '/api';
 
@@ -128,7 +129,8 @@ export async function fetchListings(params: Record<string, any> = {}): Promise<L
       const res = await fetch(`${API_BASE}/listings?${query.toString()}`);
       const parsed = await safeParseResponse<Listing[]>(res);
       if (parsed.ok && parsed.data && Array.isArray(parsed.data)) {
-        return clientCache.set(cacheKey, parsed.data, CACHE_TTL.LISTINGS);
+        const normalized = parsed.data.map(item => normalizeListing(item, item.id));
+        return clientCache.set(cacheKey, normalized, CACHE_TTL.LISTINGS);
       }
       throw new Error(parsed.error || 'Failed to fetch listings from backend');
     } catch (err) {
@@ -141,7 +143,9 @@ export async function fetchListings(params: Record<string, any> = {}): Promise<L
         const snap = await getDocs(q);
         const fsListings: Listing[] = [];
         snap.forEach(docSnap => {
-          fsListings.push({ id: docSnap.id, ...(docSnap.data() as Record<string, any>) } as Listing);
+          try {
+            fsListings.push(normalizeListing(docSnap.data(), docSnap.id));
+          } catch (e) {}
         });
         if (fsListings.length > 0) {
           return clientCache.set(cacheKey, fsListings, CACHE_TTL.LISTINGS);
@@ -183,7 +187,7 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
       const docRef = doc(db, 'listings', cleanId);
       const snap = await getDoc(docRef);
       if (snap.exists()) {
-        const item = { id: snap.id, ...snap.data() } as Listing;
+        const item = normalizeListing(snap.data(), snap.id);
         return clientCache.set(cacheKey, item, CACHE_TTL.LISTING_DETAIL);
       }
       return null; // Genuinely not found in Firestore
@@ -244,12 +248,13 @@ export async function createListing(listingData: Partial<Listing>): Promise<List
       minLeaseMonths: listingData.minLeaseMonths || 12,
       totalBedrooms: listingData.totalBedrooms || 1,
       totalBathrooms: listingData.totalBathrooms || 1,
-      isVerified: true,
+      isVerified: false,
       rating: 4.8,
       reviewCount: 0,
       reviews: [],
       featured: false,
-      status: 'approved',
+      status: 'pending',
+      verificationStatus: 'pending',
       agentId: listingData.agentId || 'agent_default',
       agent: listingData.agent || {
         id: listingData.agentId || 'agent_default',
@@ -267,6 +272,8 @@ export async function createListing(listingData: Partial<Listing>): Promise<List
       createdAt: new Date().toISOString()
     };
   }
+
+  created = normalizeListing(created, created.id);
 
   // Authoritative Write to Firestore
   try {

@@ -1,3 +1,4 @@
+import { normalizeListing } from '../utils/normalizeListing';
 import React, { useState, useEffect } from 'react';
 import { 
   Shield, 
@@ -272,38 +273,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const listingsCol = collection(db, 'listings');
       unsubListings = onSnapshot(listingsCol, (snapshot) => {
         if (!snapshot.empty) {
-          const liveProps: Listing[] = snapshot.docs.map(docSnap => {
-            const data = docSnap.data();
-            return {
-              id: docSnap.id,
-              title: data.title || 'Accommodation',
-              pricePerYear: data.pricePerYear || data.price || 0,
-              pricePeriod: data.pricePeriod || data.period || 'year',
-              universityId: data.universityId || '',
-              universityName: data.universityName || '',
-              state: data.state || '',
-              city: data.city || '',
-              area: data.area || '',
-              propertyType: data.propertyType || data.type || 'self-contain',
-              genderPreference: data.genderPreference || 'mixed',
-              distanceMinutesWalk: data.distanceMinutesWalk || 5,
-              vacanciesCount: data.vacanciesCount !== undefined ? data.vacanciesCount : (data.availableUnits !== undefined ? data.availableUnits : 1),
-              photos: data.photos || data.imageUrls || ['https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80'],
-              videoUrl: data.videoUrl,
-              facilities: data.facilities || data.features || [],
-              description: data.description || '',
-              address: data.address || '',
-              agentId: data.agentId || data.userId || '',
-              agentName: data.agentName || 'Agent',
-              agentPhone: data.agentPhone || '',
-              agentAvatar: data.agentAvatar || '',
-              isVerified: Boolean(data.isVerified || data.status === 'approved' || data.verificationStatus === 'approved'),
-              status: data.status || data.verificationStatus || 'pending',
-              verificationStatus: data.verificationStatus || data.status || 'pending',
-              rejectionReason: data.rejectionReason || data.aiBanReason || null,
-              createdAt: data.createdAt || new Date().toISOString()
-            } as unknown as Listing;
-          });
+          const liveProps: Listing[] = snapshot.docs
+            .map(docSnap => {
+              try {
+                return normalizeListing(docSnap.data(), docSnap.id);
+              } catch (e) {
+                return null;
+              }
+            })
+            .filter((p): p is Listing => p !== null);
 
           setProperties(liveProps);
         }
@@ -685,7 +663,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     if (!matchesSearch) return false;
     if (statusFilter === 'all') return true;
-    if (statusFilter === 'pending') return prop.status === 'pending';
+    if (statusFilter === 'pending') {
+      return prop.status === 'pending' || prop.verificationStatus === 'pending' || (!prop.isVerified && prop.status !== 'approved' && prop.status !== 'rejected' && prop.status !== 'banned' && prop.status !== 'removed' && prop.status !== 'changes_requested');
+    }
     if (statusFilter === 'approved' || statusFilter === 'verified') return prop.status === 'approved' || prop.isVerified;
     if (statusFilter === 'changes_requested') return prop.status === 'changes_requested';
     if (statusFilter === 'rejected') return prop.status === 'rejected' || prop.status === 'banned';
@@ -1135,6 +1115,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* SECTION 2: BUSINESS & PROPERTY VERIFICATION TAB */}
         {activeTab === 'properties' && (
           <div className="space-y-4">
+            <div className="p-4 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-extrabold text-neutral-900 dark:text-white flex items-center gap-2">
+                  <span>{statusFilter === 'pending' ? 'Pending Accommodation Listings' : statusFilter === 'approved' ? 'Approved & Verified Listings' : statusFilter === 'rejected' ? 'Rejected Listings' : 'Accommodation Listings'}</span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${
+                    statusFilter === 'pending' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                  }`}>
+                    {filteredProperties.length} {filteredProperties.length === 1 ? 'Listing' : 'Listings'}
+                  </span>
+                </h3>
+                <p className="text-xs text-neutral-500 mt-0.5 font-medium">
+                  {statusFilter === 'pending'
+                    ? 'Listings submitted by agents awaiting administrator verification and approval before appearing on Student Discovery.'
+                    : 'Manage listing verification status, inspect property details, or approve/reject submissions.'}
+                </p>
+              </div>
+            </div>
+
             {filteredProperties.length === 0 ? (
               <div className="p-12 text-center bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800">
                 <Building2 className="w-12 h-12 text-neutral-300 dark:text-neutral-700 mx-auto mb-3" />

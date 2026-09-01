@@ -966,8 +966,9 @@ async function startServer() {
       pricePerYear,
       pricePerWeek,
       id: `lst_${Date.now()}`,
-      isVerified: true,
+      isVerified: false,
       status: 'pending',
+      verificationStatus: 'pending',
       rating: 5.0,
       reviewCount: 0,
       reviews: [],
@@ -979,10 +980,14 @@ async function startServer() {
     const aiAudit = await evaluateListingSafetyAndDuplicates(newListing);
     if (aiAudit.shouldBan) {
       newListing.status = 'banned';
+      newListing.verificationStatus = 'banned';
+      newListing.isVerified = false;
       newListing.isAiBanned = true;
       newListing.aiBanReason = aiAudit.banReason;
     } else {
-      newListing.status = 'approved'; // Auto-approve verified clean listings
+      newListing.status = 'pending';
+      newListing.verificationStatus = 'pending';
+      newListing.isVerified = false;
     }
 
     listingsStore.unshift(newListing);

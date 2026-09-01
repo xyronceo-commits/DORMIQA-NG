@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   GraduationCap, 
   Briefcase, 
@@ -124,7 +124,18 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   const [resendStatusMessage, setResendStatusMessage] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
 
+  useEffect(() => {
+    if (selectedRole === 'agent') {
+      setAuthMethod('email');
+    }
+  }, [selectedRole]);
+
   const handleGoogleAuth = async () => {
+    if (selectedRole === 'agent') {
+      setAuthError("Agent authentication requires Email & Password. Google sign-in is disabled for Agents.");
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setAuthError(null);
     try {
@@ -912,35 +923,42 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           </div>
 
           {/* Auth Method Switcher: Google vs Email */}
-          <div className="space-y-3 mb-6">
-            <label className="text-xs font-bold text-neutral-700 block">Choose Sign-In / Sign-Up Method</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => { setAuthMethod('google'); setAuthError(null); }}
-                className={`py-2.5 px-4 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-                  authMethod === 'google'
-                    ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
-                    : 'bg-neutral-50 text-neutral-800 border-neutral-200 hover:bg-neutral-100'
-                }`}
-              >
-                <GoogleIcon />
-                Google Account
-              </button>
-              <button
-                type="button"
-                onClick={() => { setAuthMethod('email'); setAuthError(null); }}
-                className={`py-2.5 px-4 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-                  authMethod === 'email'
-                    ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
-                    : 'bg-neutral-50 text-neutral-800 border-neutral-200 hover:bg-neutral-100'
-                }`}
-              >
-                <Mail className="w-4 h-4 text-emerald-600" />
-                Email & Password
-              </button>
+          {selectedRole === 'agent' ? (
+            <div className="p-3 bg-neutral-50 dark:bg-neutral-800/80 rounded-xl text-xs text-neutral-700 dark:text-neutral-300 font-semibold mb-6 flex items-center gap-2 border border-neutral-200 dark:border-neutral-700">
+              <Mail className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Agent Portal: Caretakers and Agents sign in and register using Email & Password.</span>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-3 mb-6">
+              <label className="text-xs font-bold text-neutral-700 block">Choose Sign-In / Sign-Up Method</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setAuthMethod('google'); setAuthError(null); }}
+                  className={`py-2.5 px-4 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                    authMethod === 'google'
+                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
+                      : 'bg-neutral-50 text-neutral-800 border-neutral-200 hover:bg-neutral-100'
+                  }`}
+                >
+                  <GoogleIcon />
+                  Google Account
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAuthMethod('email'); setAuthError(null); }}
+                  className={`py-2.5 px-4 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                    authMethod === 'email'
+                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
+                      : 'bg-neutral-50 text-neutral-800 border-neutral-200 hover:bg-neutral-100'
+                  }`}
+                >
+                  <Mail className="w-4 h-4 text-emerald-600" />
+                  Email & Password
+                </button>
+              </div>
+            </div>
+          )}
 
           {authError && (
             <div className="p-3 bg-black text-white rounded-xl flex items-center gap-2 text-xs font-medium mb-4 border border-neutral-800">
@@ -949,8 +967,8 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
             </div>
           )}
 
-          {/* OPTION A: GOOGLE SIGN-IN / SIGN-UP */}
-          {authMethod === 'google' ? (
+          {/* OPTION A: GOOGLE SIGN-IN / SIGN-UP (STUDENTS ONLY) */}
+          {authMethod === 'google' && selectedRole === 'student' ? (
             <div className="space-y-4 py-4">
               <div className="p-6 border border-neutral-200 rounded-2xl bg-neutral-50 text-center space-y-4">
                 <div className="w-12 h-12 rounded-full bg-white border border-neutral-200 flex items-center justify-center mx-auto shadow-xs">
@@ -959,7 +977,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                 <div>
                   <h3 className="font-bold text-sm text-neutral-900">
                     {authMode === 'signup' 
-                      ? `Sign Up as ${selectedRole === 'student' ? 'Student' : 'Verified Agent'} with Google`
+                      ? `Sign Up as Student with Google`
                       : `Sign In with Google Account`
                     }
                   </h3>
@@ -973,10 +991,10 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                     type="button"
                     disabled={isLoading}
                     onClick={handleGoogleAuth}
-                    className="w-full sm:w-auto px-8 py-3 bg-white hover:bg-neutral-100 text-neutral-900 border border-neutral-300 font-extrabold text-xs rounded-xl shadow-xs transition-all inline-flex items-center justify-center gap-2.5"
+                    className="w-full sm:w-auto px-8 py-3 bg-white hover:bg-neutral-100 text-neutral-900 border border-neutral-300 font-extrabold text-xs rounded-xl shadow-xs transition-all inline-flex items-center justify-center gap-2.5 cursor-pointer"
                   >
                     {isLoading ? <Loader2 className="w-4 h-4 animate-spin text-neutral-600" /> : <GoogleIcon />}
-                    <span>{authMode === 'signup' ? `Sign Up as ${selectedRole === 'student' ? 'Student' : 'Agent'} with Google` : 'Sign In with Google'}</span>
+                    <span>{authMode === 'signup' ? `Sign Up as Student with Google` : 'Sign In with Google'}</span>
                   </button>
                 </div>
               </div>
