@@ -22,9 +22,22 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const loadMessages = async () => {
+    if (!conversation) return;
+    setLoading(true);
+    try {
+      const data = await fetchMessages(conversation.id);
+      setMessages(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!conversation) return;
-    loadMessages();
+    loadMessages().catch(err => console.warn("Failed to load initial messages:", err));
 
     // Real-time polling every 2.5s for instant message updates
     const interval = setInterval(() => {
@@ -38,23 +51,6 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
 
     return () => clearInterval(interval);
   }, [conversation?.id]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const loadMessages = async () => {
-    if (!conversation) return;
-    setLoading(true);
-    try {
-      const data = await fetchMessages(conversation.id);
-      setMessages(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();

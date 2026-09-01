@@ -199,6 +199,8 @@ export const subscribeUserNotifications = (
         onNewNotificationBanner(fcmNotif);
       }
     }
+  }).catch((err) => {
+    console.warn("FCM listener setup notice:", err);
   });
 
   return () => {

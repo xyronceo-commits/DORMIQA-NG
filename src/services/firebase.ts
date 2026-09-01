@@ -110,12 +110,16 @@ export const requestFCMPermission = async (): Promise<string | null> => {
  * Listen to foreground Firebase Cloud Messaging push payloads
  */
 export const listenToFCMMessages = async (onMessageReceived: (payload: any) => void) => {
-  const messaging = await getFCMMessaging();
-  if (messaging) {
-    return onMessage(messaging, (payload) => {
-      console.log("FCM Foreground Notification Received:", payload);
-      onMessageReceived(payload);
-    });
+  try {
+    const messaging = await getFCMMessaging();
+    if (messaging) {
+      return onMessage(messaging, (payload) => {
+        console.log("FCM Foreground Notification Received:", payload);
+        onMessageReceived(payload);
+      });
+    }
+  } catch (err) {
+    console.warn("FCM listen error:", err);
   }
   return () => {};
 };

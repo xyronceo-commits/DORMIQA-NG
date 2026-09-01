@@ -105,7 +105,7 @@ export default function App() {
 
   useEffect(() => {
     // Initialize Super Admin in Firestore
-    initializeSuperAdminInFirestore();
+    initializeSuperAdminInFirestore().catch(err => console.warn("Failed to initialize super admin:", err));
   }, []);
 
   // Periodic 12-hour session expiration watcher
@@ -579,7 +579,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    resolveCurrentRoute(currentRoute);
+    resolveCurrentRoute(currentRoute).catch(err => console.warn("Failed to resolve current route:", err));
   }, [currentRoute, activeAccountId, currentRole]);
 
   useEffect(() => {
@@ -744,44 +744,6 @@ export default function App() {
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
 
-  useEffect(() => {
-    try {
-      localStorage.removeItem('campora_saved_ids');
-    } catch (e) {}
-    loadUniversitiesData().catch(err => console.warn('Failed to load universities data:', err));
-    loadInspectionsData().catch(err => console.warn('Failed to load inspections data:', err));
-    loadConversationsData().catch(err => console.warn('Failed to load conversations data:', err));
-  }, []);
-
-  useEffect(() => {
-    loadListingsData();
-
-    // Real-Time Listener on Listings Collection in Firestore
-    const listingsCol = collection(db, 'listings');
-    const unsubscribeListings = onSnapshot(listingsCol, (snapshot) => {
-      if (!snapshot.empty) {
-        const liveListings: Listing[] = snapshot.docs
-          .map(docSnap => {
-            try {
-              return normalizeListing(docSnap.data(), docSnap.id);
-            } catch (err) {
-              console.warn('Error normalizing listing doc in App:', docSnap.id, err);
-              return null;
-            }
-          })
-          .filter((l): l is Listing => l !== null);
-
-        setListings(liveListings);
-      }
-    }, (err) => console.warn('Listings snapshot listener fallback:', err));
-
-    return () => unsubscribeListings();
-  }, [filters]);
-
-  useEffect(() => {
-    localStorage.setItem('dormiqa_saved_ids', JSON.stringify(savedIds));
-  }, [savedIds]);
-
   const loadUniversitiesData = async () => {
     try {
       const data = await fetchUniversities();
@@ -834,6 +796,44 @@ export default function App() {
       console.warn("Failed to load conversations:", err);
     }
   };
+
+  useEffect(() => {
+    try {
+      localStorage.removeItem('campora_saved_ids');
+    } catch (e) {}
+    loadUniversitiesData().catch(err => console.warn('Failed to load universities data:', err));
+    loadInspectionsData().catch(err => console.warn('Failed to load inspections data:', err));
+    loadConversationsData().catch(err => console.warn('Failed to load conversations data:', err));
+  }, []);
+
+  useEffect(() => {
+    loadListingsData().catch(err => console.warn('Failed to load listings data:', err));
+
+    // Real-Time Listener on Listings Collection in Firestore
+    const listingsCol = collection(db, 'listings');
+    const unsubscribeListings = onSnapshot(listingsCol, (snapshot) => {
+      if (!snapshot.empty) {
+        const liveListings: Listing[] = snapshot.docs
+          .map(docSnap => {
+            try {
+              return normalizeListing(docSnap.data(), docSnap.id);
+            } catch (err) {
+              console.warn('Error normalizing listing doc in App:', docSnap.id, err);
+              return null;
+            }
+          })
+          .filter((l): l is Listing => l !== null);
+
+        setListings(liveListings);
+      }
+    }, (err) => console.warn('Listings snapshot listener fallback:', err));
+
+    return () => unsubscribeListings();
+  }, [filters]);
+
+  useEffect(() => {
+    localStorage.setItem('dormiqa_saved_ids', JSON.stringify(savedIds));
+  }, [savedIds]);
 
   const toggleSave = async (listingId: string) => {
     const newSavedIds = savedIds.includes(listingId)
