@@ -2,6 +2,7 @@ import React from 'react';
 import { ArrowLeft, Heart, Building2 } from 'lucide-react';
 import { Listing, Campus } from '../types';
 import { ListingCard } from './ListingCard';
+import { ListingGridSkeleton } from './SkeletonLoader';
 
 interface SavedPageProps {
   savedListings: Listing[];
@@ -12,6 +13,7 @@ interface SavedPageProps {
   onStartChat: (agentId: string, listingId: string) => void;
   onGoBack: () => void;
   selectedCampus?: Campus;
+  isLoading?: boolean;
 }
 
 export const SavedPage: React.FC<SavedPageProps> = ({
@@ -22,8 +24,11 @@ export const SavedPage: React.FC<SavedPageProps> = ({
   onBookInspection,
   onStartChat,
   onGoBack,
-  selectedCampus
+  selectedCampus,
+  isLoading = false
 }) => {
+  const showSkeleton = isLoading || (savedIds.length > 0 && savedListings.length === 0);
+
   return (
     <div className="min-h-screen bg-slate-50/60 dark:bg-slate-950 pb-24 text-slate-900 dark:text-slate-100">
       
@@ -43,7 +48,7 @@ export const SavedPage: React.FC<SavedPageProps> = ({
               <h1 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                 <span>Saved Hostels</span>
                 <span className="text-xs bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-extrabold px-2 py-0.5 rounded-full">
-                  {savedListings.length}
+                  {showSkeleton ? '...' : savedListings.length}
                 </span>
               </h1>
               <p className="text-xs text-neutral-500 dark:text-slate-400">Your shortlisted student accommodations</p>
@@ -55,7 +60,9 @@ export const SavedPage: React.FC<SavedPageProps> = ({
 
       {/* CONTENT BODY */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {savedListings.length === 0 ? (
+        {showSkeleton ? (
+          <ListingGridSkeleton count={Math.max(savedIds.length, 3)} />
+        ) : savedListings.length === 0 ? (
           <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border border-neutral-200 dark:border-slate-800 p-8 max-w-md mx-auto space-y-4">
             <div className="w-16 h-16 bg-rose-50 dark:bg-rose-950/50 rounded-full flex items-center justify-center mx-auto text-rose-500">
               <Heart className="w-8 h-8" />

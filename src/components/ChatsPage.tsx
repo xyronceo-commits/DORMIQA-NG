@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
 import { ArrowLeft, MessageSquare, Search, ShieldCheck, Building2, ChevronRight } from 'lucide-react';
 import { Conversation, UserRole } from '../types';
+import { ChatDrawerSkeleton } from './SkeletonLoader';
 
 interface ChatsPageProps {
   conversations: Conversation[];
   onOpenChat: (conversation: Conversation) => void;
   onGoBack: () => void;
   currentRole: UserRole;
+  isLoading?: boolean;
 }
 
 export const ChatsPage: React.FC<ChatsPageProps> = ({
   conversations,
   onOpenChat,
   onGoBack,
-  currentRole
+  currentRole,
+  isLoading = false
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -47,7 +50,7 @@ export const ChatsPage: React.FC<ChatsPageProps> = ({
               <h1 className="text-lg font-extrabold text-black dark:text-white flex items-center gap-2">
                 <span>Agent Messages</span>
                 <span className="text-xs bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-extrabold px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                  {conversations.length}
+                  {isLoading ? '...' : conversations.length}
                 </span>
               </h1>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">Direct inquiries with verified caretakers & agents</p>
@@ -61,7 +64,7 @@ export const ChatsPage: React.FC<ChatsPageProps> = ({
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
         
         {/* Search Bar */}
-        {conversations.length > 0 && (
+        {conversations.length > 0 && !isLoading && (
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
             <input
@@ -74,7 +77,9 @@ export const ChatsPage: React.FC<ChatsPageProps> = ({
           </div>
         )}
 
-        {filteredConversations.length === 0 ? (
+        {isLoading ? (
+          <ChatDrawerSkeleton />
+        ) : filteredConversations.length === 0 ? (
           <div className="text-center py-20 bg-white dark:bg-black rounded-3xl border border-neutral-200 dark:border-neutral-800 p-8 max-w-md mx-auto space-y-4">
             <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/50 rounded-full flex items-center justify-center mx-auto text-emerald-500 border border-emerald-200 dark:border-emerald-800">
               <MessageSquare className="w-8 h-8" />

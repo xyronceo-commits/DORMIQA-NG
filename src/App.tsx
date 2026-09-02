@@ -330,12 +330,6 @@ export default function App() {
         return;
       }
 
-      try {
-        await fbUser.reload();
-      } catch (e) {
-        // ignore reload errors
-      }
-
       const uid = fbUser.uid;
       const email = fbUser.email?.toLowerCase() || '';
 
@@ -356,40 +350,43 @@ export default function App() {
       }
       setUserSessionTimestamp(uid);
 
-      // Check Admin authorization from Firestore & 12-hour session validity
       if (email) {
         setAdminAuthStatus('ADMIN_CHECKING');
-        const adminCheck = await checkAdminAuthorizedInFirestore(email, uid);
-        if (adminCheck.authorized) {
-          const isSessionValid = checkAdminSessionValid(uid);
-          if (isSessionValid) {
-            setIsAdminAuthenticated(true);
-            setAdminEmail(email);
-            setAdminRole(adminCheck.role || (email === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN'));
-            setAdminAuthStatus('AUTHORIZED');
-            try {
-              localStorage.setItem('dormiqa_admin_email', email);
-            } catch {}
-          } else {
-            console.warn(`12-hour Admin session expired for ${email}`);
-            clearAdminSessionTimestamp(uid);
-            await signOut(auth);
-            setIsAdminAuthenticated(false);
-            setAdminAuthStatus('SESSION_EXPIRED');
-          }
+      }
+
+      // Execute profile fetch & admin authorization check in parallel
+      const [adminCheck, fetchedProfile] = await Promise.all([
+        email ? checkAdminAuthorizedInFirestore(email, uid) : Promise.resolve({ authorized: false }),
+        fetchUserProfileFromFirestore(uid).then(async p => {
+          if (!p && email) return await fetchUserProfileFromFirestore(email);
+          return p;
+        })
+      ]);
+
+      const profile = fetchedProfile;
+
+      // Handle Admin Authorization state
+      if (email && adminCheck.authorized) {
+        const isSessionValid = checkAdminSessionValid(uid);
+        if (isSessionValid) {
+          setIsAdminAuthenticated(true);
+          setAdminEmail(email);
+          setAdminRole((adminCheck as any).role || (email === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN'));
+          setAdminAuthStatus('AUTHORIZED');
+          try {
+            localStorage.setItem('dormiqa_admin_email', email);
+          } catch {}
         } else {
-          setIsAdminAuthenticated(false);
-          setAdminAuthStatus('UNAUTHORIZED');
+          console.warn(`12-hour Admin session expired for ${email}`);
           clearAdminSessionTimestamp(uid);
+          await signOut(auth);
+          setIsAdminAuthenticated(false);
+          setAdminAuthStatus('SESSION_EXPIRED');
         }
       } else {
         setIsAdminAuthenticated(false);
-        setAdminAuthStatus('UNAUTHENTICATED');
-      }
-
-      let profile = await fetchUserProfileFromFirestore(uid);
-      if (!profile && email) {
-        profile = await fetchUserProfileFromFirestore(email);
+        setAdminAuthStatus(email ? 'UNAUTHORIZED' : 'UNAUTHENTICATED');
+        clearAdminSessionTimestamp(uid);
       }
 
       const isVerified = fbUser.emailVerified || fbUser.providerData.some(p => p.providerId === 'google.com');
@@ -885,14 +882,8 @@ export default function App() {
       localStorage.removeItem('campora_saved_ids');
     } catch (e) {}
     loadUniversitiesData().catch(err => console.warn('Failed to load universities data:', err));
-    loadInspectionsData().catch(err => console.warn('Failed to load inspections data:', err));
-    loadConversationsData().catch(err => console.warn('Failed to load conversations data:', err));
-  }, []);
 
-  useEffect(() => {
-    loadListingsData().catch(err => console.warn('Failed to load listings data:', err));
-
-    // Real-Time Listener on Listings Collection in Firestore
+    // Real-Time Listener on Listings Collection in Firestore mounted once
     const listingsCol = collection(db, 'listings');
     const unsubscribeListings = onSnapshot(listingsCol, (snapshot) => {
       if (!snapshot.empty) {
@@ -908,10 +899,15 @@ export default function App() {
           .filter((l): l is Listing => l !== null);
 
         setListings(liveListings);
+        setIsListingsLoading(false);
       }
     }, (err) => console.warn('Listings snapshot listener fallback:', err));
 
     return () => unsubscribeListings();
+  }, []);
+
+  useEffect(() => {
+    loadListingsData().catch(err => console.warn('Failed to load listings data:', err));
   }, [filters]);
 
   useEffect(() => {
@@ -1324,6 +1320,7 @@ export default function App() {
               onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
               onGoBack={() => navigateView('search')}
               selectedCampus={selectedCampus}
+              isLoading={isAuthInitializing || isListingsLoading}
             />
           </ErrorBoundary>
         )}
@@ -1336,6 +1333,7 @@ export default function App() {
               onOpenChat={(conv) => setActiveConversation(conv)}
               onGoBack={() => navigateView('search')}
               currentRole={currentRole}
+              isLoading={isAuthInitializing}
             />
           </ErrorBoundary>
         )}
@@ -1349,6 +1347,7 @@ export default function App() {
               onOpenListing={(l) => handleOpenListingDetail(l)}
               onStartChat={(agentId, listingId) => handleStartChatWithAgent(agentId, listingId)}
               onGoBack={() => navigateView('search')}
+              isLoading={isAuthInitializing}
             />
           </ErrorBoundary>
         )}

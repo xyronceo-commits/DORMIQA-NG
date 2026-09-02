@@ -525,34 +525,27 @@ export const fetchUserProfileFromFirestore = async (uidOrEmail: string): Promise
   try {
     const userRef = doc(db, 'users', uidOrEmail);
     const snap = await getDoc(userRef);
-    let data = snap.exists() ? snap.data() : null;
-
-    // Merge role-specific document (students/{uid} or agents/{uid}) if needed
-    if (data) {
-      if (data.role === 'student' || !data.role) {
-        const studentSnap = await getDoc(doc(db, 'students', uidOrEmail));
-        if (studentSnap.exists()) {
-          data = { ...studentSnap.data(), ...data };
-        }
-      } else if (data.role === 'agent') {
-        const agentSnap = await getDoc(doc(db, 'agents', uidOrEmail));
-        if (agentSnap.exists()) {
-          data = { ...agentSnap.data(), ...data };
-        }
-      }
-    } else {
-      const studentSnap = await getDoc(doc(db, 'students', uidOrEmail));
-      if (studentSnap.exists()) {
-        data = studentSnap.data();
-      } else {
-        const agentSnap = await getDoc(doc(db, 'agents', uidOrEmail));
-        if (agentSnap.exists()) {
-          data = agentSnap.data();
-        }
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data && (data.name || data.email)) {
+        return data;
       }
     }
 
-    return data;
+    // Parallel fallback check in role collections if users/{id} is missing or incomplete
+    const [studentSnap, agentSnap] = await Promise.all([
+      getDoc(doc(db, 'students', uidOrEmail)).catch(() => null),
+      getDoc(doc(db, 'agents', uidOrEmail)).catch(() => null)
+    ]);
+
+    if (studentSnap?.exists()) {
+      return studentSnap.data();
+    }
+    if (agentSnap?.exists()) {
+      return agentSnap.data();
+    }
+
+    return snap.exists() ? snap.data() : null;
   } catch (err) {
     console.warn("Failed to fetch user profile from Firestore:", err);
     handleFirestoreError(err, OperationType.GET, `users/${uidOrEmail}`, false);
@@ -564,83 +557,86 @@ export const fetchUserProfileFromFirestore = async (uidOrEmail: string): Promise
  * Fetch & Seed Universities Collection in Firestore
  */
 export const fetchUniversitiesFromFirestore = async (): Promise<University[]> => {
-  try {
-    const colRef = collection(db, 'universities');
-    const snap = await getDocs(colRef);
-    
-    if (!snap.empty) {
-      const list: University[] = [];
-      snap.forEach(d => {
-        const data = d.data();
-        const isUniosun = d.id === 'uniosun';
-        list.push({
-          id: d.id,
-          name: data.name || '',
-          shortName: data.shortName || data.code || data.name,
-          city: data.city || data.location?.split(',')[0] || '',
-          state: data.state || data.location?.split(',')[1] || '',
-          country: data.country || 'Nigeria',
-          code: data.code || data.shortName || d.id.toUpperCase(),
-          type: data.type || 'federal',
-          lat: data.lat || 7.7821,
-          lng: data.lng || 4.5621,
-          popularAreas: data.popularAreas || [],
-          totalListings: data.totalListings || 0,
-          imageUrl: data.imageUrl || '',
-          description: data.description || '',
-          status: data.status || (isUniosun ? 'active' : 'coming_soon'),
-          isActive: data.isActive !== undefined ? data.isActive : (data.status === 'active' || isUniosun),
-          waitlistUrl: data.waitlistUrl || 'https://dormiqa-waitlist.vercel.app'
-        } as University);
-      });
+  const cacheKey = 'universities_firestore_list';
+  return clientCache.dedupe(cacheKey, async () => {
+    try {
+      const colRef = collection(db, 'universities');
+      const snap = await getDocs(colRef);
+      
+      if (!snap.empty) {
+        const list: University[] = [];
+        snap.forEach(d => {
+          const data = d.data();
+          const isUniosun = d.id === 'uniosun';
+          list.push({
+            id: d.id,
+            name: data.name || '',
+            shortName: data.shortName || data.code || data.name,
+            city: data.city || data.location?.split(',')[0] || '',
+            state: data.state || data.location?.split(',')[1] || '',
+            country: data.country || 'Nigeria',
+            code: data.code || data.shortName || d.id.toUpperCase(),
+            type: data.type || 'federal',
+            lat: data.lat || 7.7821,
+            lng: data.lng || 4.5621,
+            popularAreas: data.popularAreas || [],
+            totalListings: data.totalListings || 0,
+            imageUrl: data.imageUrl || '',
+            description: data.description || '',
+            status: data.status || (isUniosun ? 'active' : 'coming_soon'),
+            isActive: data.isActive !== undefined ? data.isActive : (data.status === 'active' || isUniosun),
+            waitlistUrl: data.waitlistUrl || 'https://dormiqa-waitlist.vercel.app'
+          } as University);
+        });
 
-      // Guarantee UNIOSUN appears first
-      list.sort((a, b) => {
-        if (a.id === 'uniosun') return -1;
-        if (b.id === 'uniosun') return 1;
-        if (a.status === 'active' && b.status !== 'active') return -1;
-        if (b.status === 'active' && a.status !== 'active') return 1;
-        return a.name.localeCompare(b.name);
-      });
+        // Guarantee UNIOSUN appears first
+        list.sort((a, b) => {
+          if (a.id === 'uniosun') return -1;
+          if (b.id === 'uniosun') return 1;
+          if (a.status === 'active' && b.status !== 'active') return -1;
+          if (b.status === 'active' && a.status !== 'active') return 1;
+          return a.name.localeCompare(b.name);
+        });
 
-      return list;
-    }
-
-    // Seed Firestore with default universities if collection is empty
-    const { UNIVERSITIES } = await import('../data/mockData');
-    for (const uni of UNIVERSITIES) {
-      try {
-        const isUniosun = uni.id === 'uniosun';
-        const uniStatus = isUniosun ? 'active' : 'coming_soon';
-        await setDoc(doc(db, 'universities', uni.id), {
-          id: uni.id,
-          name: uni.name,
-          shortName: uni.code || uni.name,
-          code: uni.code,
-          location: `${uni.city}, ${uni.state}`,
-          city: uni.city,
-          state: uni.state,
-          country: uni.country,
-          type: uni.type,
-          status: uniStatus,
-          isActive: isUniosun,
-          waitlistUrl: 'https://dormiqa-waitlist.vercel.app',
-          description: uni.description,
-          imageUrl: uni.imageUrl,
-          popularAreas: uni.popularAreas,
-          totalListings: uni.totalListings
-        }, { merge: true });
-      } catch (seedErr) {
-        console.warn(`Failed to seed university ${uni.id}:`, seedErr);
+        return list;
       }
-    }
 
-    return UNIVERSITIES;
-  } catch (err) {
-    console.warn("Firestore fetchUniversities error, falling back to local data:", err);
-    const { UNIVERSITIES } = await import('../data/mockData');
-    return UNIVERSITIES;
-  }
+      // Seed Firestore with default universities if collection is empty
+      const { UNIVERSITIES } = await import('../data/mockData');
+      for (const uni of UNIVERSITIES) {
+        try {
+          const isUniosun = uni.id === 'uniosun';
+          const uniStatus = isUniosun ? 'active' : 'coming_soon';
+          await setDoc(doc(db, 'universities', uni.id), {
+            id: uni.id,
+            name: uni.name,
+            shortName: uni.code || uni.name,
+            code: uni.code,
+            location: `${uni.city}, ${uni.state}`,
+            city: uni.city,
+            state: uni.state,
+            country: uni.country,
+            type: uni.type,
+            status: uniStatus,
+            isActive: isUniosun,
+            waitlistUrl: 'https://dormiqa-waitlist.vercel.app',
+            description: uni.description,
+            imageUrl: uni.imageUrl,
+            popularAreas: uni.popularAreas,
+            totalListings: uni.totalListings
+          }, { merge: true });
+        } catch (seedErr) {
+          console.warn(`Failed to seed university ${uni.id}:`, seedErr);
+        }
+      }
+
+      return UNIVERSITIES;
+    } catch (err) {
+      console.warn("Firestore fetchUniversities error, falling back to local data:", err);
+      const { UNIVERSITIES } = await import('../data/mockData');
+      return UNIVERSITIES;
+    }
+  });
 };
 
 /**

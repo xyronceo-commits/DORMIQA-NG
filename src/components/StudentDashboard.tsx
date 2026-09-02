@@ -17,6 +17,7 @@ import { fetchInspections, fetchConversations } from '../services/api';
 import { generateGoogleCalendarUrl, downloadIcsFile } from '../utils/calendar';
 import { AccountManager } from './AccountManager';
 import { auth } from '../services/firebase';
+import { DashboardSkeleton, ListingGridSkeleton } from './SkeletonLoader';
 
 interface StudentDashboardProps {
   savedListings: Listing[];
@@ -33,6 +34,7 @@ interface StudentDashboardProps {
   activeAccountId: string;
   onSignOut: () => void;
   onDeleteAccount: (accountId: string) => void;
+  isLoading?: boolean;
 }
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({
@@ -49,7 +51,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   accounts,
   activeAccountId,
   onSignOut,
-  onDeleteAccount
+  onDeleteAccount,
+  isLoading = false
 }) => {
   const [internalTab, setInternalTab] = useState<'inspections' | 'saved' | 'chats' | 'profile'>(activeTab);
 

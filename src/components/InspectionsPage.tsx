@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, Calendar, Clock, MessageSquare, ExternalLink, Star, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
 import { Inspection, Listing } from '../types';
 import { generateGoogleCalendarUrl, downloadIcsFile } from '../utils/calendar';
+import { ListItemRowSkeleton } from './SkeletonLoader';
 
 interface InspectionsPageProps {
   inspections: Inspection[];
@@ -9,6 +10,7 @@ interface InspectionsPageProps {
   onOpenListing: (listing: Listing) => void;
   onStartChat: (agentId: string, listingId: string) => void;
   onGoBack: () => void;
+  isLoading?: boolean;
 }
 
 export const InspectionsPage: React.FC<InspectionsPageProps> = ({
@@ -16,7 +18,8 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
   allListings,
   onOpenListing,
   onStartChat,
-  onGoBack
+  onGoBack,
+  isLoading = false
 }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled'>('all');
 
@@ -117,7 +120,13 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
         </div>
 
         {/* Inspections List */}
-        {filteredInspections.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-4">
+            <ListItemRowSkeleton />
+            <ListItemRowSkeleton />
+            <ListItemRowSkeleton />
+          </div>
+        ) : filteredInspections.length === 0 ? (
           <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border border-neutral-200 dark:border-slate-800 p-8 max-w-md mx-auto space-y-4">
             <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/50 rounded-full flex items-center justify-center mx-auto text-emerald-500">
               <Calendar className="w-8 h-8" />
