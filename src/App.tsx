@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, Loader2, Shield } from 'lucide-react';
+import { AlertCircle, Shield } from 'lucide-react';
 import { 
   UserRole, 
   University, 
@@ -101,6 +101,30 @@ export default function App() {
   const [selectedComingSoonUniId, setSelectedComingSoonUniId] = useState<string>('unilag');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [isAuthInitializing, setIsAuthInitializing] = useState<boolean>(true);
+
+  // Dormiqa Splash Screen state
+  const [showSplash, setShowSplash] = useState<boolean>(true);
+  const [splashFading, setSplashFading] = useState<boolean>(false);
+  const [splashTimerEnded, setSplashTimerEnded] = useState<boolean>(false);
+
+  // Initial 3-second splash screen display timer
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSplashTimerEnded(true);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Smoothly fade out splash screen after 3s minimum display AND auth initialization complete
+  useEffect(() => {
+    if (splashTimerEnded && !isAuthInitializing && showSplash && !splashFading) {
+      setSplashFading(true);
+      const fadeTimer = setTimeout(() => {
+        setShowSplash(false);
+      }, 700);
+      return () => clearTimeout(fadeTimer);
+    }
+  }, [splashTimerEnded, isAuthInitializing, showSplash, splashFading]);
 
   const [adminAuthStatus, setAdminAuthStatus] = useState<'AUTH_LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED' | 'ADMIN_CHECKING' | 'AUTHORIZED' | 'UNAUTHORIZED' | 'SESSION_EXPIRED' | 'SIGNED_OUT'>('AUTH_LOADING');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
@@ -354,16 +378,38 @@ export default function App() {
         setAdminAuthStatus('ADMIN_CHECKING');
       }
 
-      // Execute profile fetch & admin authorization check in parallel
-      const [adminCheck, fetchedProfile] = await Promise.all([
+      // Execute profile, conversations, inspections, listings, and admin check in parallel via Promise.all
+      const [adminCheck, fetchedProfile, initialConversations, initialInspections, initialListings] = await Promise.all([
         email ? checkAdminAuthorizedInFirestore(email, uid) : Promise.resolve({ authorized: false }),
         fetchUserProfileFromFirestore(uid).then(async p => {
           if (!p && email) return await fetchUserProfileFromFirestore(email);
           return p;
+        }),
+        fetchConversations(uid).catch(err => {
+          console.warn('Parallel conversations load error:', err);
+          return [] as Conversation[];
+        }),
+        fetchInspections({ studentId: uid }).catch(err => {
+          console.warn('Parallel inspections load error:', err);
+          return [] as Inspection[];
+        }),
+        fetchListings().catch(err => {
+          console.warn('Parallel listings load error:', err);
+          return [] as Listing[];
         })
       ]);
 
       const profile = fetchedProfile;
+      if (initialConversations && initialConversations.length > 0) {
+        setConversations(initialConversations);
+      }
+      if (initialInspections && initialInspections.length > 0) {
+        setInspections(initialInspections);
+      }
+      if (initialListings && initialListings.length > 0) {
+        setListings(initialListings);
+        setIsListingsLoading(false);
+      }
 
       // Handle Admin Authorization state
       if (email && adminCheck.authorized) {
@@ -1008,23 +1054,25 @@ export default function App() {
   const unreadMessageCount = conversations.reduce((total, conv) => total + (conv.unreadCount || 0), 0);
   const savedListings = listings.filter(l => savedIds.includes(l.id));
 
-  if (isAuthInitializing) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
-            <Loader2 className="w-6 h-6 animate-spin text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <p className="text-xs font-extrabold tracking-tight text-neutral-500 dark:text-neutral-400">
-            Connecting to Dormiqa...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-black text-black dark:text-white font-sans selection:bg-emerald-500 selection:text-white transition-colors duration-200">
+      
+      {/* 3-Second Dormiqa Logo Splash Screen Overlay with Smooth Fade Transition */}
+      {showSplash && (
+        <div
+          className={`fixed inset-0 z-[99999] flex items-center justify-center bg-white dark:bg-black transition-opacity duration-700 ease-in-out ${
+            splashFading ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          }`}
+        >
+          <div className="flex items-center justify-center p-6 w-full max-w-xs sm:max-w-sm md:max-w-md">
+            <img
+              src="/dormiqa-logo.svg"
+              alt="Dormiqa Logo"
+              className="w-48 sm:w-60 md:w-72 max-w-[75vw] max-h-[60vh] h-auto object-contain select-none"
+            />
+          </div>
+        </div>
+      )}
       
       {/* Global Navbar for Public/Student Pages without embedded header */}
       {(currentRole !== 'student' || ['landing', 'onboarding', 'coming-soon'].includes(activeView)) && 
