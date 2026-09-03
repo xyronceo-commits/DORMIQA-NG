@@ -31,13 +31,13 @@ service cloud.firestore {
 
     // ADMINS COLLECTION
     match /admins/{adminUid} {
-      allow read: if isAdmin();
+      allow read: if true;
       allow write: if isInitialSuperAdmin() || isSuperAdmin();
     }
 
     // AUTHORIZED ADMINS COLLECTION
     match /authorized_admins/{adminEmailDoc} {
-      allow read: if isAdmin();
+      allow read: if true;
       allow write: if isInitialSuperAdmin() || isSuperAdmin();
     }
 

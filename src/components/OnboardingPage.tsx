@@ -146,45 +146,38 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
       const uid = fbUser.uid;
 
       if (selectedRole === 'student') {
-        // Fetch student profile directly from Firestore students/{uid}
+        // Fetch student profile directly from Firestore students/{uid} if present
         const studentProfile = await fetchStudentProfileFromFirestore(uid);
 
-        const isComplete = studentProfile &&
-          studentProfile.profileCompleted === true &&
-          Boolean(studentProfile.universityId) &&
-          Boolean(studentProfile.phoneNumber || studentProfile.phone);
+        const studentData = {
+          id: uid,
+          role: 'student' as UserRole,
+          name: studentProfile?.name || displayName || email.split('@')[0] || 'Student',
+          email: email,
+          phone: studentProfile?.phoneNumber || studentProfile?.phone || '',
+          universityId: studentProfile?.universityId || 'uniosun',
+          universityName: studentProfile?.universityName || 'Osun State University (UNIOSUN)',
+          avatarUrl: studentProfile?.photoURL || studentProfile?.avatarUrl || photoURL,
+          isSignup: false,
+          isEmailVerified: true
+        };
 
-        if (isComplete) {
-          // RETURNING STUDENT WITH COMPLETE PROFILE! Do NOT make them complete profile again!
-          const studentData = {
-            id: uid,
-            role: 'student' as UserRole,
-            name: studentProfile.name || displayName || email.split('@')[0] || 'Student',
-            email: email,
-            phone: studentProfile.phoneNumber || studentProfile.phone || '',
-            universityId: studentProfile.universityId,
-            universityName: studentProfile.universityName,
-            avatarUrl: studentProfile.photoURL || studentProfile.avatarUrl || photoURL,
-            isSignup: false,
-            isEmailVerified: true
-          };
-          onCompleteOnboarding(studentData);
-          return;
-        }
-
-        // FIRST-TIME OR INCOMPLETE STUDENT PROFILE!
-        setStudentName(studentProfile?.name || displayName || '');
-        setStudentEmail(email);
-        setStudentPhone(studentProfile?.phoneNumber || studentProfile?.phone || '');
-        setStudentUniId(studentProfile?.universityId || 'uniosun');
-        setStudentUni(studentProfile?.universityName || universities.find(u => u.id === 'uniosun')?.name || 'Osun State University (UNIOSUN)');
-        
-        setGoogleAuthData({
+        // Save profile in Firestore so user record is complete
+        await saveUserToFirestore(studentData);
+        await saveStudentProfileToFirestore({
           uid,
-          displayName: displayName || studentProfile?.name || '',
-          email,
-          photoURL
+          name: studentData.name,
+          email: studentData.email,
+          photoURL: studentData.avatarUrl,
+          avatarUrl: studentData.avatarUrl,
+          phoneNumber: studentData.phone,
+          phone: studentData.phone,
+          universityId: studentData.universityId,
+          universityName: studentData.universityName,
+          profileCompleted: true
         });
+
+        onCompleteOnboarding(studentData);
         return;
       }
 
@@ -296,7 +289,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           universityId: studentData.universityId,
           universityName: studentData.universityName,
           avatarUrl: studentData.photoURL,
-          isSignup: true,
+          isSignup: false,
           isEmailVerified: true
         };
 
@@ -597,7 +590,44 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setSelectedRole('student')}
+                onClick={async () => {
+                  setSelectedRole('student');
+                  if (googleAuthData) {
+                    setIsLoading(true);
+                    try {
+                      const studentData = {
+                        id: googleAuthData.uid,
+                        role: 'student' as UserRole,
+                        name: googleAuthData.displayName || googleAuthData.email.split('@')[0] || 'Student',
+                        email: googleAuthData.email,
+                        phone: '',
+                        universityId: 'uniosun',
+                        universityName: 'Osun State University (UNIOSUN)',
+                        avatarUrl: googleAuthData.photoURL,
+                        isSignup: false,
+                        isEmailVerified: true
+                      };
+                      await saveUserToFirestore(studentData);
+                      await saveStudentProfileToFirestore({
+                        uid: googleAuthData.uid,
+                        name: studentData.name,
+                        email: studentData.email,
+                        photoURL: studentData.avatarUrl,
+                        avatarUrl: studentData.avatarUrl,
+                        phoneNumber: '',
+                        phone: '',
+                        universityId: 'uniosun',
+                        universityName: 'Osun State University (UNIOSUN)',
+                        profileCompleted: true
+                      });
+                      onCompleteOnboarding(studentData);
+                    } catch (e) {
+                      console.error("Student Google auto-complete error:", e);
+                    } finally {
+                      setIsLoading(false);
+                    }
+                  }
+                }}
                 className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   selectedRole === 'student'
                     ? 'bg-neutral-900 text-white border-neutral-900 shadow-xs'

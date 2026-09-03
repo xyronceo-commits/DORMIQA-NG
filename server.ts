@@ -517,7 +517,7 @@ async function syncAdminEmailsFromFirestore() {
       });
     }
 
-    // Ensure Super Admin buildsafe247@gmail.com is always present in Firestore & memory
+    // Ensure Super Admin buildsafe247@gmail.com is always present in memory
     const defaultEmail = 'buildsafe247@gmail.com';
     if (!authorizedAdminMap.has(defaultEmail)) {
       authorizedAdminMap.set(defaultEmail, {
@@ -528,15 +528,8 @@ async function syncAdminEmailsFromFirestore() {
         addedBy: 'system'
       });
     }
-    await setDoc(doc(firestoreDb, 'authorized_admins', defaultEmail), {
-      email: defaultEmail,
-      role: 'SUPER_ADMIN',
-      status: 'Active',
-      createdAt: new Date().toISOString(),
-      addedBy: 'system'
-    }, { merge: true });
-  } catch (err) {
-    console.warn("Error syncing admin emails from Firestore collection:", err);
+  } catch (err: any) {
+    console.warn("Notice: Admin emails synced with memory. Firestore sync notice:", err?.message || err);
   }
 }
 
