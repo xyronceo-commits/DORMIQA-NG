@@ -13,12 +13,14 @@ import {
   MapPin,
   Clock,
   ShieldCheck,
-  DollarSign
+  DollarSign,
+  Video
 } from 'lucide-react';
 import { University, PropertyType, Listing } from '../types';
 import { createListing } from '../services/api';
 import { sendNotification, notifyAgentListingReviewComplete } from '../services/notificationService';
 import { auth } from '../services/firebase';
+import { uploadOrCompressPropertyPhoto } from '../utils/imageUpload';
 
 interface AddListingModalProps {
   universities: University[];
@@ -26,14 +28,6 @@ interface AddListingModalProps {
   onSuccess: (newListing: Listing) => void;
   agentId: string;
 }
-
-const DEFAULT_PHOTOS = [
-  'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80',
-  'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80',
-  'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1200&q=80',
-  'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1200&q=80',
-  'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80'
-];
 
 export const AddListingModal: React.FC<AddListingModalProps> = ({
   universities,
@@ -71,9 +65,14 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
   ]);
   const [amenityInput, setAmenityInput] = useState('');
 
-  // STEP 6: Photos
-  const [photos, setPhotos] = useState<string[]>(DEFAULT_PHOTOS);
+  // STEP 6: Media (Photos & Video)
+  // Photos are OPTIONAL (0 to 3 allowed).
+  const [photos, setPhotos] = useState<string[]>([]);
   const [photoUrlInput, setPhotoUrlInput] = useState('');
+
+  // Video is COMPULSORY (exactly 1 required).
+  const [videoUrl, setVideoUrl] = useState<string>('');
+  const [videoInput, setVideoInput] = useState<string>('');
 
   // STEP 7: Rules & Additional Information
   const [rules, setRules] = useState<string[]>([
@@ -108,27 +107,73 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
     setRules(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // Photo Handlers
+  // Photo Handlers (Optional 0-3 photos)
   const handleAddPhoto = () => {
     if (!photoUrlInput.trim()) return;
-    setPhotos(prev => [...prev, photoUrlInput.trim()]);
+    if (photos.length >= 3) {
+      setValidationError('Maximum 3 photos allowed. Photos are optional (up to 3).');
+      return;
+    }
+    setPhotos(prev => [...prev, photoUrlInput.trim()].slice(0, 3));
     setPhotoUrlInput('');
+    setValidationError(null);
   };
 
   const handleDevicePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file: File) => {
+    if (photos.length >= 3) {
+      setValidationError('Maximum 3 photos allowed. Photos are optional (up to 3).');
+      e.target.value = '';
+      return;
+    }
+
+    const remainingSlots = 3 - photos.length;
+    const selectedFiles = Array.from(files).slice(0, remainingSlots);
+
+    selectedFiles.forEach((file: File) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         if (event.target?.result) {
-          setPhotos(prev => [...prev, event.target!.result as string]);
+          setPhotos(prev => {
+            if (prev.length >= 3) return prev;
+            return [...prev, event.target!.result as string];
+          });
+          setValidationError(null);
         }
       };
       reader.readAsDataURL(file);
     });
     e.target.value = '';
+  };
+
+  // Video Handlers (Compulsory 1 Video)
+  const handleDeviceVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 100 * 1024 * 1024) {
+      setValidationError('Video file size is too large (Maximum 100MB allowed).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setVideoUrl(event.target.result as string);
+        setValidationError(null);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleAddVideoUrl = () => {
+    if (!videoInput.trim()) return;
+    setVideoUrl(videoInput.trim());
+    setVideoInput('');
+    setValidationError(null);
   };
 
   // Step Validation logic before advancing
@@ -156,8 +201,8 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         return;
       }
     } else if (currentStep === 6) {
-      if (photos.length < 3) {
-        setValidationError('Please upload at least 3 photos of the property.');
+      if (!videoUrl || !videoUrl.trim()) {
+        setValidationError('Property video is compulsory. Please upload 1 real property video before proceeding.');
         return;
       }
     }
@@ -175,8 +220,20 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
     setSubmitting(true);
     setValidationError(null);
 
+    if (!videoUrl || !videoUrl.trim()) {
+      setValidationError('Property Video is required (Video 0/1). Please upload 1 real property video before submitting.');
+      setSubmitting(false);
+      return;
+    }
+
     try {
+      const listingId = `lst_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const processedPhotos = await Promise.all(
+        photos.slice(0, 3).map((p, idx) => uploadOrCompressPropertyPhoto(p, listingId, idx))
+      );
+
       const created = await createListing({
+        id: listingId,
         title: hostelName,
         hotelName: hostelName,
         universityId,
@@ -196,8 +253,8 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         state: selectedUni?.state || 'Lagos State',
         lat: (selectedUni?.lat || 6.5158) + (Math.random() - 0.5) * 0.005,
         lng: (selectedUni?.lng || 3.3898) + (Math.random() - 0.5) * 0.005,
-        photos,
-        videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-interior-of-a-modern-apartment-41552-large.mp4',
+        photos: processedPhotos,
+        videoUrl: videoUrl.trim(),
         facilities: amenities,
         rules,
         description: description || `${hostelName} is located in ${area}, just ${walkingMinutes} minutes walk to ${selectedUni?.name || 'campus'}. Features ${availableRooms} available ${roomType} units with ${amenities.join(', ')}.`,
@@ -231,7 +288,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
     } catch (err: any) {
       console.error('Submit Hostel Error:', err);
       setSubmitting(false);
-      setValidationError('Failed to submit hostel listing. Please try again.');
+      setValidationError(err?.message || 'Failed to submit hostel listing. Please try again.');
     }
   };
 
@@ -555,46 +612,136 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         )}
 
         {/* ==========================================
-            STEP 6: PHOTOS
+            STEP 6: MEDIA (PHOTOS & VIDEO)
            ========================================== */}
         {currentStep === 6 && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white">
-              STEP 6: Photos
-            </h2>
-
-            <div className="flex flex-col sm:flex-row gap-2">
-              <label className="cursor-pointer px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shrink-0">
-                <Upload className="w-4 h-4" />
-                <span>Upload Photos</span>
-                <input type="file" accept="image/*" multiple onChange={handleDevicePhotoUpload} className="hidden" />
-              </label>
-
-              <div className="flex-1 flex gap-2">
-                <input
-                  type="url"
-                  placeholder="Or paste photo URL..."
-                  value={photoUrlInput}
-                  onChange={(e) => setPhotoUrlInput(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-medium"
-                />
-                <button type="button" onClick={handleAddPhoto} className="px-3 py-2 bg-neutral-900 text-white text-xs font-bold rounded-xl">Add</button>
-              </div>
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white">
+                STEP 6: Property Media Verification
+              </h2>
+              <p className="text-xs text-neutral-500 mt-1">
+                Upload required property video and optional supplementary photos.
+              </p>
             </div>
 
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 pt-2">
-              {photos.map((p, i) => (
-                <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700">
-                  <img src={p} alt="" className="w-full h-full object-cover" />
+            {/* SECTION 1: COMPULSORY PROPERTY VIDEO */}
+            <div className="p-4 rounded-2xl bg-slate-900 text-white border border-slate-800 space-y-3 shadow-md">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                  <Video className="w-4 h-4 text-amber-400" />
+                  Property Video — Required
+                </span>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                  videoUrl 
+                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' 
+                    : 'bg-rose-950 text-rose-300 border border-rose-800'
+                }`}>
+                  {videoUrl ? 'Video 1/1 ✓' : 'Video 0/1 — Required'}
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-300">
+                The property video is the mandatory verification evidence. Every listing MUST have 1 real property video before it can be submitted for verification.
+              </p>
+
+              {videoUrl ? (
+                <div className="space-y-2">
+                  <div className="rounded-xl overflow-hidden bg-black aspect-video max-h-52 relative border border-slate-800">
+                    <video src={videoUrl} controls className="w-full h-full object-contain" />
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}
-                    className="absolute top-1 right-1 bg-rose-600 text-white w-4 h-4 rounded text-[10px] font-bold flex items-center justify-center"
+                    onClick={() => setVideoUrl('')}
+                    className="text-xs font-bold text-rose-400 hover:text-rose-300 underline cursor-pointer"
                   >
-                    ×
+                    Remove / Replace Property Video
                   </button>
                 </div>
-              ))}
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                  <label className="cursor-pointer px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shrink-0">
+                    <Upload className="w-4 h-4" />
+                    <span>Upload Video File</span>
+                    <input type="file" accept="video/*" onChange={handleDeviceVideoUpload} className="hidden" />
+                  </label>
+
+                  <div className="flex-1 flex gap-2">
+                    <input
+                      type="url"
+                      placeholder="Or paste property video URL (mp4, webm)..."
+                      value={videoInput}
+                      onChange={(e) => setVideoInput(e.target.value)}
+                      className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 text-white rounded-xl text-xs font-medium placeholder-slate-400 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddVideoUrl}
+                      className="px-3.5 py-2 bg-white text-slate-900 text-xs font-bold rounded-xl cursor-pointer hover:bg-slate-100 shrink-0"
+                    >
+                      Attach
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* SECTION 2: OPTIONAL PHOTOS */}
+            <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                  <Camera className="w-4 h-4 text-emerald-600" />
+                  Photos — Optional (up to 3)
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200">
+                  {photos.length === 0 ? '0/3 Photos — Optional' : `${photos.length}/3 Photos — Optional`}
+                </span>
+              </div>
+
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                Photos are supplementary evidence (0 to 3 photos allowed). You may submit with 0 photos if you have uploaded the required video.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <label className={`px-4 py-2 bg-neutral-900 dark:bg-white dark:text-neutral-900 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shrink-0 ${photos.length >= 3 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Upload Photo</span>
+                  <input type="file" accept="image/*" multiple disabled={photos.length >= 3} onChange={handleDevicePhotoUpload} className="hidden" />
+                </label>
+
+                <div className="flex-1 flex gap-2">
+                  <input
+                    type="url"
+                    placeholder="Or paste photo URL..."
+                    value={photoUrlInput}
+                    disabled={photos.length >= 3}
+                    onChange={(e) => setPhotoUrlInput(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-medium"
+                  />
+                  <button type="button" disabled={photos.length >= 3} onClick={handleAddPhoto} className="px-3 py-2 bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-white text-xs font-bold rounded-xl disabled:opacity-50 shrink-0">
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              {photos.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  {photos.map((p, i) => (
+                    <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 group">
+                      <img src={p} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}
+                        className="absolute top-1 right-1 bg-rose-600 text-white w-5 h-5 rounded-md text-xs font-extrabold flex items-center justify-center cursor-pointer shadow-xs"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-neutral-400 italic">0/3 Photos — Optional (No photos added yet).</p>
+              )}
             </div>
           </div>
         )}
@@ -650,6 +797,17 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                 <div><strong>Location:</strong> {area}, {selectedUni?.name}</div>
                 <div><strong>Available Rooms:</strong> {availableRooms}</div>
                 <div><strong>Walking Distance:</strong> {walkingMinutes} mins</div>
+              </div>
+
+              <div className="p-3 bg-slate-900 text-white rounded-xl space-y-1">
+                <div className="flex items-center justify-between text-[11px] font-bold">
+                  <span className="text-amber-400 flex items-center gap-1"><Video className="w-3.5 h-3.5" /> Property Video:</span>
+                  <span className={videoUrl ? 'text-emerald-400' : 'text-rose-400'}>{videoUrl ? 'Video 1/1 ✓' : 'Video 0/1 — Required (Missing)'}</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] font-bold">
+                  <span className="text-slate-300 flex items-center gap-1"><Camera className="w-3.5 h-3.5" /> Property Photos:</span>
+                  <span className="text-slate-300">{photos.length}/3 Photos — Optional</span>
+                </div>
               </div>
 
               <p className="text-[11px] text-neutral-500 border-t border-neutral-200 dark:border-neutral-700 pt-2">

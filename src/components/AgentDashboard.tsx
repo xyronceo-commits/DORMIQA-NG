@@ -437,7 +437,14 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                       className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-4 shadow-2xs space-y-3 hover:border-neutral-300 transition-all"
                     >
                       <div className="aspect-video rounded-2xl overflow-hidden relative">
-                        <img src={item.photos[0]} alt="" className="w-full h-full object-cover" />
+                        {item.photos && item.photos.length > 0 ? (
+                          <img src={item.photos[0]} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-neutral-100 dark:bg-neutral-800 flex flex-col items-center justify-center p-3 text-center text-neutral-400">
+                            <Building2 className="w-8 h-8 stroke-[1.5]" />
+                            <span className="text-xs font-bold text-neutral-500">0 Photos Uploaded</span>
+                          </div>
+                        )}
                         <span className="absolute top-2 left-2 bg-slate-900/90 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md">
                           {item.vacanciesCount} Rooms Available
                         </span>
@@ -553,7 +560,14 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                 agentListings.map(item => (
                   <div key={item.id} className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-5 shadow-2xs space-y-4">
                     <div className="aspect-video rounded-2xl overflow-hidden relative">
-                      <img src={item.photos[0]} alt="" className="w-full h-full object-cover" />
+                      {item.photos && item.photos.length > 0 ? (
+                        <img src={item.photos[0]} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-neutral-100 dark:bg-neutral-800 flex flex-col items-center justify-center p-3 text-center text-neutral-400">
+                          <Building2 className="w-8 h-8 stroke-[1.5]" />
+                          <span className="text-xs font-bold text-neutral-500">0 Photos Uploaded</span>
+                        </div>
+                      )}
                       <span className="absolute top-2 left-2 bg-emerald-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md">
                         {item.vacanciesCount} Rooms Available
                       </span>

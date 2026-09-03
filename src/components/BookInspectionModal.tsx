@@ -48,7 +48,7 @@ export const BookInspectionModal: React.FC<BookInspectionModalProps> = ({
         listingId: listing.id,
         listingTitle: listing.title,
         listingAddress: listing.address,
-        listingPhoto: listing.photos[0],
+        listingPhoto: (listing.photos && listing.photos.length > 0) ? listing.photos[0] : '',
         pricePerWeek: listing.pricePerWeek,
         studentId: currentUid,
         studentName: studentName || auth.currentUser.displayName || studentEmail.split('@')[0],

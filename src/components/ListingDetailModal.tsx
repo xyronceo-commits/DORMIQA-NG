@@ -16,6 +16,7 @@ import {
   Mail, 
   Video, 
   Share2, 
+  Camera, 
   ChevronLeft, 
   ChevronRight,
   Info,
@@ -246,50 +247,66 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
           
           {/* 1. Photos & Video Gallery */}
           <div className="space-y-3">
-            <div className="relative aspect-[16/9] w-full bg-neutral-100 rounded-2xl overflow-hidden group">
-              <img
-                src={listing.photos[activePhotoIdx] || listing.photos[0]}
-                alt={listing.title}
-                className="w-full h-full object-cover transition-all duration-300"
-              />
+            {listing.photos && listing.photos.length > 0 ? (
+              <>
+                <div className="relative aspect-[16/9] w-full bg-neutral-100 dark:bg-neutral-800 rounded-2xl overflow-hidden group">
+                  <img
+                    src={listing.photos[activePhotoIdx] || listing.photos[0]}
+                    alt={listing.title}
+                    className="w-full h-full object-cover transition-all duration-300"
+                  />
 
-              {listing.photos.length > 1 && (
-                <>
-                  <button
-                    onClick={() => setActivePhotoIdx(prev => (prev - 1 + listing.photos.length) % listing.photos.length)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-md bg-white/90 hover:bg-white text-neutral-800 flex items-center justify-center shadow-md transition-transform active:scale-90"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => setActivePhotoIdx(prev => (prev + 1) % listing.photos.length)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-md bg-white/90 hover:bg-white text-neutral-800 flex items-center justify-center shadow-md transition-transform active:scale-90"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                </>
-              )}
+                  {listing.photos.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => setActivePhotoIdx(prev => (prev - 1 + listing.photos.length) % listing.photos.length)}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-md bg-white/90 hover:bg-white text-neutral-800 flex items-center justify-center shadow-md transition-transform active:scale-90"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => setActivePhotoIdx(prev => (prev + 1) % listing.photos.length)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-md bg-white/90 hover:bg-white text-neutral-800 flex items-center justify-center shadow-md transition-transform active:scale-90"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </>
+                  )}
 
-              {/* Photo Counter */}
-              <div className="absolute bottom-3 right-3 bg-slate-900/80 text-white text-xs font-bold px-3 py-1 rounded-md backdrop-blur-md">
-                {activePhotoIdx + 1} / {listing.photos.length}
+                  {/* Photo Counter */}
+                  <div className="absolute bottom-3 right-3 bg-slate-900/80 text-white text-xs font-bold px-3 py-1 rounded-md backdrop-blur-md">
+                    {activePhotoIdx + 1} / {listing.photos.length} Photos
+                  </div>
+                </div>
+
+                {/* Thumbnail Row */}
+                {listing.photos.length > 1 && (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {listing.photos.map((photo, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setActivePhotoIdx(idx)}
+                        className={`relative w-20 h-14 rounded-lg overflow-hidden border-2 shrink-0 transition-all ${
+                          activePhotoIdx === idx ? 'border-emerald-600 ring-2 ring-emerald-500/30' : 'border-transparent opacity-70 hover:opacity-100'
+                        }`}
+                      >
+                        <img src={photo} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="p-6 rounded-2xl bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-center space-y-2">
+                <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 flex items-center justify-center mx-auto">
+                  <Camera className="w-5 h-5" />
+                </div>
+                <h4 className="text-xs font-bold text-neutral-700 dark:text-neutral-300">0 Photos Uploaded (Optional)</h4>
+                <p className="text-[11px] text-neutral-500 max-w-sm mx-auto">
+                  The agent did not attach optional property photos. Please review the <strong>compulsory property verification video</strong> below.
+                </p>
               </div>
-            </div>
-
-            {/* Thumbnail Row */}
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {listing.photos.map((photo, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setActivePhotoIdx(idx)}
-                  className={`relative w-20 h-14 rounded-lg overflow-hidden border-2 shrink-0 transition-all ${
-                    activePhotoIdx === idx ? 'border-emerald-600 ring-2 ring-emerald-500/30' : 'border-transparent opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  <img src={photo} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
+            )}
           </div>
 
           {/* 2. Price Header & Quick Actions */}

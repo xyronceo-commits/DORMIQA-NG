@@ -10,7 +10,8 @@ import {
   CheckCircle2, 
   XCircle, 
   ExternalLink,
-  Star
+  Star,
+  Building2
 } from 'lucide-react';
 import { Listing, Inspection, Conversation, User } from '../types';
 import { fetchInspections, fetchConversations } from '../services/api';
@@ -265,7 +266,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           ) : (
             savedListings.map((listing) => (
               <div key={listing.id} className="bg-white rounded-2xl border border-neutral-200 p-4 space-y-3 relative">
-                <img src={listing.photos[0]} alt="" className="w-full h-40 object-cover rounded-xl" />
+                {listing.photos && listing.photos.length > 0 ? (
+                  <img src={listing.photos[0]} alt="" className="w-full h-40 object-cover rounded-xl" />
+                ) : (
+                  <div className="w-full h-40 bg-neutral-100 dark:bg-neutral-800 rounded-xl flex flex-col items-center justify-center p-3 text-center text-neutral-400">
+                    <Building2 className="w-8 h-8 stroke-[1.5]" />
+                    <span className="text-xs font-bold text-neutral-500">0 Photos Uploaded</span>
+                  </div>
+                )}
                 <div>
                   <h3 className="font-bold text-neutral-900 text-sm line-clamp-1">{listing.title}</h3>
                   <p className="text-xs text-neutral-500">{listing.address}</p>

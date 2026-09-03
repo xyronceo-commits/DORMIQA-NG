@@ -143,48 +143,58 @@
   "rules": [
     {
       "collection": "users",
-      "read": "true",
-      "write": "true"
+      "read": "request.auth != null",
+      "write": "request.auth != null && request.auth.uid == userId"
+    },
+    {
+      "collection": "students",
+      "read": "request.auth != null",
+      "write": "request.auth != null && request.auth.uid == studentId"
+    },
+    {
+      "collection": "agents",
+      "read": "request.auth != null",
+      "write": "request.auth != null && request.auth.uid == agentId"
     },
     {
       "collection": "listings",
       "read": "true",
-      "write": "true"
+      "write": "request.auth != null"
     },
     {
       "collection": "inspections",
-      "read": "true",
-      "write": "true"
+      "read": "request.auth != null",
+      "write": "request.auth != null"
     },
     {
       "collection": "conversations",
-      "read": "true",
-      "write": "true"
+      "read": "request.auth != null",
+      "write": "request.auth != null"
     },
     {
       "collection": "reports",
-      "read": "true",
-      "write": "true"
+      "read": "request.auth != null",
+      "write": "request.auth != null"
     },
     {
       "collection": "notifications",
-      "read": "true",
-      "write": "true"
+      "read": "request.auth != null",
+      "write": "request.auth != null"
     },
     {
       "collection": "reviews",
       "read": "true",
-      "write": "true"
+      "write": "request.auth != null"
     },
     {
       "collection": "emailVerifications",
-      "read": "true",
+      "read": "false",
       "write": "false"
     },
     {
       "collection": "authorized_admins",
-      "read": "true",
-      "write": "true"
+      "read": "isAdmin()",
+      "write": "isSuperAdmin()"
     }
   ],
   "indexes": []

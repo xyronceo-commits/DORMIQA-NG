@@ -948,15 +948,23 @@ async function startServer() {
     if (!address || address.length < 5) {
       return res.status(400).json({ error: 'Validation Error', message: 'Valid street address is required.' });
     }
-    if (!Array.isArray(req.body.photos) || req.body.photos.length < 5) {
-      return res.status(400).json({ error: 'Validation Error', message: 'At least 5 property photos are required.' });
+    if (!Array.isArray(req.body.photos) || req.body.photos.length > 3) {
+      return res.status(400).json({ error: 'Validation Error', message: 'Photos array must contain between 0 and 3 items.' });
+    }
+    if (!req.body.videoUrl || typeof req.body.videoUrl !== 'string' || !req.body.videoUrl.trim()) {
+      return res.status(400).json({ error: 'Validation Error', message: 'Property video is required.' });
     }
 
     const pricePerYear = Math.max(10000, Number(req.body.pricePerYear) || 450000);
     const pricePerWeek = Math.max(100, Number(req.body.pricePerWeek) || Math.round(pricePerYear / 52));
 
+    const listingId = req.body.id || `lst_${Date.now()}`;
+    const cleanPhotos = req.body.photos.slice(0, 3);
+    const cleanVideoUrl = req.body.videoUrl.trim();
+
     const newListing: Listing = {
       ...req.body,
+      id: listingId,
       title,
       hotelName,
       address,
@@ -965,7 +973,8 @@ async function startServer() {
       agentId,
       pricePerYear,
       pricePerWeek,
-      id: `lst_${Date.now()}`,
+      photos: cleanPhotos,
+      videoUrl: cleanVideoUrl,
       isVerified: false,
       status: 'pending',
       verificationStatus: 'pending',
@@ -991,6 +1000,15 @@ async function startServer() {
     }
 
     listingsStore.unshift(newListing);
+
+    if (firestoreDb) {
+      try {
+        await setDoc(doc(firestoreDb, 'listings', newListing.id), newListing, { merge: true });
+      } catch (fsErr) {
+        console.warn("Failed to write new listing to Firestore from server endpoint:", fsErr);
+      }
+    }
+
     invalidateServerListingsCache(newListing.id);
     res.status(201).json(newListing);
   });

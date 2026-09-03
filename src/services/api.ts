@@ -201,12 +201,23 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
 }
 
 export async function createListing(listingData: Partial<Listing>): Promise<Listing> {
+  if (!listingData.videoUrl || !listingData.videoUrl.trim()) {
+    throw new Error('Property video is compulsory. Exactly 1 real property video is required before a listing can be submitted for verification.');
+  }
+
+  const cleanPhotos = Array.isArray(listingData.photos) ? listingData.photos.slice(0, 3) : [];
+  const cleanVideoUrl = listingData.videoUrl.trim();
+
   let created: Listing | null = null;
   try {
     const res = await fetch(`${API_BASE}/listings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(listingData)
+      body: JSON.stringify({
+        ...listingData,
+        photos: cleanPhotos,
+        videoUrl: cleanVideoUrl
+      })
     });
     const parsed = await safeParseResponse<Listing>(res);
     if (parsed.ok && parsed.data) {
@@ -239,7 +250,8 @@ export async function createListing(listingData: Partial<Listing>): Promise<List
       state: listingData.state || 'Osun State',
       lat: listingData.lat || 7.771,
       lng: listingData.lng || 4.56,
-      photos: listingData.photos || [],
+      photos: cleanPhotos,
+      videoUrl: cleanVideoUrl,
       facilities: listingData.facilities || [],
       rules: listingData.rules || [],
       description: listingData.description || '',

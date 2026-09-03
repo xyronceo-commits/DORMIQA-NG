@@ -738,21 +738,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const getPropertyVerificationProof = (property: Listing) => {
     const docs = [];
-    docs.push({
-      title: property.verificationProofName || 'Hostel Ownership / Caretaker Authorization Deed',
-      type: 'Title / Deed Proof',
-      url: property.verificationProofUrl || property.photos?.[0] || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=600&q=80',
-      submittedAt: property.createdAt || new Date().toISOString(),
-      status: property.status === 'approved' ? 'Verified Deed' : property.status === 'changes_requested' ? 'Action Required' : property.status === 'rejected' ? 'Rejected' : property.status === 'removed' ? 'Removed' : 'Pending Inspection'
-    });
+    if (property.verificationProofUrl) {
+      docs.push({
+        title: property.verificationProofName || 'Hostel Ownership / Caretaker Authorization Deed',
+        type: 'Title / Deed Proof',
+        url: property.verificationProofUrl,
+        submittedAt: property.createdAt || new Date().toISOString(),
+        status: property.status === 'approved' ? 'Verified Deed' : property.status === 'changes_requested' ? 'Action Required' : property.status === 'rejected' ? 'Rejected' : property.status === 'removed' ? 'Removed' : 'Pending Inspection'
+      });
+    }
 
-    docs.push({
-      title: 'Physical Campus Field Inspection & Safety Verification Log',
-      type: 'Inspection Report',
-      url: property.photos?.[1] || 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80',
-      submittedAt: property.createdAt || new Date().toISOString(),
-      status: 'Field Verified'
-    });
+    if (property.photos && property.photos.length > 0) {
+      property.photos.forEach((photoUrl, idx) => {
+        docs.push({
+          title: `${property.title} - Property Photo ${idx + 1}`,
+          type: idx === 0 ? 'Primary Property Cover Photo' : `Supplementary Property Photo ${idx + 1}`,
+          url: photoUrl,
+          submittedAt: property.createdAt || new Date().toISOString(),
+          status: property.status === 'approved' ? 'Verified Photo' : 'Submitted Photo'
+        });
+      });
+    }
+
+    if (property.videoUrl) {
+      docs.push({
+        title: `${property.title} - Verification Walkthrough Video`,
+        type: 'Compulsory Property Video',
+        url: property.videoUrl,
+        submittedAt: property.createdAt || new Date().toISOString(),
+        status: property.status === 'approved' ? 'Verified Video' : 'Submitted Video'
+      });
+    }
+
+    if (docs.length === 0) {
+      docs.push({
+        title: 'Hostel Caretaker Verification Log',
+        type: 'Verification Record',
+        url: '',
+        submittedAt: property.createdAt || new Date().toISOString(),
+        status: 'Submitted'
+      });
+    }
 
     return docs;
   };
@@ -1380,11 +1406,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       {/* Thumbnail & Property Info */}
                       <div className="flex items-start gap-4">
                         <div className="relative shrink-0">
-                          <img 
-                            src={prop.photos?.[0] || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80'} 
-                            alt={prop.title}
-                            className="w-20 h-20 rounded-2xl object-cover border border-amber-200 dark:border-amber-800"
-                          />
+                          {prop.photos && prop.photos.length > 0 ? (
+                            <img 
+                              src={prop.photos[0]} 
+                              alt={prop.title}
+                              className="w-20 h-20 rounded-2xl object-cover border border-amber-200 dark:border-amber-800"
+                            />
+                          ) : (
+                            <div className="w-20 h-20 rounded-2xl bg-neutral-100 dark:bg-neutral-800 border border-amber-200 dark:border-amber-800/60 flex flex-col items-center justify-center p-1 text-center text-neutral-400 shrink-0">
+                              <Building2 className="w-6 h-6 stroke-[1.5]" />
+                              <span className="text-[9px] font-bold text-neutral-500">0 Photos</span>
+                            </div>
+                          )}
                           {prop.videoUrl && (
                             <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-slate-900/80 text-white text-[9px] font-black">
                               Video
@@ -1510,11 +1543,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {/* Thumbnail & Property Info */}
                     <div className="flex items-start gap-4">
                       <div className="relative shrink-0">
-                        <img 
-                          src={prop.photos?.[0] || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=300&q=80'} 
-                          alt={prop.title}
-                          className="w-20 h-20 rounded-2xl object-cover border border-neutral-200 dark:border-neutral-700"
-                        />
+                        {prop.photos && prop.photos.length > 0 ? (
+                          <img 
+                            src={prop.photos[0]} 
+                            alt={prop.title}
+                            className="w-20 h-20 rounded-2xl object-cover border border-neutral-200 dark:border-neutral-700"
+                          />
+                        ) : (
+                          <div className="w-20 h-20 rounded-2xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex flex-col items-center justify-center p-1 text-center text-neutral-400 shrink-0">
+                            <Building2 className="w-6 h-6 stroke-[1.5]" />
+                            <span className="text-[9px] font-bold text-neutral-500">0 Photos</span>
+                          </div>
+                        )}
                         {prop.videoUrl && (
                           <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-slate-900/80 text-white text-[9px] font-black">
                             Video

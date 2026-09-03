@@ -77,9 +77,10 @@ export function normalizeListing(data: any, docId?: string): Listing {
     state: data?.state || 'Osun State',
     lat: Number(data?.lat || 7.771),
     lng: Number(data?.lng || 4.56),
-    photos: Array.isArray(data?.photos) && data.photos.length > 0 
+    photos: Array.isArray(data?.photos) 
       ? data.photos 
-      : (Array.isArray(data?.imageUrls) && data.imageUrls.length > 0 ? data.imageUrls : ['https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80']),
+      : (Array.isArray(data?.imageUrls) ? data.imageUrls : []),
+    videoUrl: data?.videoUrl || '',
     vacanciesCount: data?.vacanciesCount !== undefined ? Number(data.vacanciesCount) : (data?.availableUnits !== undefined ? Number(data.availableUnits) : 1),
     facilities: Array.isArray(data?.facilities) ? data.facilities : (Array.isArray(data?.features) ? data.features : []),
     genderPreference: data?.genderPreference || 'any',

@@ -9,7 +9,8 @@ import {
   Calendar,
   Building2,
   MessageSquare,
-  Share2
+  Share2,
+  Video
 } from 'lucide-react';
 import { Listing, Campus } from '../types';
 import { getPropertyDistanceToCampus } from '../utils/distance';
@@ -71,14 +72,34 @@ export const ListingCard: React.FC<ListingCardProps> = ({
     >
       {/* Photo carousel container */}
       <div className="relative aspect-[16/10] sm:aspect-[4/3] w-full bg-neutral-100 dark:bg-slate-800 overflow-hidden">
-        <img
-          src={listing.photos[currentPhotoIdx] || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80'}
-          alt={listing.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
-        />
+        {listing.photos && listing.photos.length > 0 ? (
+          <img
+            src={listing.photos[currentPhotoIdx]}
+            alt={listing.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-neutral-100 dark:bg-slate-800 text-neutral-400 dark:text-slate-500 space-y-1">
+            <Building2 className="w-10 h-10 stroke-[1.5]" />
+            <span className="text-xs font-bold text-neutral-500 dark:text-neutral-400">0 Photos Uploaded (Optional)</span>
+            {listing.videoUrl && (
+              <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/80 px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800 flex items-center gap-1">
+                <Video className="w-3 h-3" /> Real Video Available
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Video Badge */}
+        {listing.videoUrl && (
+          <div className="absolute top-3 left-3 px-2 py-0.5 rounded-md bg-slate-900/90 backdrop-blur-md text-amber-300 border border-amber-500/40 text-[9px] sm:text-[10px] font-black flex items-center gap-1 shadow-xs">
+            <Video className="w-3 h-3 text-amber-400" />
+            <span>Video 1/1 ✓</span>
+          </div>
+        )}
 
         {/* Carousel controls */}
-        {listing.photos.length > 1 && (
+        {listing.photos && listing.photos.length > 1 && (
           <>
             <button
               onClick={prevPhoto}
