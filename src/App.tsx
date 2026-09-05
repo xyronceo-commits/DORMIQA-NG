@@ -400,6 +400,8 @@ export default function App() {
       ]);
 
       const profile = fetchedProfile;
+      console.log(`[AUTH SESSION RESTORE] UID: ${uid} | Email: ${email} | DB Profile Retrieved:`, profile, `| Stored DB Role: "${profile?.role}"`);
+
       if (initialConversations && initialConversations.length > 0) {
         setConversations(initialConversations);
       }
@@ -437,11 +439,15 @@ export default function App() {
 
       const isVerified = fbUser.emailVerified || fbUser.providerData.some(p => p.providerId === 'google.com');
 
+      // Strict role resolution from DB profile (never fallback to student if DB specifies a role)
+      const resolvedRole: UserRole = profile?.role || 'student';
+      console.log(`[AUTH ROUTE PRE-CHECK] User UID: ${uid} (${email}) | Resolved Role from DB: "${resolvedRole}"`);
+
       const userAccount: User = {
         id: uid,
         name: profile?.name || fbUser.displayName || email.split('@')[0] || 'User',
         email: email,
-        role: profile?.role || 'student',
+        role: resolvedRole,
         phone: profile?.phone || '',
         universityId: profile?.universityId || 'uniosun',
         universityName: profile?.universityName || 'Osun State University',
@@ -479,8 +485,13 @@ export default function App() {
           const liveStatus = liveData.businessVerificationStatus || (liveData.isVerifiedAgent ? 'approved' : 'none');
           setAccounts(prev => prev.map(a => {
             if (a.id === uid) {
+              const updatedRole = liveData.role || a.role;
+              if (updatedRole && updatedRole !== currentRole) {
+                setCurrentRole(updatedRole);
+              }
               return {
                 ...a,
+                role: updatedRole,
                 name: liveData.name || a.name,
                 agencyName: liveData.agencyName || a.agencyName,
                 phone: liveData.phone || a.phone,
@@ -544,6 +555,8 @@ export default function App() {
 
       // Authenticated user auto-route: ensure signed in or newly registered users go straight to their dashboard
       const initialRoute = parseRouteFromUrl();
+      console.log(`[AUTH ROUTE DECISION] Executing Auto-Route for UID: ${uid} | Account Role: "${userAccount.role}" | Current ActiveView: "${activeView}" | Initial Route View: "${initialRoute.view}"`);
+
       if (email && checkAdminSessionValid(uid) && (adminAuthStatus === 'AUTHORIZED' || email === 'buildsafe247@gmail.com')) {
         if (initialRoute.view === 'landing' || initialRoute.view === 'onboarding' || activeView === 'landing' || activeView === 'onboarding') {
           setActiveView('admin-dash');

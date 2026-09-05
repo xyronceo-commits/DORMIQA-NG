@@ -145,8 +145,34 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
       const photoURL = fbUser.photoURL || undefined;
       const uid = fbUser.uid;
 
+      // Check if user profile already exists in Firestore regardless of tab selection
+      const existingProfile = await fetchUserProfileFromFirestore(uid) || (email ? await fetchUserProfileFromFirestore(email) : null);
+
+      if (existingProfile) {
+        const userRole = (existingProfile.role || 'student') as UserRole;
+        const fullData = {
+          id: uid,
+          role: userRole,
+          name: existingProfile.name || displayName || email.split('@')[0] || 'User',
+          email: email,
+          phone: existingProfile.phone || '',
+          universityId: existingProfile.universityId || 'uniosun',
+          universityName: existingProfile.universityName || 'Osun State University (UNIOSUN)',
+          agencyName: existingProfile.agencyName || '',
+          avatarUrl: existingProfile.avatarUrl || photoURL,
+          isVerifiedAgent: existingProfile.isVerifiedAgent || existingProfile.businessVerificationStatus === 'approved',
+          businessVerificationStatus: existingProfile.businessVerificationStatus || 'none',
+          isSignup: false,
+          isEmailVerified: true
+        };
+
+        await saveUserToFirestore(fullData);
+        onCompleteOnboarding(fullData);
+        return;
+      }
+
+      // Brand-new Google user with no existing profile
       if (selectedRole === 'student') {
-        // Fetch student profile directly from Firestore students/{uid} if present
         const studentProfile = await fetchStudentProfileFromFirestore(uid);
 
         const studentData = {
@@ -162,7 +188,6 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           isEmailVerified: true
         };
 
-        // Save profile in Firestore so user record is complete
         await saveUserToFirestore(studentData);
         await saveStudentProfileToFirestore({
           uid,
@@ -178,32 +203,6 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
         });
 
         onCompleteOnboarding(studentData);
-        return;
-      }
-
-      // If Agent role is selected
-      const existingProfile = await fetchUserProfileFromFirestore(uid) || (email ? await fetchUserProfileFromFirestore(email) : null);
-      if (authMode === 'signin' && !existingProfile) {
-        await logoutFirebase();
-        setAuthError("Account not found. Please sign up first.");
-        return;
-      }
-
-      if (existingProfile) {
-        const fullData = {
-          id: uid,
-          role: existingProfile.role as UserRole,
-          name: existingProfile.name || displayName || email.split('@')[0] || 'User',
-          email: email,
-          phone: existingProfile.phone || '',
-          universityName: existingProfile.universityName || '',
-          agencyName: existingProfile.agencyName || '',
-          avatarUrl: existingProfile.avatarUrl || photoURL,
-          isSignup: false,
-          isEmailVerified: true
-        };
-        await saveUserToFirestore(fullData);
-        onCompleteOnboarding(fullData);
         return;
       }
 
@@ -391,6 +390,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           id: fbUser.uid,
           name: studentData.name,
           email: studentData.email,
+          role: studentData.role,
           isEmailVerified: isVerified
         });
 

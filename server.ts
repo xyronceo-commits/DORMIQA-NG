@@ -107,9 +107,9 @@ async function runLLMCompletion(params: {
       ...groqModels
     ]));
 
-    const groqModelsToTry = params.preferredModel && allGroqModels.includes(params.preferredModel)
+    const groqModelsToTry = (params.preferredModel && allGroqModels.includes(params.preferredModel)
       ? [params.preferredModel, ...allGroqModels.filter(m => m !== params.preferredModel)]
-      : allGroqModels;
+      : allGroqModels).slice(0, 3); // Fast top-3 models max
 
     for (const model of groqModelsToTry) {
       try {
@@ -132,7 +132,8 @@ async function runLLMCompletion(params: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
           },
-          body: JSON.stringify(body)
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(8000) // 8s fast timeout per model
         });
 
         if (res.ok) {
@@ -160,9 +161,9 @@ async function runLLMCompletion(params: {
         'gpt-4o-mini'
       ];
 
-      const modelsToTry = params.preferredModel && params.preferredModel !== 'auto'
+      const modelsToTry = (params.preferredModel && params.preferredModel !== 'auto'
         ? [params.preferredModel, ...defaultModels.filter(m => m !== params.preferredModel)]
-        : defaultModels;
+        : defaultModels).slice(0, 3);
 
       for (const model of modelsToTry) {
         try {
@@ -187,7 +188,8 @@ async function runLLMCompletion(params: {
               ],
               ...(params.responseFormatJson ? { response_format: { type: 'json_object' } } : {}),
               temperature: 0.7
-            })
+            }),
+            signal: AbortSignal.timeout(8000) // 8s fast timeout
           });
 
           if (res.ok) {

@@ -60,6 +60,19 @@ export async function compressImageToDataUrl(source: File | string, maxDimension
   });
 }
 
+function dataUriToBlob(dataUri: string): Blob {
+  const parts = dataUri.split(',');
+  const mimeMatch = parts[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+  const bstr = atob(parts[1] || parts[0]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
+}
+
 /**
  * Uploads a property photo file or data URL to Firebase Storage if available,
  * with a guaranteed Canvas compression fallback (lightweight Data URI) if Storage is unavailable/fails.
@@ -79,8 +92,7 @@ export async function uploadOrCompressPropertyPhoto(
   // 2. Try Firebase Storage if storage is initialized
   try {
     if (storage) {
-      const response = await fetch(compressedDataUrl);
-      const blob = await response.blob();
+      const blob = dataUriToBlob(compressedDataUrl);
       const filename = `photo_${index}_${Date.now()}.jpg`;
       const storageRef = ref(storage, `listings/${listingId}/${filename}`);
       

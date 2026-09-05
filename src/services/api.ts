@@ -83,14 +83,26 @@ export async function safeParseResponse<T = any>(res: Response): Promise<SafePar
 }
 
 /**
- * Robust, safe JSON fetch wrapper using safeParseResponse.
+ * Robust, safe JSON fetch wrapper using safeParseResponse with built-in fast timeout.
  */
-export async function safeFetchJson<T = any>(url: string, options?: RequestInit): Promise<T> {
+export async function safeFetchJson<T = any>(url: string, options?: RequestInit, timeoutMs = 8000): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
   let res: Response;
   try {
-    res = await fetch(url, options);
+    res = await fetch(url, {
+      ...options,
+      signal: options?.signal || controller.signal
+    });
   } catch (err: any) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs / 1000}s. Please check your network connection.`);
+    }
     throw new Error(`Network connection error: ${err.message || 'Unable to connect to server'}`);
+  } finally {
+    clearTimeout(timer);
   }
 
   const parsed = await safeParseResponse<T>(res);
@@ -125,8 +137,12 @@ export async function fetchListings(params: Record<string, any> = {}): Promise<L
   const cacheKey = `listings_query:${query.toString()}`;
 
   return clientCache.dedupe(cacheKey, async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000); // 6s fast backend timeout
+
     try {
-      const res = await fetch(`${API_BASE}/listings?${query.toString()}`);
+      const res = await fetch(`${API_BASE}/listings?${query.toString()}`, { signal: controller.signal });
+      clearTimeout(timer);
       const parsed = await safeParseResponse<Listing[]>(res);
       if (parsed.ok && parsed.data && Array.isArray(parsed.data)) {
         const normalized = parsed.data.map(item => normalizeListing(item, item.id));
@@ -134,7 +150,8 @@ export async function fetchListings(params: Record<string, any> = {}): Promise<L
       }
       throw new Error(parsed.error || 'Failed to fetch listings from backend');
     } catch (err) {
-      console.warn('API fetchListings failed, querying Firestore fallback:', err);
+      clearTimeout(timer);
+      console.warn('API fetchListings failed/timed out, querying Firestore fallback:', err);
       try {
         const { collection, getDocs, query: fsQuery, limit } = await import('firebase/firestore');
         const { db } = await import('./firebase');
@@ -165,10 +182,14 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
   const cacheKey = `listing_detail:${cleanId}`;
 
   return clientCache.dedupe(cacheKey, async () => {
-    // 1. Try Backend API
+    // 1. Try Backend API with fast 5s timeout
     let apiFailed = false;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+
     try {
-      const res = await fetch(`${API_BASE}/listings/${encodeURIComponent(cleanId)}`);
+      const res = await fetch(`${API_BASE}/listings/${encodeURIComponent(cleanId)}`, { signal: controller.signal });
+      clearTimeout(timer);
       const parsed = await safeParseResponse<Listing>(res);
       if (parsed.ok && parsed.data) {
         return clientCache.set(cacheKey, parsed.data, CACHE_TTL.LISTING_DETAIL);
@@ -177,6 +198,7 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
         apiFailed = true;
       }
     } catch (err) {
+      clearTimeout(timer);
       apiFailed = true;
     }
 

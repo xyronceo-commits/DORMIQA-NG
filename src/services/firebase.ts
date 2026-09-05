@@ -423,7 +423,7 @@ export const fetchStudentProfileFromFirestore = async (uid: string): Promise<Stu
 
 export const saveUserToFirestore = async (userObj: {
   id?: string;
-  name: string;
+  name?: string;
   email: string;
   role?: string;
   phone?: string;
@@ -450,12 +450,44 @@ export const saveUserToFirestore = async (userObj: {
   try {
     const isVerified = user ? (user.emailVerified || user.providerData.some(p => p.providerId === 'google.com')) : !!userObj.isEmailVerified;
 
+    // Check existing role in users/{docId} or agents/{docId} to prevent accidental role downgrade
+    let existingRole: string | undefined = undefined;
+    try {
+      const [existingUserSnap, existingAgentSnap] = await Promise.all([
+        getDoc(userRef).catch(() => null),
+        getDoc(doc(db, 'agents', docId)).catch(() => null)
+      ]);
+      if (existingAgentSnap?.exists()) {
+        existingRole = 'agent';
+      } else if (existingUserSnap?.exists()) {
+        const data = existingUserSnap.data();
+        if (data?.role) existingRole = data.role;
+      }
+    } catch (e) {
+      console.warn("Error reading existing user role in saveUserToFirestore:", e);
+    }
+
+    // Role precedence:
+    // 1. Existing 'agent' or 'admin' role CANNOT be overwritten to 'student'
+    // 2. Explicit userObj.role if provided and valid
+    // 3. existingRole
+    // 4. Fallback 'student' ONLY for genuinely new accounts
+    let finalRole = userObj.role;
+    if (existingRole === 'agent' || existingRole === 'admin') {
+      if (!finalRole || finalRole === 'student') {
+        finalRole = existingRole;
+      }
+    }
+    if (!finalRole) {
+      finalRole = existingRole || 'student';
+    }
+
     const updateData: Record<string, any> = {
       id: docId,
       uid: docId,
       name: userObj.name || user?.displayName || cleanEmail.split('@')[0] || 'User',
       email: cleanEmail,
-      role: userObj.role || 'student',
+      role: finalRole,
       phone: userObj.phone || '',
       universityId: userObj.universityId || 'uniosun',
       universityName: userObj.universityName || 'Osun State University',
@@ -484,7 +516,7 @@ export const saveUserToFirestore = async (userObj: {
     await setDoc(userRef, updateData, { merge: true });
 
     // Sync to role-specific Firestore collections students/{uid} or agents/{uid}
-    if (updateData.role === 'student') {
+    if (finalRole === 'student') {
       const studentRef = doc(db, 'students', docId);
       await setDoc(studentRef, {
         id: docId,
@@ -497,7 +529,7 @@ export const saveUserToFirestore = async (userObj: {
         avatarUrl: updateData.avatarUrl,
         updatedAt: updateData.updatedAt
       }, { merge: true });
-    } else if (updateData.role === 'agent') {
+    } else if (finalRole === 'agent') {
       const agentRef = doc(db, 'agents', docId);
       await setDoc(agentRef, {
         id: docId,
@@ -522,30 +554,74 @@ export const saveUserToFirestore = async (userObj: {
 
 export const fetchUserProfileFromFirestore = async (uidOrEmail: string): Promise<any | null> => {
   if (!uidOrEmail) return null;
+  const cleanInput = uidOrEmail.trim().toLowerCase();
   try {
     const userRef = doc(db, 'users', uidOrEmail);
-    const snap = await getDoc(userRef);
-    if (snap.exists()) {
-      const data = snap.data();
-      if (data && (data.name || data.email)) {
-        return data;
-      }
-    }
+    const agentRef = doc(db, 'agents', uidOrEmail);
+    const studentRef = doc(db, 'students', uidOrEmail);
 
-    // Parallel fallback check in role collections if users/{id} is missing or incomplete
-    const [studentSnap, agentSnap] = await Promise.all([
-      getDoc(doc(db, 'students', uidOrEmail)).catch(() => null),
-      getDoc(doc(db, 'agents', uidOrEmail)).catch(() => null)
+    const [userSnap, agentSnap, studentSnap] = await Promise.all([
+      getDoc(userRef).catch(() => null),
+      getDoc(agentRef).catch(() => null),
+      getDoc(studentRef).catch(() => null)
     ]);
 
-    if (studentSnap?.exists()) {
-      return studentSnap.data();
-    }
-    if (agentSnap?.exists()) {
-      return agentSnap.data();
+    const userData = userSnap?.exists() ? userSnap.data() : null;
+    const agentData = agentSnap?.exists() ? agentSnap.data() : null;
+    const studentData = studentSnap?.exists() ? studentSnap.data() : null;
+
+    // If an agent record exists in agents/{uidOrEmail} OR users doc has role === 'agent', MUST be 'agent'
+    if (agentData || userData?.role === 'agent') {
+      return {
+        ...userData,
+        ...agentData,
+        role: 'agent'
+      };
     }
 
-    return snap.exists() ? snap.data() : null;
+    if (userData?.role === 'admin') {
+      return {
+        ...userData,
+        role: 'admin'
+      };
+    }
+
+    if (userData) {
+      return userData;
+    }
+
+    if (studentData) {
+      return {
+        ...studentData,
+        role: 'student'
+      };
+    }
+
+    // Secondary fallback: Query collections by email or uid field in case document ID is different
+    const [qAgentEmailSnap, qAgentUidSnap, qUserEmailSnap, qUserUidSnap] = await Promise.all([
+      getDocs(query(collection(db, 'agents'), where('email', '==', cleanInput))).catch(() => null),
+      getDocs(query(collection(db, 'agents'), where('uid', '==', uidOrEmail))).catch(() => null),
+      getDocs(query(collection(db, 'users'), where('email', '==', cleanInput))).catch(() => null),
+      getDocs(query(collection(db, 'users'), where('uid', '==', uidOrEmail))).catch(() => null)
+    ]);
+
+    const foundAgentDoc = qAgentEmailSnap?.docs[0] || qAgentUidSnap?.docs[0];
+    if (foundAgentDoc) {
+      return {
+        ...foundAgentDoc.data(),
+        role: 'agent'
+      };
+    }
+
+    const foundUserDoc = qUserEmailSnap?.docs[0] || qUserUidSnap?.docs[0];
+    if (foundUserDoc) {
+      const uData = foundUserDoc.data();
+      if (uData.role === 'agent') return { ...uData, role: 'agent' };
+      if (uData.role === 'admin') return { ...uData, role: 'admin' };
+      return uData;
+    }
+
+    return null;
   } catch (err) {
     console.warn("Failed to fetch user profile from Firestore:", err);
     handleFirestoreError(err, OperationType.GET, `users/${uidOrEmail}`, false);
@@ -671,6 +747,9 @@ export const initializeSuperAdminInFirestore = async (): Promise<void> => {
   }
 };
 
+const adminCheckCache = new Map<string, { authorized: boolean; role?: 'SUPER_ADMIN' | 'ADMIN'; message?: string; timestamp: number }>();
+const ADMIN_CHECK_TTL_MS = 10 * 60 * 1000; // 10 minute memory cache
+
 export const checkAdminAuthorizedInFirestore = async (emailOrUid: string, uidOverride?: string): Promise<{ authorized: boolean; role?: 'SUPER_ADMIN' | 'ADMIN'; message?: string; data?: any }> => {
   const cleanInput = emailOrUid.trim().toLowerCase();
   if (!cleanInput) {
@@ -680,86 +759,85 @@ export const checkAdminAuthorizedInFirestore = async (emailOrUid: string, uidOve
   // Initial Super Admin check
   if (cleanInput === 'buildsafe247@gmail.com') {
     if (uidOverride) {
-      try {
-        await setDoc(doc(db, 'admins', uidOverride), {
-          email: 'buildsafe247@gmail.com',
-          role: 'SUPER_ADMIN',
-          status: 'active',
-          createdAt: new Date().toISOString(),
-          createdBy: 'system',
-          uid: uidOverride
-        }, { merge: true });
-      } catch (e) {
-        console.warn('Error linking initial super admin uid:', e);
-      }
+      setDoc(doc(db, 'admins', uidOverride), {
+        email: 'buildsafe247@gmail.com',
+        role: 'SUPER_ADMIN',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        createdBy: 'system',
+        uid: uidOverride
+      }, { merge: true }).catch(() => {});
     }
     return { authorized: true, role: 'SUPER_ADMIN' };
   }
 
+  const cacheKey = `${cleanInput}_${uidOverride || ''}`;
+  const cached = adminCheckCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < ADMIN_CHECK_TTL_MS)) {
+    return { authorized: cached.authorized, role: cached.role, message: cached.message };
+  }
+
   try {
-    // 1. Check admins/{uid} directly if uidOverride is present or if cleanInput looks like a UID
-    if (uidOverride) {
-      const uidRef = doc(db, 'admins', uidOverride);
-      const uidSnap = await getDoc(uidRef);
-      if (uidSnap.exists()) {
-        const data = uidSnap.data();
-        if (data.status === 'disabled') {
-          return { authorized: false, message: 'This administrator account has been disabled.' };
-        }
-        if (data.status === 'active') {
-          return { authorized: true, role: data.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN', data };
-        }
+    // Execute admin queries in parallel to eliminate multi-second sequential waterfalls
+    const queries = [
+      uidOverride ? getDoc(doc(db, 'admins', uidOverride)).catch(() => null) : Promise.resolve(null),
+      getDoc(doc(db, 'authorized_admins', cleanInput)).catch(() => null),
+      getDocs(query(collection(db, 'authorized_admins'), where('email', '==', cleanInput))).catch(() => null),
+      getDocs(query(collection(db, 'admins'), where('email', '==', cleanInput))).catch(() => null)
+    ];
+
+    const [uidSnap, legacySnap, qAuthSnap, qAdminSnap] = await Promise.all(queries);
+
+    if (uidSnap && (uidSnap as any).exists()) {
+      const data = (uidSnap as any).data();
+      if (data.status === 'disabled') {
+        const res = { authorized: false, message: 'This administrator account has been disabled.' };
+        adminCheckCache.set(cacheKey, { ...res, timestamp: Date.now() });
+        return res;
+      }
+      if (data.status === 'active') {
+        const res = { authorized: true, role: (data.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN') as any, data };
+        adminCheckCache.set(cacheKey, { ...res, timestamp: Date.now() });
+        return res;
       }
     }
 
-    // 2. Query authorized_admins collection by email
-    const legacyRef = doc(db, 'authorized_admins', cleanInput);
-    let snap = await getDoc(legacyRef);
-
-    if (!snap.exists()) {
-      const colRef = collection(db, 'authorized_admins');
-      const q = query(colRef, where('email', '==', cleanInput));
-      const qSnap = await getDocs(q);
-      if (!qSnap.empty) {
-        snap = qSnap.docs[0];
-      }
+    let snap: any = (legacySnap && (legacySnap as any).exists()) ? legacySnap : null;
+    if (!snap && qAuthSnap && !(qAuthSnap as any).empty) {
+      snap = (qAuthSnap as any).docs[0];
+    }
+    if (!snap && qAdminSnap && !(qAdminSnap as any).empty) {
+      snap = (qAdminSnap as any).docs[0];
     }
 
-    if (!snap.exists()) {
-      const adminsCol = collection(db, 'admins');
-      const q = query(adminsCol, where('email', '==', cleanInput));
-      const qSnap = await getDocs(q);
-      if (!qSnap.empty) {
-        snap = qSnap.docs[0];
-      }
-    }
-
-    if (snap.exists()) {
+    if (snap && snap.exists()) {
       const data = snap.data();
       if (data.status === 'disabled') {
-        return { authorized: false, message: 'This administrator account has been disabled.' };
+        const res = { authorized: false, message: 'This administrator account has been disabled.' };
+        adminCheckCache.set(cacheKey, { ...res, timestamp: Date.now() });
+        return res;
       }
       const role: 'SUPER_ADMIN' | 'ADMIN' = data.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN';
 
       if (uidOverride) {
-        try {
-          await setDoc(doc(db, 'admins', uidOverride), {
-            email: cleanInput,
-            role,
-            status: 'active',
-            createdAt: data.createdAt || new Date().toISOString(),
-            createdBy: data.createdBy || 'super_admin',
-            uid: uidOverride
-          }, { merge: true });
-        } catch (e) {
-          console.warn('Error syncing admin record to admins/{uid}:', e);
-        }
+        setDoc(doc(db, 'admins', uidOverride), {
+          email: cleanInput,
+          role,
+          status: 'active',
+          createdAt: data.createdAt || new Date().toISOString(),
+          createdBy: data.createdBy || 'super_admin',
+          uid: uidOverride
+        }, { merge: true }).catch(() => {});
       }
 
-      return { authorized: true, role, data };
+      const res = { authorized: true, role, data };
+      adminCheckCache.set(cacheKey, { ...res, timestamp: Date.now() });
+      return res;
     }
 
-    return { authorized: false, message: 'This Google account is not authorized to access the Dormiqa Admin Portal.' };
+    const res = { authorized: false, message: 'This Google account is not authorized to access the Dormiqa Admin Portal.' };
+    adminCheckCache.set(cacheKey, { ...res, timestamp: Date.now() });
+    return res;
   } catch (err) {
     console.warn("Firestore admin check error:", err);
     if (cleanInput === 'buildsafe247@gmail.com') {
