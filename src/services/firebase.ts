@@ -1175,6 +1175,8 @@ export const updatePropertyVerificationInFirestore = async (
   } else if (isRemoved) {
     updatePayload.removedAt = now;
     updatePayload.removedBy = adminEmail || 'buildsafe247@gmail.com';
+    updatePayload.removalReason = reason || 'Listing removed from platform.';
+    updatePayload.rejectionReason = reason || 'Listing removed from platform.';
   } else {
     updatePayload.rejectedAt = now;
     updatePayload.rejectedBy = adminEmail || 'buildsafe247@gmail.com';

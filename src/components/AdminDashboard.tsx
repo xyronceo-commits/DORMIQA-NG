@@ -2676,35 +2676,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             )}
 
             <div className="space-y-1">
-              <label className="text-[11px] font-bold uppercase text-neutral-400">Reason for Removal (Optional)</label>
+              <label className="text-[11px] font-bold uppercase text-neutral-600 dark:text-neutral-300 flex items-center gap-1">
+                <span>Reason for Removal (Mandatory)</span>
+                <span className="text-rose-500 font-black">*</span>
+              </label>
               <textarea
                 value={removeReasonText}
                 onChange={(e) => setRemoveReasonText(e.target.value)}
-                placeholder="Specify administrative reason for removal..."
+                placeholder="Specify mandatory administrative reason for removal..."
                 rows={3}
-                className="w-full p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs font-medium focus:outline-none focus:border-rose-500"
+                className="w-full p-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs font-medium focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
               />
+              {!removeReasonText.trim() && (
+                <p className="text-[10px] text-rose-500 font-semibold">
+                  * A mandatory removal reason is required to notify the listing owner.
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
+                type="button"
                 onClick={() => {
                   setConfirmRemoveModal(null);
                   setRemoveReasonText('');
                 }}
-                className="px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 text-xs font-bold"
+                className="px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 text-xs font-bold cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
               >
                 Cancel
               </button>
               <button
+                type="button"
+                disabled={!removeReasonText.trim()}
                 onClick={() => {
+                  if (!removeReasonText.trim()) {
+                    alert("Please specify a mandatory reason for removal.");
+                    return;
+                  }
                   if (confirmRemoveModal.type === 'agent') {
                     handleRemoveAgent(confirmRemoveModal.item.id, removeReasonText);
                   } else {
                     handleRemoveProperty(confirmRemoveModal.item.id, removeReasonText);
                   }
                 }}
-                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-xs shadow-md cursor-pointer transition-all"
               >
                 Confirm Removal
               </button>
