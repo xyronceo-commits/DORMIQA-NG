@@ -1,4 +1,4 @@
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { storage } from '../services/firebase';
 
 /**
@@ -63,7 +63,7 @@ export async function compressImageToDataUrl(source: File | string, maxDimension
 function dataUriToBlob(dataUri: string): Blob {
   const parts = dataUri.split(',');
   const mimeMatch = parts[0].match(/:(.*?);/);
-  const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+  const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
   const bstr = atob(parts[1] || parts[0]);
   let n = bstr.length;
   const u8arr = new Uint8Array(n);
@@ -110,4 +110,77 @@ export async function uploadOrCompressPropertyPhoto(
 
   // 3. Fallback to lightweight compressed data URI (~30-50KB) which comfortably fits in Firestore (1MB limit)
   return compressedDataUrl;
+}
+
+/**
+ * Direct Storage Resumable Upload for compulsory Property Video.
+ * Uploads raw binary File directly to Firebase Storage with real-time percentage progress.
+ * Returns an HTTP URL (never Base64 string).
+ */
+export async function uploadPropertyVideo(
+  videoSource: File | string,
+  listingId: string,
+  onProgress?: (progressPercent: number) => void
+): Promise<string> {
+  if (typeof videoSource === 'string') {
+    const clean = videoSource.trim();
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      if (onProgress) onProgress(100);
+      return clean;
+    }
+  }
+
+  if (!storage) {
+    throw new Error("Firebase Storage is not initialized on client.");
+  }
+
+  let fileBlob: Blob;
+  let contentType = 'video/mp4';
+
+  if (typeof videoSource !== 'string') {
+    fileBlob = videoSource;
+    if (videoSource.type) {
+      contentType = videoSource.type;
+    }
+  } else if (typeof videoSource === 'string' && videoSource.startsWith('data:')) {
+    fileBlob = dataUriToBlob(videoSource);
+    const match = videoSource.match(/^data:(.*?);/);
+    if (match) contentType = match[1];
+  } else {
+    throw new Error("Invalid video source file provided.");
+  }
+
+  const filename = `video_${Date.now()}.mp4`;
+  const storageRef = ref(storage, `listings/${listingId}/${filename}`);
+
+  return new Promise((resolve, reject) => {
+    const uploadTask = uploadBytesResumable(storageRef, fileBlob, { contentType });
+
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        if (snapshot.totalBytes > 0) {
+          const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          if (onProgress) onProgress(percent);
+        }
+      },
+      (error) => {
+        console.error("Firebase Storage video upload error:", error);
+        reject(new Error(`Video upload failed: ${error.message}`));
+      },
+      async () => {
+        try {
+          const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+          if (downloadUrl && downloadUrl.startsWith('http')) {
+            if (onProgress) onProgress(100);
+            resolve(downloadUrl);
+          } else {
+            reject(new Error("Failed to retrieve download URL for uploaded video."));
+          }
+        } catch (err: any) {
+          reject(new Error(`Failed to retrieve download URL: ${err.message}`));
+        }
+      }
+    );
+  });
 }

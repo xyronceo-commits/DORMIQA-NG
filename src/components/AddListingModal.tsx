@@ -14,13 +14,15 @@ import {
   Clock,
   ShieldCheck,
   DollarSign,
-  Video
+  Video,
+  Loader2
 } from 'lucide-react';
 import { University, PropertyType, Listing } from '../types';
 import { createListing } from '../services/api';
-import { sendNotification, notifyAgentListingReviewComplete } from '../services/notificationService';
+import { sendNotification } from '../services/notificationService';
 import { auth } from '../services/firebase';
-import { uploadOrCompressPropertyPhoto } from '../utils/imageUpload';
+import { uploadOrCompressPropertyPhoto, uploadPropertyVideo } from '../utils/imageUpload';
+import { uploadHostelListing, UploadHostelListingError } from '../utils/uploadHostelListing';
 
 interface AddListingModalProps {
   universities: University[];
@@ -67,11 +69,13 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
 
   // STEP 6: Media (Photos & Video)
   // Photos are OPTIONAL (0 to 3 allowed).
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<(File | string)[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [photoUrlInput, setPhotoUrlInput] = useState('');
 
   // Video is COMPULSORY (exactly 1 required).
-  const [videoUrl, setVideoUrl] = useState<string>('');
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string>('');
   const [videoInput, setVideoInput] = useState<string>('');
 
   // STEP 7: Rules & Additional Information
@@ -83,6 +87,8 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
   // Submission State
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploadStatusText, setUploadStatusText] = useState<string>('');
   const [submissionResult, setSubmissionResult] = useState<'approved' | 'pending' | 'needs_changes' | null>(null);
 
   const selectedUni = universities.find(u => u.id === universityId);
@@ -114,7 +120,9 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
       setValidationError('Maximum 3 photos allowed. Photos are optional (up to 3).');
       return;
     }
-    setPhotos(prev => [...prev, photoUrlInput.trim()].slice(0, 3));
+    const cleanUrl = photoUrlInput.trim();
+    setPhotos(prev => [...prev, cleanUrl].slice(0, 3));
+    setPhotoPreviews(prev => [...prev, cleanUrl].slice(0, 3));
     setPhotoUrlInput('');
     setValidationError(null);
   };
@@ -133,19 +141,24 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
     const selectedFiles = Array.from(files).slice(0, remainingSlots);
 
     selectedFiles.forEach((file: File) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setPhotos(prev => {
-            if (prev.length >= 3) return prev;
-            return [...prev, event.target!.result as string];
-          });
-          setValidationError(null);
-        }
-      };
-      reader.readAsDataURL(file);
+      setPhotos(prev => {
+        if (prev.length >= 3) return prev;
+        return [...prev, file];
+      });
+      const previewUrl = URL.createObjectURL(file);
+      setPhotoPreviews(prev => {
+        if (prev.length >= 3) return prev;
+        return [...prev, previewUrl];
+      });
     });
+
+    setValidationError(null);
     e.target.value = '';
+  };
+
+  const handleRemovePhoto = (idx: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== idx));
+    setPhotoPreviews(prev => prev.filter((_, i) => i !== idx));
   };
 
   // Video Handlers (Compulsory 1 Video)
@@ -158,22 +171,26 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setVideoUrl(event.target.result as string);
-        setValidationError(null);
-      }
-    };
-    reader.readAsDataURL(file);
+    setVideoFile(file);
+    // Instant local object URL preview without Base64 memory overhead
+    const objectUrl = URL.createObjectURL(file);
+    setVideoPreviewUrl(objectUrl);
+    setValidationError(null);
     e.target.value = '';
   };
 
   const handleAddVideoUrl = () => {
     if (!videoInput.trim()) return;
-    setVideoUrl(videoInput.trim());
+    setVideoFile(null);
+    setVideoPreviewUrl(videoInput.trim());
     setVideoInput('');
     setValidationError(null);
+  };
+
+  const handleRemoveVideo = () => {
+    setVideoFile(null);
+    setVideoPreviewUrl('');
+    setVideoInput('');
   };
 
   // Step Validation logic before advancing
@@ -201,7 +218,8 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         return;
       }
     } else if (currentStep === 6) {
-      if (!videoUrl || !videoUrl.trim()) {
+      const activeVideo = videoFile || videoPreviewUrl;
+      if (!activeVideo || (typeof activeVideo === 'string' && !activeVideo.trim())) {
         setValidationError('Property video is compulsory. Please upload 1 real property video before proceeding.');
         return;
       }
@@ -217,33 +235,29 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
 
   // Final Submit Handler (Step 9)
   const handleSubmitListing = async () => {
+    if (submitting) return; // Prevent duplicate submissions
+
     setSubmitting(true);
     setValidationError(null);
+    setUploadProgress(0);
+    setUploadStatusText('Preparing property media for submission...');
 
-    if (!videoUrl || !videoUrl.trim()) {
+    const activeVideo = videoFile || videoPreviewUrl;
+    if (!activeVideo || (typeof activeVideo === 'string' && !activeVideo.trim())) {
       setValidationError('Property Video is required (Video 0/1). Please upload 1 real property video before submitting.');
       setSubmitting(false);
       return;
     }
 
     try {
-      const listingId = `lst_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      const processedPhotos = await Promise.all(
-        photos.slice(0, 3).map((p, idx) => uploadOrCompressPropertyPhoto(p, listingId, idx))
-      );
-
-      const created = await createListing({
-        id: listingId,
-        title: hostelName,
-        hotelName: hostelName,
+      const created = await uploadHostelListing({
+        hostelName,
         universityId,
         universityName: selectedUni?.name || 'Campus',
         propertyType,
         pricePerYear: paymentPeriod === 'year' ? price : price * 2,
         pricePerMonth: Math.round((paymentPeriod === 'year' ? price : price * 2) / 12),
         pricePerWeek: Math.round((paymentPeriod === 'year' ? price : price * 2) / 52),
-        currency: 'NGN',
-        billsIncluded: true,
         deposit: Math.round(price * 0.1),
         walkingDistanceMinutes: walkingMinutes,
         walkingDistanceMeters: walkingMinutes * 80,
@@ -253,24 +267,19 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         state: selectedUni?.state || 'Lagos State',
         lat: (selectedUni?.lat || 6.5158) + (Math.random() - 0.5) * 0.005,
         lng: (selectedUni?.lng || 3.3898) + (Math.random() - 0.5) * 0.005,
-        photos: processedPhotos,
-        videoUrl: videoUrl.trim(),
         facilities: amenities,
         rules,
         description: description || `${hostelName} is located in ${area}, just ${walkingMinutes} minutes walk to ${selectedUni?.name || 'campus'}. Features ${availableRooms} available ${roomType} units with ${amenities.join(', ')}.`,
         agentId,
-        agent: {
-          id: agentId,
-          name: auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Verified Agent',
-          agencyName: 'Verified Accommodation Management',
-          avatarUrl: auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
-          phone: '',
-          email: auth.currentUser?.email || '',
-          responseRate: '100%',
-          responseTime: 'Under 15 mins',
-          isVerified: true,
-          rating: 5.0,
-          totalReviews: 1
+        agentName: auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Verified Agent',
+        agentAgencyName: 'Verified Accommodation Management',
+        agentAvatarUrl: auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
+        agentEmail: auth.currentUser?.email || '',
+        videoSource: activeVideo,
+        photos,
+        onProgress: (progress) => {
+          setUploadProgress(progress.progressPercent);
+          setUploadStatusText(progress.message);
         }
       });
 
@@ -282,13 +291,21 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         return;
       }
 
+      // Non-blocking asynchronous notification dispatch
+      sendNotification({
+        userId: agentId,
+        title: 'Listing Submitted for Verification',
+        body: `Your listing "${hostelName}" has been submitted and is currently Pending Admin Review.`,
+        type: 'system'
+      }).catch(() => {});
+
       setSubmissionResult('approved');
       onSuccess(created);
 
     } catch (err: any) {
       console.error('Submit Hostel Error:', err);
       setSubmitting(false);
-      setValidationError(err?.message || 'Failed to submit hostel listing. Please try again.');
+      setValidationError(err?.message || 'Video upload or listing submission failed. Please try again.');
     }
   };
 
@@ -633,11 +650,11 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                   Property Video — Required
                 </span>
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
-                  videoUrl 
+                  videoFile || videoPreviewUrl 
                     ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' 
                     : 'bg-rose-950 text-rose-300 border border-rose-800'
                 }`}>
-                  {videoUrl ? 'Video 1/1 ✓' : 'Video 0/1 — Required'}
+                  {videoFile || videoPreviewUrl ? 'Video 1/1 ✓' : 'Video 0/1 — Required'}
                 </span>
               </div>
 
@@ -645,14 +662,14 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                 The property video is the mandatory verification evidence. Every listing MUST have 1 real property video before it can be submitted for verification.
               </p>
 
-              {videoUrl ? (
+              {videoPreviewUrl ? (
                 <div className="space-y-2">
                   <div className="rounded-xl overflow-hidden bg-black aspect-video max-h-52 relative border border-slate-800">
-                    <video src={videoUrl} controls className="w-full h-full object-contain" />
+                    <video src={videoPreviewUrl} controls className="w-full h-full object-contain" />
                   </div>
                   <button
                     type="button"
-                    onClick={() => setVideoUrl('')}
+                    onClick={handleRemoveVideo}
                     className="text-xs font-bold text-rose-400 hover:text-rose-300 underline cursor-pointer"
                   >
                     Remove / Replace Property Video
@@ -724,14 +741,14 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                 </div>
               </div>
 
-              {photos.length > 0 ? (
+              {photoPreviews.length > 0 ? (
                 <div className="grid grid-cols-3 gap-2 pt-1">
-                  {photos.map((p, i) => (
+                  {photoPreviews.map((p, i) => (
                     <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 group">
                       <img src={p} alt="" className="w-full h-full object-cover" />
                       <button
                         type="button"
-                        onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}
+                        onClick={() => handleRemovePhoto(i)}
                         className="absolute top-1 right-1 bg-rose-600 text-white w-5 h-5 rounded-md text-xs font-extrabold flex items-center justify-center cursor-pointer shadow-xs"
                       >
                         ×
@@ -802,7 +819,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
               <div className="p-3 bg-slate-900 text-white rounded-xl space-y-1">
                 <div className="flex items-center justify-between text-[11px] font-bold">
                   <span className="text-amber-400 flex items-center gap-1"><Video className="w-3.5 h-3.5" /> Property Video:</span>
-                  <span className={videoUrl ? 'text-emerald-400' : 'text-rose-400'}>{videoUrl ? 'Video 1/1 ✓' : 'Video 0/1 — Required (Missing)'}</span>
+                  <span className={videoFile || videoPreviewUrl ? 'text-emerald-400' : 'text-rose-400'}>{videoFile || videoPreviewUrl ? 'Video 1/1 ✓' : 'Video 0/1 — Required (Missing)'}</span>
                 </div>
                 <div className="flex items-center justify-between text-[11px] font-bold">
                   <span className="text-slate-300 flex items-center gap-1"><Camera className="w-3.5 h-3.5" /> Property Photos:</span>
@@ -839,6 +856,26 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                   Done & Close
                 </button>
               </div>
+            ) : submitting ? (
+              <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl space-y-4 text-white text-center shadow-lg">
+                <Loader2 className="w-10 h-10 text-emerald-400 animate-spin mx-auto" />
+                <div>
+                  <h3 className="text-base font-extrabold text-white">Submitting Property Listing</h3>
+                  <p className="text-xs text-slate-300 mt-1 font-semibold">{uploadStatusText || 'Uploading media files...'}</p>
+                </div>
+
+                <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden border border-slate-700 p-0.5">
+                  <div 
+                    className="bg-emerald-500 h-full rounded-full transition-all duration-300" 
+                    style={{ width: `${Math.max(5, uploadProgress)}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium px-1">
+                  <span>Direct Storage Upload</span>
+                  <span className="font-bold text-emerald-400">{uploadProgress}%</span>
+                </div>
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="w-12 h-12 bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white rounded-2xl flex items-center justify-center mx-auto">
@@ -857,7 +894,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                   disabled={submitting}
                   className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
                 >
-                  {submitting ? 'Submitting Hostel Listing...' : 'Submit Hostel for Verification'}
+                  <span>Submit Hostel for Verification</span>
                 </button>
               </div>
             )}

@@ -231,22 +231,28 @@ export async function createListing(listingData: Partial<Listing>): Promise<List
   const cleanVideoUrl = listingData.videoUrl.trim();
 
   let created: Listing | null = null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
+
   try {
     const res = await fetch(`${API_BASE}/listings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
       body: JSON.stringify({
         ...listingData,
         photos: cleanPhotos,
         videoUrl: cleanVideoUrl
       })
     });
+    clearTimeout(timer);
     const parsed = await safeParseResponse<Listing>(res);
     if (parsed.ok && parsed.data) {
       created = parsed.data;
     }
   } catch (err) {
-    console.warn('Backend createListing failed, saving directly to Firestore:', err);
+    clearTimeout(timer);
+    console.warn('Backend createListing failed/timed out, saving directly to Firestore:', err);
   }
 
   if (!created) {
