@@ -111,7 +111,9 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
                        item.universityName?.toLowerCase().includes(currentUniversity.name.toLowerCase()) ||
                        item.universityName?.toLowerCase().includes(currentUniversity.code.toLowerCase());
       
-      const isApproved = item.status === 'approved' || 
+      const isApproved = item.status === 'published' || 
+                         item.status === 'approved' || 
+                         item.verificationStatus === 'published' || 
                          item.verificationStatus === 'approved' || 
                          item.isVerified === true;
 

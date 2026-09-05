@@ -119,6 +119,20 @@ export async function uploadHostelListing(params: UploadHostelListingParams): Pr
     );
   }
 
+  if (videoSource instanceof File && videoSource.size > 50 * 1024 * 1024) {
+    throw new UploadHostelListingError(
+      'media_upload',
+      'Video must be 50 MB or less.'
+    );
+  }
+
+  if (!photos || photos.length === 0) {
+    throw new UploadHostelListingError(
+      'media_upload',
+      'Add a clear photo of the front of the hostel.'
+    );
+  }
+
   // Normalize gender preference
   let normalizedGender: 'any' | 'male_only' | 'female_only' = 'any';
   if (genderPreference === 'male' || genderPreference === 'male_only') normalizedGender = 'male_only';
@@ -166,13 +180,13 @@ export async function uploadHostelListing(params: UploadHostelListingParams): Pr
     minLeaseMonths,
     totalBedrooms,
     totalBathrooms,
-    isVerified: false,
+    isVerified: true,
     rating: 4.8,
     reviewCount: 0,
     reviews: [],
     featured: false,
-    status: 'pending',
-    verificationStatus: 'pending',
+    status: 'published',
+    verificationStatus: 'published',
     agentId,
     agent: {
       id: agentId,
@@ -275,13 +289,13 @@ export async function uploadHostelListing(params: UploadHostelListingParams): Pr
   }
 
   // =========================================================================
-  // STEP 3: UPDATE LISTING RECORD TO 'PENDING_VERIFICATION' ('PENDING')
+  // STEP 3: UPDATE LISTING RECORD TO 'PUBLISHED'
   // =========================================================================
   if (onProgress) {
     onProgress({
       step: 'finalizing',
       progressPercent: 90,
-      message: 'Attaching media and submitting for verification...'
+      message: 'Attaching media and publishing listing...'
     });
   }
 
@@ -289,8 +303,9 @@ export async function uploadHostelListing(params: UploadHostelListingParams): Pr
     ...draftListing,
     videoUrl: uploadedVideoUrl,
     photos: uploadedPhotoUrls,
-    status: 'pending',
-    verificationStatus: 'pending'
+    status: 'published',
+    verificationStatus: 'published',
+    isVerified: true
   };
 
   try {

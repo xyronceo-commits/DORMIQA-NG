@@ -4,6 +4,7 @@ import { University } from '../types';
 import { clientCache } from './cache';
 import { 
   getFirestore, 
+  initializeFirestore,
   doc, 
   setDoc, 
   getDoc, 
@@ -51,10 +52,19 @@ import firebaseConfig from '../../firebase-applet-config.json';
 // Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Use specified Firestore Database ID if present, otherwise default
-export const db = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(app);
+// Use initializeFirestore with experimentalForceLongPolling to ensure reliable network connection across proxies & container environments
+function initFirestoreInstance() {
+  const dbId = (firebaseConfig as any).firestoreDatabaseId || undefined;
+  try {
+    return initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+    }, dbId);
+  } catch (e) {
+    return dbId ? getFirestore(app, dbId) : getFirestore(app);
+  }
+}
+
+export const db = initFirestoreInstance();
 
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();

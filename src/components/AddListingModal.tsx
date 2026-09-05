@@ -166,8 +166,9 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 100 * 1024 * 1024) {
-      setValidationError('Video file size is too large (Maximum 100MB allowed).');
+    if (file.size > 50 * 1024 * 1024) {
+      setValidationError('Video must be 50 MB or less.');
+      e.target.value = '';
       return;
     }
 
@@ -221,6 +222,10 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
       const activeVideo = videoFile || videoPreviewUrl;
       if (!activeVideo || (typeof activeVideo === 'string' && !activeVideo.trim())) {
         setValidationError('Property video is compulsory. Please upload 1 real property video before proceeding.');
+        return;
+      }
+      if (!photos || photos.length === 0) {
+        setValidationError('Add a clear photo of the front of the hostel.');
         return;
       }
     }
@@ -294,8 +299,8 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
       // Non-blocking asynchronous notification dispatch
       sendNotification({
         userId: agentId,
-        title: 'Listing Submitted for Verification',
-        body: `Your listing "${hostelName}" has been submitted and is currently Pending Admin Review.`,
+        title: 'Hostel Published',
+        body: `Your listing "${hostelName}" has been published and is now visible to students.`,
         type: 'system'
       }).catch(() => {});
 
@@ -842,25 +847,25 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
             {submissionResult === 'approved' ? (
               <div className="p-6 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 rounded-3xl space-y-3">
                 <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-                <h3 className="text-xl font-black text-amber-900 dark:text-amber-200">
-                  Hostel Submitted for Verification!
+                <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-200">
+                  Your hostel has been published.
                 </h3>
-                <p className="text-xs text-amber-800 dark:text-amber-300 font-medium max-w-md mx-auto">
-                  Your hostel listing has been submitted and is currently <strong>Pending Admin Review</strong>. Once an administrator reviews and approves your submission, it will appear live for students on Student Discovery.
+                <p className="text-xs text-emerald-800 dark:text-emerald-300 font-medium max-w-md mx-auto">
+                  Your property listing is now live and visible to students on Dormiqa.
                 </p>
                 <button
                   type="button"
                   onClick={onClose}
                   className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl cursor-pointer"
                 >
-                  Done & Close
+                  View Published Hostel
                 </button>
               </div>
             ) : submitting ? (
               <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl space-y-4 text-white text-center shadow-lg">
                 <Loader2 className="w-10 h-10 text-emerald-400 animate-spin mx-auto" />
                 <div>
-                  <h3 className="text-base font-extrabold text-white">Submitting Property Listing</h3>
+                  <h3 className="text-base font-extrabold text-white">Publishing Hostel Listing</h3>
                   <p className="text-xs text-slate-300 mt-1 font-semibold">{uploadStatusText || 'Uploading media files...'}</p>
                 </div>
 
@@ -882,11 +887,24 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                   <ShieldCheck className="w-6 h-6" />
                 </div>
                 <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white">
-                  STEP 9: Final Submission
+                  STEP 9: Publish Hostel Listing
                 </h2>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
-                  Click below to submit your hostel for listing verification.
+                  Click below to publish your hostel listing live to students.
                 </p>
+
+                {validationError && (
+                  <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 rounded-xl text-xs font-bold text-center space-y-2">
+                    <p>{validationError}</p>
+                    <button
+                      type="button"
+                      onClick={handleSubmitListing}
+                      className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-black cursor-pointer inline-block"
+                    >
+                      Retry Upload
+                    </button>
+                  </div>
+                )}
 
                 <button
                   type="button"
@@ -894,7 +912,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                   disabled={submitting}
                   className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
                 >
-                  <span>Submit Hostel for Verification</span>
+                  <span>Publish Hostel Listing</span>
                 </button>
               </div>
             )}

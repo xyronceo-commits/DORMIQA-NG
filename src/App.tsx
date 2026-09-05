@@ -331,11 +331,13 @@ export default function App() {
   // Firebase Auth State Listener & User Profile Sync
   useEffect(() => {
     let unsubscribeUserDoc: (() => void) | null = null;
+    let unsubscribeListingsDoc: (() => void) | null = null;
     let unsubscribeConvsDoc: (() => void) | null = null;
     let unsubscribeInspDoc: (() => void) | null = null;
 
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (unsubscribeUserDoc) { unsubscribeUserDoc(); unsubscribeUserDoc = null; }
+      if (unsubscribeListingsDoc) { unsubscribeListingsDoc(); unsubscribeListingsDoc = null; }
       if (unsubscribeConvsDoc) { unsubscribeConvsDoc(); unsubscribeConvsDoc = null; }
       if (unsubscribeInspDoc) { unsubscribeInspDoc(); unsubscribeInspDoc = null; }
 
@@ -518,6 +520,27 @@ export default function App() {
         }
       }, (err) => console.warn('User doc snapshot error:', err));
 
+      // Real-Time Listener on Listings collection
+      try {
+        const listingsCol = collection(db, 'listings');
+        unsubscribeListingsDoc = onSnapshot(listingsCol, (snap) => {
+          const liveListings: Listing[] = snap.docs.map(d => {
+            try {
+              return normalizeListing(d.data(), d.id);
+            } catch {
+              return null;
+            }
+          }).filter((item): item is Listing => item !== null);
+
+          if (liveListings.length > 0) {
+            setListings(liveListings);
+            setIsListingsLoading(false);
+          }
+        }, (err) => console.warn('Real-time listings snapshot error:', err));
+      } catch (e) {
+        console.warn('Could not subscribe to listings:', e);
+      }
+
       // Real-Time Listener on Conversations for this user
       try {
         const convsCol = collection(db, 'conversations');
@@ -619,6 +642,7 @@ export default function App() {
 
     return () => {
       if (unsubscribeUserDoc) unsubscribeUserDoc();
+      if (unsubscribeListingsDoc) unsubscribeListingsDoc();
       if (unsubscribeConvsDoc) unsubscribeConvsDoc();
       if (unsubscribeInspDoc) unsubscribeInspDoc();
       unsubscribe();
