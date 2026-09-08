@@ -128,6 +128,10 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
       let msg = err?.message || "Failed to create account. Please try again.";
       if (err?.code === 'auth/email-already-in-use') {
         msg = "An account with this email address already exists. Please Sign In below.";
+      } else if (err?.code === 'auth/network-request-failed') {
+        msg = "Network request failed. Please check your internet connection or use Google Sign-In below.";
+      } else if (err?.code === 'auth/operation-not-allowed') {
+        msg = "Email/Password sign-up is disabled in Firebase Console for project dormiqa-e16b8. Please enable Email/Password in Firebase Console > Authentication > Sign-in method, or sign in with Google.";
       }
       setAuthError(msg);
     } finally {

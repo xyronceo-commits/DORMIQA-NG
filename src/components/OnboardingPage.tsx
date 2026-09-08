@@ -405,7 +405,13 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     } catch (err: any) {
       console.error("Firebase Student Auth Error:", err);
       let errorMsg = err?.message || "Authentication failed. Please check your credentials and try again.";
-      if (err?.code === 'auth/user-not-found') {
+      if (err?.code === 'auth/network-request-failed') {
+        errorMsg = "Network connection failed during authentication. Please check your internet connection or use Google Sign-In below.";
+      } else if (err?.code === 'auth/operation-not-allowed') {
+        errorMsg = "Email/Password sign-up is disabled in your Firebase project (dormiqa-e16b8). Please enable Email/Password provider in Firebase Console > Authentication > Sign-in method, or sign in with Google below.";
+      } else if (err?.code === 'auth/unauthorized-domain') {
+        errorMsg = "Domain not authorized for email operations in Firebase. Please use Google Sign-In below.";
+      } else if (err?.code === 'auth/user-not-found') {
         errorMsg = "Account not found. Please sign up first.";
       } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
         errorMsg = "Incorrect email or password.";
@@ -508,7 +514,13 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     } catch (err: any) {
       console.error("Firebase Agent Auth Error:", err);
       let errorMsg = err?.message || "Authentication failed. Please check your credentials and try again.";
-      if (err?.code === 'auth/user-not-found') {
+      if (err?.code === 'auth/network-request-failed') {
+        errorMsg = "Network connection failed during authentication. Please check your internet connection or use Google Sign-In below.";
+      } else if (err?.code === 'auth/operation-not-allowed') {
+        errorMsg = "Email/Password sign-up is disabled in your Firebase project (dormiqa-e16b8). Please enable Email/Password provider in Firebase Console > Authentication > Sign-in method, or sign in with Google below.";
+      } else if (err?.code === 'auth/unauthorized-domain') {
+        errorMsg = "Domain not authorized for email operations in Firebase. Please use Google Sign-In below.";
+      } else if (err?.code === 'auth/user-not-found') {
         errorMsg = "Account not found. Please sign up first.";
       } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
         errorMsg = "Incorrect email or password.";

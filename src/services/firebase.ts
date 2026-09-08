@@ -52,15 +52,13 @@ import firebaseConfig from '../../firebase-applet-config.json';
 // Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Use initializeFirestore with experimentalForceLongPolling to ensure reliable network connection across proxies & container environments
+// Initialize Firestore Instance safely with database ID support and standard auto-negotiation
 function initFirestoreInstance() {
   const dbId = (firebaseConfig as any).firestoreDatabaseId || undefined;
   try {
-    return initializeFirestore(app, {
-      experimentalForceLongPolling: true,
-    }, dbId);
+    return getFirestore(app, dbId);
   } catch (e) {
-    return dbId ? getFirestore(app, dbId) : getFirestore(app);
+    return getFirestore(app);
   }
 }
 
@@ -159,14 +157,20 @@ export const registerWithEmail = async (email: string, pass: string) => {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, pass);
     if (result.user) {
+      // Safely attempt to send email verification without blocking account creation
       try {
-        await sendEmailVerification(result.user, getActionCodeSettings());
+        await sendEmailVerification(result.user);
       } catch (verr) {
-        console.warn("Failed to send initial Firebase verification email:", verr);
+        console.warn("Initial Firebase verification email failed (non-blocking):", verr);
+        try {
+          await sendEmailVerification(result.user, getActionCodeSettings());
+        } catch (verr2) {
+          console.warn("Secondary email verification attempt failed:", verr2);
+        }
       }
     }
     return result.user;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Firebase Email Sign-Up Error:", error);
     throw error;
   }
@@ -175,8 +179,14 @@ export const registerWithEmail = async (email: string, pass: string) => {
 export const resendVerificationEmail = async (userEmail?: string): Promise<boolean> => {
   try {
     if (auth.currentUser) {
-      await sendEmailVerification(auth.currentUser, getActionCodeSettings());
-      return true;
+      try {
+        await sendEmailVerification(auth.currentUser);
+        return true;
+      } catch (verr) {
+        console.warn("Resend email verification default failed, attempting with settings:", verr);
+        await sendEmailVerification(auth.currentUser, getActionCodeSettings());
+        return true;
+      }
     }
     return false;
   } catch (err) {
