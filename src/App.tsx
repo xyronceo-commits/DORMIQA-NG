@@ -73,7 +73,7 @@ import { InfoPagesModal } from './components/InfoPagesModal';
 import { ComingSoonPage } from './components/ComingSoonPage';
 import { ListingGridSkeleton, ListItemRowSkeleton, DashboardSkeleton, ChatDrawerSkeleton } from './components/SkeletonLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { checkAdminSession, clearAdminToken } from './services/api';
+import { checkAdminSession, clearAdminToken, adminLogin } from './services/api';
 import { 
   auth, 
   saveUserToFirestore, 
@@ -419,13 +419,28 @@ export default function App() {
       if (email && adminCheck.authorized) {
         const isSessionValid = checkAdminSessionValid(uid);
         if (isSessionValid) {
-          setIsAdminAuthenticated(true);
-          setAdminEmail(email);
-          setAdminRole((adminCheck as any).role || (email === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN'));
-          setAdminAuthStatus('AUTHORIZED');
+          // Refresh the backend admin session token on restore too — the
+          // backend independently verifies this ID token rather than
+          // trusting anything read from localStorage.
+          let backendAuthorized = true;
           try {
-            localStorage.setItem('dormiqa_admin_email', email);
-          } catch {}
+            const idToken = await fbUser.getIdToken();
+            const backendLogin = await adminLogin(idToken);
+            backendAuthorized = !!(backendLogin.success && backendLogin.authorized);
+          } catch (err) {
+            console.warn('Admin API session refresh failed:', err);
+            backendAuthorized = false;
+          }
+
+          if (backendAuthorized) {
+            setIsAdminAuthenticated(true);
+            setAdminEmail(email);
+            setAdminRole((adminCheck as any).role || (email === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN'));
+            setAdminAuthStatus('AUTHORIZED');
+          } else {
+            setIsAdminAuthenticated(false);
+            setAdminAuthStatus('UNAUTHORIZED');
+          }
         } else {
           console.warn(`12-hour Admin session expired for ${email}`);
           clearAdminSessionTimestamp(uid);
