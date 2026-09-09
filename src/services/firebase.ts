@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { fetchAdminEmails, addAdminEmail, removeAdminEmail } from './api';
+import { fetchAdminEmails, addAdminEmail, removeAdminEmail, adminLogin } from './api';
 import { University } from '../types';
 import { clientCache } from './cache';
 import { 
@@ -980,13 +980,26 @@ export const signInAdminWithGoogle = async (): Promise<{ user: FirebaseUser; aut
     };
   }
 
+  // Exchange the real Firebase ID token for a backend admin session token.
+  // The backend independently verifies this token and re-checks
+  // authorization — it does not trust anything the client asserts.
+  const idToken = await fbUser.getIdToken();
+  const backendLogin = await adminLogin(idToken);
+  if (!backendLogin.success || !backendLogin.authorized) {
+    return {
+      user: fbUser,
+      authorized: false,
+      message: backendLogin.message || 'Admin API session could not be established.'
+    };
+  }
+
   // Set 12-hour admin session timestamp for authorized administrator
   setAdminSessionTimestamp(uid);
 
   return {
     user: fbUser,
     authorized: true,
-    role: authCheck.role || (email === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN'),
+    role: backendLogin.role || authCheck.role || (email === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN'),
     message: authCheck.message
   };
 };

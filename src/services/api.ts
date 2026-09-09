@@ -811,25 +811,22 @@ export function clearAdminToken() {
 
 function getAdminAuthHeaders() {
   const token = getAdminToken();
-  let adminEmail = '';
-  try {
-    const storedEmail = localStorage.getItem('dormiqa_admin_email') || sessionStorage.getItem('dormiqa_admin_email');
-    if (storedEmail) adminEmail = storedEmail;
-  } catch {}
-
   return {
     'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    ...(adminEmail ? { 'X-Admin-Email': adminEmail } : {})
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
   };
 }
 
-export async function adminLogin(email: string): Promise<{ success: boolean; authorized?: boolean; token?: string; email?: string; role?: AdminRole; message?: string }> {
+// SECURITY: adminLogin exchanges a real Firebase ID token (obtained after a
+// genuine Google sign-in) for a backend admin session token. The backend
+// verifies the ID token cryptographically — we never send a bare email here,
+// since that could be forged by anyone with network access to the API.
+export async function adminLogin(idToken: string): Promise<{ success: boolean; authorized?: boolean; token?: string; email?: string; role?: AdminRole; message?: string }> {
   try {
     const data = await safeFetchJson<{ success: boolean; authorized?: boolean; token?: string; email?: string; role?: AdminRole; message?: string }>(`${API_BASE}/admin/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.trim().toLowerCase() })
+      body: JSON.stringify({ idToken })
     });
 
     if (data.success && data.token) {

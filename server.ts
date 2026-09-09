@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDocs, collection, deleteDoc, addDoc } from 'firebase/firestore';
+import admin from 'firebase-admin';
 import { 
   UNIVERSITIES, 
   MOCK_LISTINGS, 
@@ -15,6 +16,22 @@ import {
   MOCK_REPORTS 
 } from './src/data/mockData.js';
 import { Listing, Inspection, Conversation, ChatMessage, Report, User } from './src/types.js';
+
+// Initialize Firebase Admin SDK for verifying end-user ID tokens on admin
+// endpoints. Requires standard Google Application Default Credentials
+// (GOOGLE_APPLICATION_CREDENTIALS pointing at a service account JSON, or
+// the platform equivalent). If not configured, admin.apps.length stays 0
+// and requireAdminAuth() below fails closed instead of trusting client input.
+if (!admin.apps.length) {
+  try {
+    admin.initializeApp({ credential: admin.credential.applicationDefault() });
+  } catch (e) {
+    console.warn(
+      'Firebase Admin SDK not initialized (no Application Default Credentials found). ' +
+      'Admin endpoints will reject all requests until this is configured.'
+    );
+  }
+}
 
 // Helper to clean LLM outputs (strips <think> tags, reasoning blocks, context headers)
 function cleanLLMOutput(text: string): string {
@@ -540,24 +557,20 @@ syncAdminEmailsFromFirestore();
 const activeAdminSessions = new Map<string, { email: string; role: 'SUPER_ADMIN' | 'ADMIN' }>();
 
 function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const authHeader = req.headers['authorization'] || req.headers['x-admin-token'];
-  const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') 
-    ? authHeader.slice(7).trim() 
-    : typeof authHeader === 'string' ? authHeader.trim() : null;
+  const authHeader = req.headers['authorization'];
+  const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : null;
 
+  // SECURITY: admin identity is only ever established via a session token
+  // issued by /api/admin/login after verifying a real Firebase ID token.
+  // We intentionally do NOT trust a client-supplied X-Admin-Email header
+  // (or any other client-asserted identity) — that field is fully
+  // attacker-controlled and previously allowed anyone to impersonate any
+  // authorized admin, including the super admin, with a single request.
   if (token && activeAdminSessions.has(token)) {
     (req as any).adminUser = activeAdminSessions.get(token);
     return next();
-  }
-
-  const adminEmailHeader = req.headers['x-admin-email'];
-  if (typeof adminEmailHeader === 'string' && adminEmailHeader.trim()) {
-    const cleanEmail = adminEmailHeader.trim().toLowerCase();
-    const admin = authorizedAdminMap.get(cleanEmail) || (cleanEmail === 'buildsafe247@gmail.com' ? { email: cleanEmail, role: 'SUPER_ADMIN', status: 'Active', createdAt: new Date().toISOString(), addedBy: 'system' } : null);
-    if (admin && admin.status !== 'disabled') {
-      (req as any).adminUser = { email: admin.email, role: admin.role };
-      return next();
-    }
   }
 
   return res.status(401).json({
@@ -1329,17 +1342,51 @@ Return ONLY valid JSON matching this schema:
     return res.json({ authorized: true, role: admin.role });
   });
 
-  // Admin Verification & Session Login (Email verified against Firestore authorized_admins collection)
+  // Admin Verification & Session Login.
+  // SECURITY: the caller must present a real Firebase Auth ID token (obtained
+  // client-side after a genuine Google sign-in via signInWithPopup). We verify
+  // it server-side with the Firebase Admin SDK and only trust the email/
+  // email_verified claims that come back from that verification — never a
+  // bare email string in the request body, which anyone could forge.
   app.post('/api/admin/login', async (req, res) => {
-    const { email } = req.body || {};
-    const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (!admin.apps.length) {
+      return res.status(503).json({
+        success: false,
+        authorized: false,
+        error: 'AuthNotConfigured',
+        message: 'Administrator authentication is not configured on this server.'
+      });
+    }
 
-    if (!cleanEmail || !cleanEmail.includes('@')) {
+    const { idToken } = req.body || {};
+    if (!idToken || typeof idToken !== 'string') {
       return res.status(400).json({
         success: false,
         authorized: false,
-        error: 'InvalidEmail',
-        message: 'A valid email address is required for administrator login.'
+        error: 'MissingIdToken',
+        message: 'A valid Firebase ID token is required for administrator login.'
+      });
+    }
+
+    let decoded: admin.auth.DecodedIdToken;
+    try {
+      decoded = await admin.auth().verifyIdToken(idToken);
+    } catch (err) {
+      return res.status(401).json({
+        success: false,
+        authorized: false,
+        error: 'InvalidIdToken',
+        message: 'Could not verify Google sign-in. Please sign in again.'
+      });
+    }
+
+    const cleanEmail = (decoded.email || '').trim().toLowerCase();
+    if (!cleanEmail || decoded.email_verified !== true) {
+      return res.status(403).json({
+        success: false,
+        authorized: false,
+        error: 'EmailNotVerified',
+        message: 'Your Google account email must be verified to access the Admin Portal.'
       });
     }
 
@@ -1348,9 +1395,9 @@ Return ONLY valid JSON matching this schema:
       await syncAdminEmailsFromFirestore();
     }
 
-    const admin = authorizedAdminMap.get(cleanEmail);
+    const adminAccount = authorizedAdminMap.get(cleanEmail);
 
-    if (!admin) {
+    if (!adminAccount || adminAccount.status === 'disabled') {
       return res.status(403).json({
         success: false,
         authorized: false,
@@ -1361,14 +1408,14 @@ Return ONLY valid JSON matching this schema:
 
     // Generate secure admin session token
     const token = `dormiqa_admin_${Date.now()}_${crypto.randomBytes(16).toString('hex')}`;
-    activeAdminSessions.set(token, { email: admin.email, role: admin.role });
+    activeAdminSessions.set(token, { email: adminAccount.email, role: adminAccount.role });
 
     res.json({
       success: true,
       authorized: true,
       token,
-      email: admin.email,
-      role: admin.role,
+      email: adminAccount.email,
+      role: adminAccount.role,
       message: 'Administrator authentication verified.',
       expiresInSeconds: 86400
     });
