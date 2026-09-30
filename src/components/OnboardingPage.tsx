@@ -30,6 +30,7 @@ import {
   resendVerificationEmail, 
   checkEmailVerified,
   saveUserToFirestore,
+  savePendingSignupProfile,
   fetchUserProfileFromFirestore,
   saveStudentProfileToFirestore,
   fetchStudentProfileFromFirestore,
@@ -350,6 +351,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           isEmailVerified: isVerified
         };
 
+        savePendingSignupProfile(studentData);
         // 3. Save initial profile to Firestore
         await saveUserToFirestore(studentData);
 
@@ -461,6 +463,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           isEmailVerified: isVerified
         };
 
+        savePendingSignupProfile(agentData);
         // 2. Save profile to Firestore
         await saveUserToFirestore(agentData);
 

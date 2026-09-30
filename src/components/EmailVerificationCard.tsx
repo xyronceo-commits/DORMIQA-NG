@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { sendEmailVerification, applyActionCode } from 'firebase/auth';
 import { auth, getActionCodeSettings } from '../services/firebase';
+import { supabase } from '../services/supabase';
 
 interface EmailVerificationCardProps {
   email: string;
@@ -35,7 +36,7 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
 
   const displayEmail = email || auth.currentUser?.email || 'your registered email';
 
-  // Check URL parameters for incoming Firebase action code (?mode=verifyEmail&oobCode=...)
+  // Complete Supabase confirmation callbacks and reject legacy Firebase-only codes.
   useEffect(() => {
     let isMounted = true;
 
@@ -43,15 +44,29 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
       try {
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode');
-        const oobCode = urlParams.get('oobCode');
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const tokenHash = urlParams.get('token_hash');
+        const type = urlParams.get('type') || hashParams.get('type') || (mode === 'verifyEmail' ? 'signup' : null);
+        const code = urlParams.get('code');
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
 
-        if (mode === 'verifyEmail' && oobCode) {
+        if ((tokenHash && type) || code || (accessToken && refreshToken)) {
           setIsChecking(true);
           try {
-            await applyActionCode(auth, oobCode);
+            if (tokenHash && type) {
+              await applyActionCode(auth, tokenHash, type);
+            } else if (code) {
+              const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+              if (error) throw error;
+            } else if (accessToken && refreshToken) {
+              const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+              if (error) throw error;
+            }
             if (auth.currentUser) {
               await auth.currentUser.reload();
             }
+            window.history.replaceState({}, document.title, window.location.pathname);
             if (isMounted) {
               setIsVerified(true);
               setNoticeMessage({
@@ -73,6 +88,11 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
           } finally {
             if (isMounted) setIsChecking(false);
           }
+        } else if (urlParams.has('oobCode') && mode === 'verifyEmail' && isMounted) {
+          setNoticeMessage({
+            text: 'This is an older Firebase verification link and cannot be used after migration. Request a fresh verification email.',
+            type: 'warning'
+          });
         }
       } catch (e) {
         console.warn("URL action code check failed:", e);

@@ -48,7 +48,7 @@ Finding safe, affordable, and honest off-campus housing near African university 
 - **Styling:** Tailwind CSS with fluid responsive layouts
 - **Icons:** Lucide React
 - **Backend & Server:** Express.js + Vite Development Middleware (`server.ts`)
-- **Database & Persistence:** Firebase Firestore (Cloud Database) + Local Storage Fallbacks
+- **Database & Persistence:** Supabase Auth, PostgreSQL JSONB documents, Realtime, and Storage
 - **AI Integration:** Google Gemini API (`@google/genai`) for natural language student search and AI housing assistance
 - **Build & Bundle:** `esbuild` for production CommonJS bundle (`dist/server.cjs`)
 
@@ -107,21 +107,29 @@ Finding safe, affordable, and honest off-campus housing near African university 
 3. **Configure Environment Variables:**
    Create a `.env` file based on `.env.example`:
    ```env
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_ANON_KEY=your-supabase-anon-key
+   SUPABASE_SERVICE_ROLE_KEY=your-server-only-service-role-key
    GEMINI_API_KEY=your_gemini_api_key_here
    ```
+   The service-role key must remain server-only and must never use a `VITE_` prefix.
 
-4. **Run Development Server:**
+4. **Create the Supabase schema:** Run [`supabase/migrations/202609300001_app_documents.sql`](supabase/migrations/202609300001_app_documents.sql) in the Supabase SQL Editor. Configure Google as an enabled provider under Supabase Authentication, and add your local and deployed app URLs to the redirect allow list.
+
+5. **Run Development Server:**
    ```bash
    npm run dev
    ```
    The application will be accessible at `http://localhost:3000`.
 
-5. **Build for Production:**
+6. **Build for Production:**
    ```bash
    npm run build
    ```
 
-6. **Start Production Server:**
+7. **Start Production Server:**
    ```bash
    npm run start
    ```

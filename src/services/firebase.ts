@@ -156,19 +156,6 @@ export const getActionCodeSettings = () => {
 export const registerWithEmail = async (email: string, pass: string) => {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, pass);
-    if (result.user) {
-      // Safely attempt to send email verification without blocking account creation
-      try {
-        await sendEmailVerification(result.user);
-      } catch (verr) {
-        console.warn("Initial Firebase verification email failed (non-blocking):", verr);
-        try {
-          await sendEmailVerification(result.user, getActionCodeSettings());
-        } catch (verr2) {
-          console.warn("Secondary email verification attempt failed:", verr2);
-        }
-      }
-    }
     return result.user;
   } catch (error: any) {
     console.error("Firebase Email Sign-Up Error:", error);
@@ -441,6 +428,26 @@ export const fetchStudentProfileFromFirestore = async (uid: string): Promise<Stu
   }
 };
 
+const pendingSignupStorageKey = (uid: string) => `dormiqa_pending_signup_${uid}`;
+
+export const savePendingSignupProfile = (profile: Record<string, any>) => {
+  if (typeof localStorage === 'undefined' || !profile.id || !profile.email) return;
+  try {
+    localStorage.setItem(pendingSignupStorageKey(String(profile.id)), JSON.stringify(profile));
+  } catch (err) {
+    console.warn('Could not preserve pending signup profile:', err);
+  }
+};
+
+export const clearPendingSignupProfile = (uid: string) => {
+  if (typeof localStorage === 'undefined' || !uid) return;
+  try {
+    localStorage.removeItem(pendingSignupStorageKey(uid));
+  } catch (err) {
+    console.warn('Could not clear pending signup profile:', err);
+  }
+};
+
 export const saveUserToFirestore = async (userObj: {
   id?: string;
   name?: string;
@@ -639,6 +646,37 @@ export const fetchUserProfileFromFirestore = async (uidOrEmail: string): Promise
       if (uData.role === 'agent') return { ...uData, role: 'agent' };
       if (uData.role === 'admin') return { ...uData, role: 'admin' };
       return uData;
+    }
+
+    const activeUser = auth.currentUser;
+    if (
+      activeUser?.uid &&
+      activeUser.emailVerified &&
+      (cleanInput === activeUser.uid.toLowerCase() || cleanInput === activeUser.email?.toLowerCase()) &&
+      typeof localStorage !== 'undefined'
+    ) {
+      const rawPendingProfile = localStorage.getItem(pendingSignupStorageKey(activeUser.uid));
+      if (rawPendingProfile) {
+        const pendingProfile = JSON.parse(rawPendingProfile);
+        const role = pendingProfile.role === 'agent' || pendingProfile.role === 'student' ? pendingProfile.role : null;
+        const pendingEmail = String(pendingProfile.email || '').trim().toLowerCase();
+        if (role && pendingEmail && pendingEmail === activeUser.email?.toLowerCase()) {
+          const restoredProfile = {
+            ...pendingProfile,
+            id: activeUser.uid,
+            role,
+            email: activeUser.email,
+            isEmailVerified: true,
+          };
+          await saveUserToFirestore(restoredProfile);
+          const restoredSnap = await getDoc(doc(db, 'users', activeUser.uid)).catch(() => null);
+          if (restoredSnap?.exists()) {
+            clearPendingSignupProfile(activeUser.uid);
+            return restoredSnap.data();
+          }
+          return restoredProfile;
+        }
+      }
     }
 
     return null;

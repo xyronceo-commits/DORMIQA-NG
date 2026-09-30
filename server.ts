@@ -1,11 +1,10 @@
 import express from 'express';
 import path from 'path';
-import fs from 'fs';
 import crypto from 'crypto';
+import 'dotenv/config';
+import { createClient } from '@supabase/supabase-js';
 import { createServer as createViteServer } from 'vite';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, getDocs, collection, deleteDoc, addDoc } from 'firebase/firestore';
-import admin from 'firebase-admin';
+import { configureFirestoreClient, getFirestore, doc, getDoc, setDoc, getDocs, collection, deleteDoc, addDoc } from './src/firebase/firestore';
 import { 
   UNIVERSITIES, 
   MOCK_LISTINGS, 
@@ -17,21 +16,19 @@ import {
 } from './src/data/mockData.js';
 import { Listing, Inspection, Conversation, ChatMessage, Report, User } from './src/types.js';
 
-// Initialize Firebase Admin SDK for verifying end-user ID tokens on admin
-// endpoints. Requires standard Google Application Default Credentials
-// (GOOGLE_APPLICATION_CREDENTIALS pointing at a service account JSON, or
-// the platform equivalent). If not configured, admin.apps.length stays 0
-// and requireAdminAuth() below fails closed instead of trusting client input.
-if (!admin.apps.length) {
-  try {
-    admin.initializeApp({ credential: admin.credential.applicationDefault() });
-  } catch (e) {
-    console.warn(
-      'Firebase Admin SDK not initialized (no Application Default Credentials found). ' +
-      'Admin endpoints will reject all requests until this is configured.'
-    );
-  }
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
+  throw new Error('Supabase server configuration is missing. Set SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY.');
 }
+const supabaseAuthClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+const supabaseDataClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+configureFirestoreClient(supabaseDataClient);
 
 // Helper to clean LLM outputs (strips <think> tags, reasoning blocks, context headers)
 function cleanLLMOutput(text: string): string {
@@ -399,18 +396,8 @@ authorizedAdminMap.set('buildsafe247@gmail.com', {
   addedBy: 'system'
 });
 
-// Initialize Server-Side Firestore Connection
-let firestoreDb: any = null;
-try {
-  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-  if (fs.existsSync(configPath)) {
-    const fbConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-    const fbApp = getApps().length === 0 ? initializeApp(fbConfig) : getApp();
-    firestoreDb = fbConfig.firestoreDatabaseId ? getFirestore(fbApp, fbConfig.firestoreDatabaseId) : getFirestore(fbApp);
-  }
-} catch (e) {
-  console.warn("Could not initialize server-side Firestore instance:", e);
-}
+// Server data access uses the same Supabase-backed document adapter as the client.
+const firestoreDb = getFirestore();
 
 // Firestore Real Data Query Helpers for Admin Portal
 async function getFirestoreUsers(): Promise<User[]> {
@@ -580,6 +567,26 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
   });
 }
 
+const requireSupabaseUser: express.RequestHandler = (req, res, next) => {
+  const authorization = req.headers.authorization || '';
+  const accessToken = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
+  if (!accessToken) {
+    res.status(401).json({ error: 'Unauthorized', message: 'A valid Supabase access token is required.' });
+    return;
+  }
+
+  void supabaseAuthClient.auth.getUser(accessToken).then(({ data, error }) => {
+    if (error || !data.user) {
+      res.status(401).json({ error: 'Unauthorized', message: 'Your session is invalid or expired.' });
+      return;
+    }
+    (req as any).supabaseUser = data.user;
+    next();
+  }).catch(() => {
+    res.status(401).json({ error: 'Unauthorized', message: 'Your session could not be verified.' });
+  });
+};
+
 function requireSuperAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   requireAdminAuth(req, res, () => {
     const adminUser = (req as any).adminUser;
@@ -634,6 +641,135 @@ async function startServer() {
   // Health check
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', service: 'Dormiqa API', timestamp: new Date().toISOString() });
+  });
+
+  app.post('/api/account/delete', async (req, res) => {
+    if (!supabaseServiceRoleKey) {
+      return res.status(503).json({ message: 'Account deletion is not configured on this server.' });
+    }
+
+    const authorization = req.headers.authorization || '';
+    const accessToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+    if (!accessToken) {
+      return res.status(401).json({ message: 'A valid Supabase access token is required.' });
+    }
+
+    const { data: authData, error: authError } = await supabaseAuthClient.auth.getUser(accessToken);
+    if (authError || !authData.user) {
+      return res.status(401).json({ message: 'Your session is invalid or expired. Sign in again.' });
+    }
+
+    const userId = authData.user.id;
+    const email = (authData.user.email || '').toLowerCase();
+    const loadAllDocuments = async (applyFilter: (query: any) => any) => {
+      const documents: any[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await applyFilter(
+          supabaseDataClient.from('app_documents').select('collection,id,data')
+        ).order('collection').order('id').range(offset, offset + 999);
+        if (error) return { data: null, error };
+        documents.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      return { data: documents, error: null };
+    };
+
+    const { data: rows, error: rowsError } = await loadAllDocuments((query) => query.in(
+      'collection',
+      ['users', 'students', 'agents', 'listings', 'inspections', 'conversations', 'reports', 'notifications', 'chat_messages']
+    ));
+
+    if (rowsError) {
+      return res.status(500).json({ message: 'Could not load account records for deletion.' });
+    }
+
+    const ownedConversations = new Set(
+      (rows || [])
+        .filter((row: any) => row.collection === 'conversations' && [row.data?.studentId, row.data?.agentId].includes(userId))
+        .map((row: any) => row.id)
+    );
+    const ownedRows = (rows || []).filter((row: any) => {
+      const data = row.data || {};
+      if (['users', 'students', 'agents'].includes(row.collection)) {
+        return row.id === userId || data.uid === userId || (email && String(data.email || '').toLowerCase() === email);
+      }
+      if (row.collection === 'listings') {
+        return [data.agentId, data.userId, data.ownerId, data.agent?.id].includes(userId);
+      }
+      if (row.collection === 'inspections') {
+        return [data.studentId, data.agentId, data.userId].includes(userId);
+      }
+      if (row.collection === 'conversations') {
+        return ownedConversations.has(row.id);
+      }
+      if (row.collection === 'reports') {
+        return [data.reporterId, data.userId].includes(userId);
+      }
+      if (row.collection === 'notifications') {
+        return [data.userId, data.recipientId].includes(userId);
+      }
+      if (row.collection === 'chat_messages') {
+        return [data.senderId, data.recipientId, data.userId].includes(userId) || ownedConversations.has(data.conversationId);
+      }
+      return false;
+    });
+
+    const nestedMessages = ownedConversations.size > 0
+      ? await loadAllDocuments((query) => query.like('collection', 'conversations/%/messages'))
+      : { data: [], error: null };
+    if (nestedMessages.error) {
+      return res.status(500).json({ message: 'Could not load account messages for deletion.' });
+    }
+    for (const row of nestedMessages.data || []) {
+      const conversationId = String(row.collection).split('/')[1];
+      if (ownedConversations.has(conversationId)) ownedRows.push(row);
+    }
+
+    const rowsByCollection = new Map<string, string[]>();
+    for (const row of ownedRows) {
+      const ids = rowsByCollection.get(row.collection) || [];
+      ids.push(row.id);
+      rowsByCollection.set(row.collection, ids);
+    }
+
+    for (const [collectionName, ids] of rowsByCollection) {
+      const { error } = await supabaseDataClient
+        .from('app_documents')
+        .delete()
+        .eq('collection', collectionName)
+        .in('id', ids);
+      if (error) {
+        return res.status(500).json({ message: 'Could not remove all account records.' });
+      }
+    }
+
+    const mediaObjects: string[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabaseDataClient
+        .schema('storage')
+        .from('objects')
+        .select('name')
+        .eq('bucket_id', 'listing-media')
+        .eq('owner_id', userId)
+        .order('name')
+        .range(offset, offset + 999);
+      if (error) return res.status(500).json({ message: 'Could not load account media for deletion.' });
+      mediaObjects.push(...(data || []).map((object: any) => object.name));
+      if (!data || data.length < 1000) break;
+    }
+    for (let offset = 0; offset < mediaObjects.length; offset += 1000) {
+      const { error } = await supabaseDataClient.storage
+        .from('listing-media')
+        .remove(mediaObjects.slice(offset, offset + 1000));
+      if (error) return res.status(500).json({ message: 'Could not remove all account media.' });
+    }
+
+    const { error: deleteError } = await supabaseDataClient.auth.admin.deleteUser(userId);
+    if (deleteError) {
+      return res.status(500).json({ message: 'Account records were removed, but the authentication account could not be deleted.' });
+    }
+
+    return res.json({ success: true });
   });
 
   // Universities
@@ -818,11 +954,6 @@ async function startServer() {
     sortedKeys.forEach(k => sortedQuery.append(k, queryParams.get(k) || ''));
     const cacheKey = `listings_query:${sortedQuery.toString()}`;
 
-    const cached = getServerCache(cacheKey);
-    if (cached) {
-      return res.json(cached);
-    }
-
     const { 
       universityId, 
       minPrice, 
@@ -841,16 +972,23 @@ async function startServer() {
     const baseListings = await getFirestoreListings();
     let result = [...baseListings];
 
-    // Filter by approval status (default to approved for public queries)
-    if (status) {
-      result = result.filter(l => l.status === status);
-    } else if (!agentId) {
+    if (agentId) {
+      const authorization = req.headers.authorization || '';
+      const accessToken = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
+      const { data, error } = accessToken
+        ? await supabaseAuthClient.auth.getUser(accessToken)
+        : { data: { user: null }, error: new Error('Missing access token') };
+      if (error || !data.user || data.user.id !== String(agentId)) {
+        return res.status(403).json({ error: 'Forbidden', message: 'You can only view your own listings.' });
+      }
+      result = result.filter(l => l.agentId === String(agentId));
+      if (status) result = result.filter(l => l.status === status);
+    } else {
       result = result.filter(l => l.status === 'approved');
     }
 
-    if (agentId) {
-      result = result.filter(l => l.agentId === String(agentId));
-    }
+    const cached = getServerCache<Listing[]>(cacheKey);
+    if (cached) return res.json(cached);
 
     if (universityId) {
       result = result.filter(l => l.universityId === String(universityId));
@@ -922,15 +1060,22 @@ async function startServer() {
     const listingId = req.params.id;
     const cacheKey = `listing_detail:${listingId}`;
     const cached = getServerCache<Listing>(cacheKey);
-    if (cached) {
-      return res.json(cached);
-    }
-
-    const baseListings = await getFirestoreListings();
-    const listing = baseListings.find(l => l.id === listingId) || listingsStore.find(l => l.id === listingId);
+    const baseListings = cached ? [] : await getFirestoreListings();
+    const listing = cached || baseListings.find(l => l.id === listingId) || listingsStore.find(l => l.id === listingId);
     if (!listing) {
       return res.status(404).json({ error: 'Listing not found' });
     }
+    if (listing.status !== 'approved') {
+      const authorization = req.headers.authorization || '';
+      const accessToken = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
+      const { data, error } = accessToken
+        ? await supabaseAuthClient.auth.getUser(accessToken)
+        : { data: { user: null }, error: new Error('Missing access token') };
+      if (error || !data.user || data.user.id !== listing.agentId) {
+        return res.status(404).json({ error: 'Listing not found' });
+      }
+    }
+    if (cached) return res.json(cached);
     // Increment view count
     listing.viewCount = (listing.viewCount || 0) + 1;
 
@@ -939,13 +1084,17 @@ async function startServer() {
   });
 
   // Create new listing (Agent) with AI Anti-Scam & Duplicate Listing Check
-  app.post('/api/listings', async (req, res) => {
+  app.post('/api/listings', requireSupabaseUser, async (req, res) => {
     const title = sanitizeInputString(req.body.title, 150);
     const hotelName = sanitizeInputString(req.body.hotelName, 150);
     const address = sanitizeInputString(req.body.address, 300);
     const universityId = sanitizeInputString(req.body.universityId, 50);
     const description = sanitizeInputString(req.body.description, 2000);
-    const agentId = sanitizeInputString(req.body.agentId, 100) || 'agent_1';
+    const agentId = sanitizeInputString(req.body.agentId, 100);
+    const authenticatedUserId = (req as any).supabaseUser.id as string;
+    if (!agentId || agentId !== authenticatedUserId) {
+      return res.status(403).json({ error: 'Forbidden', message: 'You can only create listings for your own agent account.' });
+    }
     
     if (!title || title.length < 3) {
       return res.status(400).json({ error: 'Validation Error', message: 'Title is required (at least 3 characters).' });
@@ -1022,9 +1171,11 @@ async function startServer() {
   });
 
   // Update listing unit status and sales information (Agent)
-  app.patch('/api/listings/:id/status-and-sales', (req, res) => {
-    const listing = listingsStore.find(l => l.id === req.params.id);
+  app.patch('/api/listings/:id/status-and-sales', requireSupabaseUser, async (req, res) => {
+    const userId = (req as any).supabaseUser.id as string;
+    const listing = (await getFirestoreListings()).find(l => l.id === req.params.id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
+    if (listing.agentId !== userId) return res.status(403).json({ error: 'You can only update your own listing.' });
 
     const { 
       unitStatus, 
@@ -1059,24 +1210,30 @@ async function startServer() {
     if (salesNote !== undefined) listing.salesNote = sanitizeInputString(salesNote, 500);
     if (isAvailableForSale !== undefined) listing.isAvailableForSale = Boolean(isAvailableForSale);
 
+    await setDoc(doc(firestoreDb, 'listings', listing.id), listing, { merge: true });
     invalidateServerListingsCache(req.params.id);
     res.json(listing);
   });
 
   // Submit student star-rating review for listing
-  app.post('/api/listings/:id/reviews', (req, res) => {
-    const listing = listingsStore.find(l => l.id === req.params.id);
+  app.post('/api/listings/:id/reviews', requireSupabaseUser, async (req, res) => {
+    const user = (req as any).supabaseUser;
+    const listing = (await getFirestoreListings()).find(l => l.id === req.params.id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
+    const rating = Number(req.body.rating);
+    if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Rating must be between 1 and 5.' });
+    }
 
     const newReview = {
       id: `rev_${Date.now()}`,
-      authorName: req.body.authorName || 'Verified Student',
-      authorAvatar: req.body.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-      rating: Number(req.body.rating) || 5,
+      authorName: user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Verified Student',
+      authorAvatar: user.user_metadata?.avatar_url || '',
+      rating,
       date: 'Just now',
-      comment: req.body.comment || '',
-      universityCourse: req.body.universityCourse || 'Student',
-      tag: req.body.tag || 'Verified Inspection Tour'
+      comment: sanitizeInputString(req.body.comment, 1000),
+      universityCourse: 'Student',
+      tag: 'Verified Inspection Tour'
     };
 
     listing.reviews = [newReview, ...(listing.reviews || [])];
@@ -1086,76 +1243,107 @@ async function startServer() {
     const totalRatingSum = listing.reviews.reduce((sum, r) => sum + r.rating, 0);
     listing.rating = Math.round((totalRatingSum / listing.reviewCount) * 10) / 10;
 
+    await setDoc(doc(firestoreDb, 'listings', listing.id), listing, { merge: true });
     invalidateServerListingsCache(req.params.id);
     res.status(201).json(listing);
   });
 
   // Inspections
-  app.get('/api/inspections', (req, res) => {
-    const { studentId, agentId } = req.query;
-    let list = [...inspectionsStore];
-    if (studentId) list = list.filter(i => i.studentId === String(studentId));
-    if (agentId) list = list.filter(i => i.agentId === String(agentId));
+  app.get('/api/inspections', requireSupabaseUser, async (req, res) => {
+    const userId = (req as any).supabaseUser.id as string;
+    const list = (await getFirestoreInspections()).filter(i => i.studentId === userId || i.agentId === userId);
     res.json(list);
   });
 
-  app.post('/api/inspections', (req, res) => {
+  app.post('/api/inspections', requireSupabaseUser, async (req, res) => {
+    const user = (req as any).supabaseUser;
+    if (req.body.studentId && req.body.studentId !== user.id) {
+      return res.status(403).json({ error: 'You can only book an inspection for your own account.' });
+    }
+    const listing = (await getFirestoreListings()).find((item) => item.id === req.body.listingId);
+    if (!listing) return res.status(404).json({ error: 'Listing not found.' });
     const inspection: Inspection = {
       ...req.body,
       id: `insp_${Date.now()}`,
+      studentId: user.id,
+      studentName: user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Student',
+      studentEmail: user.email || '',
+      agentId: listing.agentId,
+      agentName: listing.agent?.name || 'Caretaker',
       status: 'pending',
       createdAt: new Date().toISOString().split('T')[0]
     };
     inspectionsStore.unshift(inspection);
+    await setDoc(doc(firestoreDb, 'inspections', inspection.id), inspection, { merge: true });
     res.status(201).json(inspection);
   });
 
-  app.patch('/api/inspections/:id/status', (req, res) => {
+  app.patch('/api/inspections/:id/status', requireSupabaseUser, async (req, res) => {
     const { status } = req.body;
-    const insp = inspectionsStore.find(i => i.id === req.params.id);
+    const userId = (req as any).supabaseUser.id as string;
+    const insp = (await getFirestoreInspections()).find(i => i.id === req.params.id);
     if (!insp) return res.status(404).json({ error: 'Inspection not found' });
+    if (insp.agentId !== userId) return res.status(403).json({ error: 'Only the assigned agent can update this inspection.' });
+    if (!['confirmed', 'rescheduled', 'completed', 'cancelled'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid inspection status.' });
+    }
     insp.status = status;
+    await setDoc(doc(firestoreDb, 'inspections', insp.id), insp, { merge: true });
     res.json(insp);
   });
 
   // Chat Conversations
-  app.get('/api/conversations', (req, res) => {
-    const { userId } = req.query;
-    if (!userId) return res.json(conversationsStore);
-    const userConvs = conversationsStore.filter(c => c.studentId === userId || c.agentId === userId);
+  app.get('/api/conversations', requireSupabaseUser, async (req, res) => {
+    const userId = (req as any).supabaseUser.id as string;
+    const snapshot = await getDocs(collection(firestoreDb, 'conversations'));
+    const stored: Conversation[] = [];
+    snapshot.forEach((item) => stored.push({ id: item.id, ...item.data() } as Conversation));
+    const conversations = new Map([...conversationsStore, ...stored].map((item) => [item.id, item]));
+    const userConvs = Array.from(conversations.values()).filter(c => c.studentId === userId || c.agentId === userId);
     res.json(userConvs);
   });
 
-  app.post('/api/conversations/start', (req, res) => {
-    const { studentId, studentName, studentAvatar, agentId, listingId } = req.body;
-    let existing = conversationsStore.find(c => c.studentId === studentId && c.agentId === agentId && c.listingId === listingId);
+  app.post('/api/conversations/start', requireSupabaseUser, async (req, res) => {
+    const user = (req as any).supabaseUser;
+    if (req.body.studentId && req.body.studentId !== user.id) {
+      return res.status(403).json({ error: 'You can only start conversations for your own account.' });
+    }
+    const { listingId } = req.body;
+    const listing = (await getFirestoreListings()).find((item) => item.id === listingId);
+    if (!listing || listing.status !== 'approved') return res.status(404).json({ error: 'Approved listing not found.' });
+    const studentId = user.id;
+    const agentId = listing.agentId;
+    const snapshot = await getDocs(collection(firestoreDb, 'conversations'));
+    let existing = [...conversationsStore];
+    snapshot.forEach((item) => existing.push({ id: item.id, ...item.data() } as Conversation));
+    const matched = existing.find(c => c.studentId === studentId && c.agentId === agentId && c.listingId === listingId);
     
-    if (existing) {
-      return res.json(existing);
+    if (matched) {
+      return res.json(matched);
     }
 
-    const listing = listingsStore.find(l => l.id === listingId);
     const agent = usersStore.find(u => u.id === agentId);
 
     const newConv: Conversation = {
       id: `conv_${Date.now()}`,
-      studentId: studentId || 'usr_anonymous',
-      studentName: studentName || 'Verified Student',
-      studentAvatar: studentAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-      agentId: agentId || listing?.agentId || 'agent_1',
-      agentName: listing?.agent.name || agent?.name || 'Sarah Jenkins',
-      agentAvatar: listing?.agent.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
-      agencyName: listing?.agent.agencyName || 'Campus Haven Lettings',
+      studentId,
+      studentName: user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Verified Student',
+      studentAvatar: user.user_metadata?.avatar_url || '',
+      agentId,
+      agentName: listing.agent?.name || agent?.name || 'Property Agent',
+      agentAvatar: listing.agent?.avatarUrl || '',
+      agencyName: listing.agent?.agencyName || 'Accommodation Services',
       listingId: listingId || '',
-      listingTitle: listing?.title || 'Student Accommodation',
-      listingPhoto: listing?.photos[0] || '',
-      listingPrice: listing?.pricePerWeek || 0,
+      listingTitle: listing.title || 'Student Accommodation',
+      listingPhoto: listing.photos?.[0] || '',
+      listingPrice: listing.pricePerWeek || 0,
       lastMessage: 'Conversation started',
       lastMessageTime: 'Just now',
       unreadCount: 0
     };
 
     conversationsStore.unshift(newConv);
+    await setDoc(doc(firestoreDb, 'conversations', newConv.id), newConv, { merge: true });
 
     // Initial system greeting
     const greetingMsg: ChatMessage = {
@@ -1169,58 +1357,87 @@ async function startServer() {
       createdAt: new Date().toISOString()
     };
     messagesStore.push(greetingMsg);
+    await setDoc(doc(firestoreDb, 'conversations', newConv.id, 'messages', greetingMsg.id), greetingMsg, { merge: true });
 
     res.json(newConv);
   });
 
-  app.get('/api/conversations/:id/messages', (req, res) => {
-    const msgs = messagesStore.filter(m => m.conversationId === req.params.id);
+  app.get('/api/conversations/:id/messages', requireSupabaseUser, async (req, res) => {
+    const userId = (req as any).supabaseUser.id as string;
+    const conversation = await getDoc(doc(firestoreDb, 'conversations', req.params.id));
+    if (!conversation.exists()) return res.status(404).json({ error: 'Conversation not found.' });
+    const conversationData = conversation.data() as Conversation;
+    if (conversationData.studentId !== userId && conversationData.agentId !== userId) {
+      return res.status(403).json({ error: 'You are not a participant in this conversation.' });
+    }
+    const snapshot = await getDocs(collection(firestoreDb, 'conversations', req.params.id, 'messages'));
+    const msgs = snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as ChatMessage));
     res.json(msgs);
   });
 
-  app.post('/api/conversations/:id/messages', (req, res) => {
+  app.post('/api/conversations/:id/messages', requireSupabaseUser, async (req, res) => {
     const conversationId = req.params.id;
-    const { senderId, senderName, senderRole, recipientId, text } = req.body;
+    const user = (req as any).supabaseUser;
+    const conversation = await getDoc(doc(firestoreDb, 'conversations', conversationId));
+    if (!conversation.exists()) return res.status(404).json({ error: 'Conversation not found.' });
+    const conversationData = conversation.data() as Conversation;
+    const isStudent = conversationData.studentId === user.id;
+    const isAgent = conversationData.agentId === user.id;
+    if (!isStudent && !isAgent) return res.status(403).json({ error: 'You are not a participant in this conversation.' });
+    const text = sanitizeInputString(req.body.text, 2000);
+    if (!text) return res.status(400).json({ error: 'Message text is required.' });
     
     const msg: ChatMessage = {
       id: `msg_${Date.now()}`,
       conversationId,
-      senderId,
-      senderName,
-      senderRole,
-      recipientId,
+      senderId: user.id,
+      senderName: user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'User',
+      senderRole: isAgent ? 'agent' : 'student',
+      recipientId: isStudent ? conversationData.agentId : conversationData.studentId,
       text,
       createdAt: new Date().toISOString()
     };
 
     messagesStore.push(msg);
+    await setDoc(doc(firestoreDb, 'conversations', conversationId, 'messages', msg.id), msg, { merge: true });
 
     // Update conversation last message
-    const conv = conversationsStore.find(c => c.id === conversationId);
-    if (conv) {
-      conv.lastMessage = text;
-      conv.lastMessageTime = 'Just now';
-    }
+    conversationData.lastMessage = text;
+    conversationData.lastMessageTime = 'Just now';
+    conversationData.unreadCount = (conversationData.unreadCount || 0) + 1;
+    await setDoc(doc(firestoreDb, 'conversations', conversationId), conversationData, { merge: true });
 
     res.json(msg);
   });
 
   // Reports - Submit student fraud/fake listing report with Instant AI Audit & Auto-Ban
-  app.get('/api/reports', (req, res) => {
-    res.json(reportsStore);
+  app.get('/api/reports', requireAdminAuth, async (req, res) => {
+    const snapshot = await getDocs(collection(firestoreDb, 'reports'));
+    const storedReports: Report[] = [];
+    snapshot.forEach((item) => storedReports.push({ id: item.id, ...item.data() } as Report));
+    res.json(storedReports.sort((left, right) => right.createdAt.localeCompare(left.createdAt)));
   });
 
-  app.post('/api/reports', async (req, res) => {
+  app.post('/api/reports', requireSupabaseUser, async (req, res) => {
+    const user = (req as any).supabaseUser;
+    const validReasons: Report['reason'][] = ['fake_listing', 'misleading_photos', 'scam_attempt', 'incorrect_price', 'other'];
+    if (typeof req.body.listingId !== 'string' || !validReasons.includes(req.body.reason)) {
+      return res.status(400).json({ error: 'A valid listing and report reason are required.' });
+    }
     const report: Report = {
-      ...req.body,
       id: `rep_${Date.now()}`,
+      listingId: sanitizeInputString(req.body.listingId, 100),
+      listingTitle: sanitizeInputString(req.body.listingTitle, 200),
+      reporterId: user.id,
+      reporterName: user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Student',
+      reason: req.body.reason,
+      details: sanitizeInputString(req.body.details, 2000),
       status: 'open',
       createdAt: new Date().toISOString().split('T')[0]
     };
-    reportsStore.unshift(report);
 
     // Locate reported listing
-    const targetListing = listingsStore.find(l => l.id === report.listingId);
+    const targetListing = (await getFirestoreListings()).find(l => l.id === report.listingId);
     if (targetListing) {
       const aiAudit = await evaluateListingSafetyAndDuplicates(targetListing, {
         reason: report.reason,
@@ -1241,13 +1458,32 @@ async function startServer() {
         report.aiActionTaken = 'under_review';
         report.aiReason = 'Report logged for admin inspection.';
       }
+      if (aiAudit.shouldBan) {
+        await setDoc(doc(firestoreDb, 'listings', targetListing.id), targetListing, { merge: true });
+      }
     }
 
+    reportsStore.unshift(report);
+    await setDoc(doc(firestoreDb, 'reports', report.id), report, { merge: true });
     res.status(201).json(report);
   });
 
+  app.patch('/api/admin/reports/:id/status', requireAdminAuth, async (req, res) => {
+    const validStatuses: Report['status'][] = ['open', 'investigating', 'resolved', 'dismissed'];
+    if (!validStatuses.includes(req.body.status)) {
+      return res.status(400).json({ error: 'Invalid report status.' });
+    }
+    const reportRef = doc(firestoreDb, 'reports', req.params.id);
+    const snapshot = await getDoc(reportRef);
+    if (!snapshot.exists()) return res.status(404).json({ error: 'Report not found.' });
+    const updatedReport = { ...snapshot.data(), status: req.body.status } as Report;
+    await setDoc(reportRef, updatedReport, { merge: true });
+    reportsStore = reportsStore.map((report) => report.id === updatedReport.id ? updatedReport : report);
+    res.json(updatedReport);
+  });
+
   // AI Business Verification Inspection for Real Estate Agents
-  app.post('/api/ai/verify-agent', async (req, res) => {
+  app.post('/api/ai/verify-agent', requireSupabaseUser, async (req, res) => {
     try {
       const { businessName, proofType, documentFileName, documentStorageUrl, agentName, agencyName, agentPortraitUrl, preferredModel } = req.body;
 
@@ -1343,34 +1579,26 @@ Return ONLY valid JSON matching this schema:
   });
 
   // Admin Verification & Session Login.
-  // SECURITY: the caller must present a real Firebase Auth ID token (obtained
-  // client-side after a genuine Google sign-in via signInWithPopup). We verify
-  // it server-side with the Firebase Admin SDK and only trust the email/
-  // email_verified claims that come back from that verification — never a
+  // SECURITY: the caller must present a Supabase access token obtained through
+  // Supabase Auth. We verify it server-side and trust only the user claims
+  // returned by Supabase — never a
   // bare email string in the request body, which anyone could forge.
   app.post('/api/admin/login', async (req, res) => {
-    if (!admin.apps.length) {
-      return res.status(503).json({
-        success: false,
-        authorized: false,
-        error: 'AuthNotConfigured',
-        message: 'Administrator authentication is not configured on this server.'
-      });
-    }
-
     const { idToken } = req.body || {};
     if (!idToken || typeof idToken !== 'string') {
       return res.status(400).json({
         success: false,
         authorized: false,
         error: 'MissingIdToken',
-        message: 'A valid Firebase ID token is required for administrator login.'
+        message: 'A valid Supabase access token is required for administrator login.'
       });
     }
 
-    let decoded: admin.auth.DecodedIdToken;
+    let decoded: any;
     try {
-      decoded = await admin.auth().verifyIdToken(idToken);
+      const { data, error } = await supabaseAuthClient.auth.getUser(idToken);
+      if (error || !data.user) throw error || new Error('Supabase user not found.');
+      decoded = data.user;
     } catch (err) {
       return res.status(401).json({
         success: false,
@@ -1381,7 +1609,7 @@ Return ONLY valid JSON matching this schema:
     }
 
     const cleanEmail = (decoded.email || '').trim().toLowerCase();
-    if (!cleanEmail || decoded.email_verified !== true) {
+    if (!cleanEmail || !decoded.email_confirmed_at) {
       return res.status(403).json({
         success: false,
         authorized: false,

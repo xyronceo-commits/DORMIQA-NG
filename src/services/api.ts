@@ -1,8 +1,18 @@
 import { Listing, University, Inspection, Conversation, ChatMessage, Report, User, UserRole, AuthorizedAdmin, AdminRole } from '../types';
 import { clientCache, CACHE_TTL } from './cache';
+import { supabase } from './supabase';
 import { normalizeListing } from '../utils/normalizeListing';
 
 const API_BASE = '/api';
+
+async function apiFetch(input: RequestInfo | URL, options?: RequestInit): Promise<Response> {
+  const headers = new Headers(options?.headers);
+  if (!headers.has('Authorization')) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) headers.set('Authorization', `Bearer ${session.access_token}`);
+  }
+  return fetch(input, { ...options, headers });
+}
 
 export interface SafeParseResult<T = any> {
   ok: boolean;
@@ -91,7 +101,7 @@ export async function safeFetchJson<T = any>(url: string, options?: RequestInit,
 
   let res: Response;
   try {
-    res = await fetch(url, {
+    res = await apiFetch(url, {
       ...options,
       signal: options?.signal || controller.signal
     });
@@ -141,7 +151,7 @@ export async function fetchListings(params: Record<string, any> = {}): Promise<L
     const timer = setTimeout(() => controller.abort(), 6000); // 6s fast backend timeout
 
     try {
-      const res = await fetch(`${API_BASE}/listings?${query.toString()}`, { signal: controller.signal });
+      const res = await apiFetch(`${API_BASE}/listings?${query.toString()}`, { signal: controller.signal });
       clearTimeout(timer);
       const parsed = await safeParseResponse<Listing[]>(res);
       if (parsed.ok && parsed.data && Array.isArray(parsed.data)) {
@@ -188,7 +198,7 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
     const timer = setTimeout(() => controller.abort(), 5000);
 
     try {
-      const res = await fetch(`${API_BASE}/listings/${encodeURIComponent(cleanId)}`, { signal: controller.signal });
+      const res = await apiFetch(`${API_BASE}/listings/${encodeURIComponent(cleanId)}`, { signal: controller.signal });
       clearTimeout(timer);
       const parsed = await safeParseResponse<Listing>(res);
       if (parsed.ok && parsed.data) {
@@ -235,7 +245,7 @@ export async function createListing(listingData: Partial<Listing>): Promise<List
   const timer = setTimeout(() => controller.abort(), 6000);
 
   try {
-    const res = await fetch(`${API_BASE}/listings`, {
+    const res = await apiFetch(`${API_BASE}/listings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
@@ -353,7 +363,7 @@ export async function updateListingStatusAndSales(
 ): Promise<Listing> {
   let updated: Listing | null = null;
   try {
-    const res = await fetch(`${API_BASE}/listings/${listingId}/status-and-sales`, {
+    const res = await apiFetch(`${API_BASE}/listings/${listingId}/status-and-sales`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updateData)
@@ -399,7 +409,7 @@ export async function submitListingReview(
 ): Promise<Listing> {
   let updated: Listing | null = null;
   try {
-    const res = await fetch(`${API_BASE}/listings/${listingId}/reviews`, {
+    const res = await apiFetch(`${API_BASE}/listings/${listingId}/reviews`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(reviewData)
@@ -453,7 +463,7 @@ export async function submitListingReview(
 export async function bookInspection(data: Partial<Inspection>): Promise<Inspection> {
   let created: Inspection | null = null;
   try {
-    const res = await fetch(`${API_BASE}/inspections`, {
+    const res = await apiFetch(`${API_BASE}/inspections`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -505,7 +515,7 @@ export async function fetchInspections(query: { studentId?: string; agentId?: st
     if (query.studentId) searchObj.studentId = query.studentId;
     if (query.agentId) searchObj.agentId = query.agentId;
     const params = new URLSearchParams(searchObj);
-    const res = await fetch(`${API_BASE}/inspections?${params.toString()}`);
+    const res = await apiFetch(`${API_BASE}/inspections?${params.toString()}`);
     const parsed = await safeParseResponse<Inspection[]>(res);
     if (parsed.ok && parsed.data && Array.isArray(parsed.data)) {
       return parsed.data;
@@ -546,7 +556,7 @@ export async function fetchInspections(query: { studentId?: string; agentId?: st
 export async function updateInspectionStatus(id: string, status: string): Promise<Inspection> {
   let updated: Inspection | null = null;
   try {
-    const res = await fetch(`${API_BASE}/inspections/${id}/status`, {
+    const res = await apiFetch(`${API_BASE}/inspections/${id}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
@@ -584,7 +594,7 @@ export async function updateInspectionStatus(id: string, status: string): Promis
 
 export async function fetchConversations(userId: string): Promise<Conversation[]> {
   try {
-    const res = await fetch(`${API_BASE}/conversations?userId=${userId}`);
+    const res = await apiFetch(`${API_BASE}/conversations?userId=${userId}`);
     const parsed = await safeParseResponse<Conversation[]>(res);
     if (parsed.ok && parsed.data && Array.isArray(parsed.data)) {
       return parsed.data;
@@ -620,7 +630,7 @@ export async function startConversation(data: {
 }): Promise<Conversation> {
   let conv: Conversation | null = null;
   try {
-    const res = await fetch(`${API_BASE}/conversations/start`, {
+    const res = await apiFetch(`${API_BASE}/conversations/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -665,7 +675,7 @@ export async function startConversation(data: {
 
 export async function fetchMessages(conversationId: string): Promise<ChatMessage[]> {
   try {
-    const res = await fetch(`${API_BASE}/conversations/${conversationId}/messages`);
+    const res = await apiFetch(`${API_BASE}/conversations/${conversationId}/messages`);
     const parsed = await safeParseResponse<ChatMessage[]>(res);
     if (parsed.ok && parsed.data && Array.isArray(parsed.data)) {
       return parsed.data;
@@ -695,7 +705,7 @@ export async function fetchMessages(conversationId: string): Promise<ChatMessage
 export async function sendMessage(conversationId: string, data: { senderId: string; senderName: string; senderRole: string; recipientId: string; text: string }): Promise<ChatMessage> {
   let created: ChatMessage | null = null;
   try {
-    const res = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
+    const res = await apiFetch(`${API_BASE}/conversations/${conversationId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -739,7 +749,7 @@ export async function sendMessage(conversationId: string, data: { senderId: stri
 export async function submitReport(data: Partial<Report>): Promise<Report> {
   let created: Report | null = null;
   try {
-    const res = await fetch(`${API_BASE}/reports`, {
+    const res = await apiFetch(`${API_BASE}/reports`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -1010,7 +1020,7 @@ export async function fetchAdminAnalytics() {
 
 export async function fetchReports(): Promise<Report[]> {
   try {
-    const res = await fetch(`${API_BASE}/reports`);
+    const res = await apiFetch(`${API_BASE}/reports`, { headers: getAdminAuthHeaders() });
     const parsed = await safeParseResponse<Report[]>(res);
     if (!parsed.ok || !parsed.data) throw new Error(parsed.error || 'Failed to fetch reports');
     return parsed.data;
@@ -1021,9 +1031,9 @@ export async function fetchReports(): Promise<Report[]> {
 }
 
 export async function updateReportStatus(id: string, status: string): Promise<Report> {
-  const res = await fetch(`${API_BASE}/admin/reports/${id}/status`, {
+  const res = await apiFetch(`${API_BASE}/admin/reports/${id}/status`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAdminAuthHeaders(),
     body: JSON.stringify({ status })
   });
   const parsed = await safeParseResponse<Report>(res);
@@ -1032,9 +1042,9 @@ export async function updateReportStatus(id: string, status: string): Promise<Re
 }
 
 export async function updateListingStatus(id: string, status: string): Promise<Listing> {
-  const res = await fetch(`${API_BASE}/admin/listings/${id}/status`, {
+  const res = await apiFetch(`${API_BASE}/admin/listings/${id}/status`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAdminAuthHeaders(),
     body: JSON.stringify({ status })
   });
   const parsed = await safeParseResponse<Listing>(res);
@@ -1056,7 +1066,7 @@ export async function verifyAgentBusiness(payload: {
   agentPortraitUrl?: string | null;
   preferredModel?: string;
 }) {
-  const res = await fetch(`${API_BASE}/ai/verify-agent`, {
+  const res = await apiFetch(`${API_BASE}/ai/verify-agent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)

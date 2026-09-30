@@ -15,12 +15,18 @@
     "moduleDetection": "force",
     "allowJs": true,
     "jsx": "react-jsx",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "firebase": [
+        "./src/firebase/index.ts"
+      ],
+      "firebase/*": [
+        "./src/firebase/*"
       ]
-    },
-    "allowImportingTsExtensions": true,
-    "noEmit": true
+    }
   }
 }

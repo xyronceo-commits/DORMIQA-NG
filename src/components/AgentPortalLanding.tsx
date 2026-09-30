@@ -29,6 +29,7 @@ import {
   loginWithEmail, 
   resendVerificationEmail, 
   saveUserToFirestore,
+  savePendingSignupProfile,
   fetchUserProfileFromFirestore
 } from '../services/firebase';
 
@@ -114,6 +115,7 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
         createdAt: new Date().toISOString().split('T')[0]
       };
 
+      savePendingSignupProfile(newAgent);
       await saveUserToFirestore(newAgent);
 
       if (!isVerified) {
