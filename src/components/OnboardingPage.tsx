@@ -1070,6 +1070,9 @@ if (error) {
                             <input
                               type="email"
                               required
+                              name="email"
+                              autoComplete="email"
+                              inputMode="email"
                               value={studentEmail}
                               onChange={(e) => setStudentEmail(e.target.value)}
                               placeholder="chinedu@student.unilag.edu.ng"
@@ -1117,6 +1120,8 @@ if (error) {
                           <input
                             type="password"
                             required
+                            name="new-password"
+                            autoComplete="new-password"
                             value={studentPassword}
                             onChange={(e) => setStudentPassword(e.target.value)}
                             className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
@@ -1134,6 +1139,9 @@ if (error) {
                           <input
                             type="email"
                             required
+                            name="email"
+                            autoComplete="email"
+                            inputMode="email"
                             value={studentEmail}
                             onChange={(e) => setStudentEmail(e.target.value)}
                             placeholder="student@unilag.edu.ng"
@@ -1148,6 +1156,8 @@ if (error) {
                           <input
                             type="password"
                             required
+                            name="current-password"
+                            autoComplete="current-password"
                             value={studentPassword}
                             onChange={(e) => setStudentPassword(e.target.value)}
                             className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
@@ -1201,6 +1211,9 @@ if (error) {
                             <input
                               type="email"
                               required
+                              name="email"
+                              autoComplete="email"
+                              inputMode="email"
                               value={agentEmail}
                               onChange={(e) => setAgentEmail(e.target.value)}
                               placeholder="tunde@yabahomes.ng"
@@ -1263,6 +1276,8 @@ if (error) {
                           <input
                             type="password"
                             required
+                            name="new-password"
+                            autoComplete="new-password"
                             value={agentPassword}
                             onChange={(e) => setAgentPassword(e.target.value)}
                             className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none"
@@ -1280,6 +1295,9 @@ if (error) {
                           <input
                             type="email"
                             required
+                            name="email"
+                            autoComplete="email"
+                            inputMode="email"
                             value={agentEmail}
                             onChange={(e) => setAgentEmail(e.target.value)}
                             placeholder="agent@yabahomes.ng"
@@ -1294,6 +1312,8 @@ if (error) {
                           <input
                             type="password"
                             required
+                            name="current-password"
+                            autoComplete="current-password"
                             value={agentPassword}
                             onChange={(e) => setAgentPassword(e.target.value)}
                             className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none"

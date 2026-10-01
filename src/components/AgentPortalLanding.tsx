@@ -463,6 +463,9 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
                     <input
                       type="email"
                       required
+                      name="email"
+                      autoComplete="email"
+                      inputMode="email"
                       value={agentEmail}
                       onChange={(e) => setAgentEmail(e.target.value)}
                       placeholder="agent@yabahomes.ng"
@@ -480,6 +483,8 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
                     <input
                       type="password"
                       required
+                      name="current-password"
+                      autoComplete="current-password"
                       value={agentPassword}
                       onChange={(e) => setAgentPassword(e.target.value)}
                       placeholder="••••••••"
@@ -526,6 +531,9 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
                     <input
                       type="email"
                       required
+                      name="email"
+                      autoComplete="email"
+                      inputMode="email"
                       value={agentEmail}
                       onChange={(e) => setAgentEmail(e.target.value)}
                       placeholder="tunde@yabahomes.ng"
@@ -588,6 +596,8 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
                     <input
                       type="password"
                       required
+                      name="new-password"
+                      autoComplete="new-password"
                       value={agentPassword}
                       onChange={(e) => setAgentPassword(e.target.value)}
                       placeholder="••••••••"
