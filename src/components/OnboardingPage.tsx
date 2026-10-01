@@ -22,6 +22,7 @@ import {
 import { UserRole, University } from '../types';
 import { EmailVerificationCard } from './EmailVerificationCard';
 import { UniversitySelector } from './UniversitySelector';
+import { supabase } from '../services/supabase';
 import { 
   auth,
   signInWithGoogle, 
@@ -66,6 +67,7 @@ interface OnboardingPageProps {
     name: string;
     email: string;
     phone?: string;
+    universityId?: string;
     universityName?: string;
     agencyName?: string;
     licenseNumber?: string;
@@ -91,8 +93,8 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   const [studentName, setStudentName] = useState('');
   const [studentEmail, setStudentEmail] = useState('');
   const [studentPhone, setStudentPhone] = useState('');
-  const [studentUniId, setStudentUniId] = useState('uniosun');
-  const [studentUni, setStudentUni] = useState(universities[0]?.name || 'Osun State University (UNIOSUN)');
+  const [studentUniId, setStudentUniId] = useState('');
+  const [studentUni, setStudentUni] = useState('');
   const [studentPassword, setStudentPassword] = useState('');
 
   // Agent Form State
@@ -126,10 +128,62 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   const [isResending, setIsResending] = useState(false);
 
   useEffect(() => {
-    if (selectedRole === 'agent') {
-      setAuthMethod('email');
+    if (googleAuthData && !studentName.trim() && googleAuthData.displayName) {
+      setStudentName(googleAuthData.displayName);
     }
-  }, [selectedRole]);
+  }, [googleAuthData, studentName]);
+
+  useEffect(() => {
+  if (selectedRole === 'agent') {
+    setAuthMethod('email');
+  }
+
+  const handleSupabaseAuth = async () => {
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error || !data.session?.user) return;
+
+    const user = data.session.user;
+
+    if (user.app_metadata?.provider !== 'google') return;
+
+    const displayName =
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      '';
+
+    const email = user.email?.toLowerCase() || '';
+    const photoURL =
+      user.user_metadata?.avatar_url ||
+      user.user_metadata?.picture ||
+      undefined;
+
+    const uid = user.id;
+
+    setGoogleAuthData({
+      uid,
+      displayName,
+      email,
+      photoURL,
+    });
+
+    setIsLoading(false);
+  };
+
+  handleSupabaseAuth();
+
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session?.user) {
+      handleSupabaseAuth();
+    }
+  });
+
+  return () => {
+    subscription.unsubscribe();
+  };
+}, [selectedRole]);
 
   const handleGoogleAuth = async () => {
     if (selectedRole === 'agent') {
@@ -140,82 +194,17 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     setIsLoading(true);
     setAuthError(null);
     try {
-      const fbUser = await signInWithGoogle();
-      const displayName = fbUser.displayName || '';
-      const email = fbUser.email?.toLowerCase() || '';
-      const photoURL = fbUser.photoURL || undefined;
-      const uid = fbUser.uid;
+     const { error } = await supabase.auth.signInWithOAuth({
+  provider: 'google',
+  options: {
+    redirectTo: window.location.origin,
+  },
+});
 
-      // Check if user profile already exists in Firestore regardless of tab selection
-      const existingProfile = await fetchUserProfileFromFirestore(uid) || (email ? await fetchUserProfileFromFirestore(email) : null);
+if (error) {
+  throw error;
+}
 
-      if (existingProfile) {
-        const userRole = (existingProfile.role || 'student') as UserRole;
-        const fullData = {
-          id: uid,
-          role: userRole,
-          name: existingProfile.name || displayName || email.split('@')[0] || 'User',
-          email: email,
-          phone: existingProfile.phone || '',
-          universityId: existingProfile.universityId || 'uniosun',
-          universityName: existingProfile.universityName || 'Osun State University (UNIOSUN)',
-          agencyName: existingProfile.agencyName || '',
-          avatarUrl: existingProfile.avatarUrl || photoURL,
-          isVerifiedAgent: existingProfile.isVerifiedAgent || existingProfile.businessVerificationStatus === 'approved',
-          businessVerificationStatus: existingProfile.businessVerificationStatus || 'none',
-          isSignup: false,
-          isEmailVerified: true
-        };
-
-        await saveUserToFirestore(fullData);
-        onCompleteOnboarding(fullData);
-        return;
-      }
-
-      // Brand-new Google user with no existing profile
-      if (selectedRole === 'student') {
-        const studentProfile = await fetchStudentProfileFromFirestore(uid);
-
-        const studentData = {
-          id: uid,
-          role: 'student' as UserRole,
-          name: studentProfile?.name || displayName || email.split('@')[0] || 'Student',
-          email: email,
-          phone: studentProfile?.phoneNumber || studentProfile?.phone || '',
-          universityId: studentProfile?.universityId || 'uniosun',
-          universityName: studentProfile?.universityName || 'Osun State University (UNIOSUN)',
-          avatarUrl: studentProfile?.photoURL || studentProfile?.avatarUrl || photoURL,
-          isSignup: false,
-          isEmailVerified: true
-        };
-
-        await saveUserToFirestore(studentData);
-        await saveStudentProfileToFirestore({
-          uid,
-          name: studentData.name,
-          email: studentData.email,
-          photoURL: studentData.avatarUrl,
-          avatarUrl: studentData.avatarUrl,
-          phoneNumber: studentData.phone,
-          phone: studentData.phone,
-          universityId: studentData.universityId,
-          universityName: studentData.universityName,
-          profileCompleted: true
-        });
-
-        onCompleteOnboarding(studentData);
-        return;
-      }
-
-      if (displayName) setAgentName(prev => prev || displayName);
-      if (email) setAgentEmail(email);
-
-      setGoogleAuthData({
-        uid,
-        displayName,
-        email,
-        photoURL
-      });
     } catch (err: any) {
       if (err?.code !== 'auth/popup-closed-by-user' && err?.code !== 'auth/cancelled-popup-request') {
         console.error("Google Auth Failure:", err);
@@ -242,7 +231,13 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
     try {
       if (selectedRole === 'student') {
-        // Validate phone number
+        const trimmedName = studentName.trim();
+        if (!trimmedName) {
+          setAuthError('Full name is required.');
+          setIsLoading(false);
+          return;
+        }
+
         const phoneCheck = validateAndNormalizePhoneNumber(studentPhone);
         if (!phoneCheck.isValid) {
           setAuthError(phoneCheck.error || "Please enter a valid phone number.");
@@ -250,24 +245,29 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           return;
         }
 
-        // Validate university selection
-        const selectedUniObj = universities.find(u => u.id === studentUniId) || {
-          id: studentUniId,
-          name: studentUni,
-          code: studentUniId,
-          status: studentUniId === 'uniosun' ? 'active' : 'coming_soon'
-        };
+        if (!studentUniId) {
+          setAuthError('Please select your preferred school.');
+          setIsLoading(false);
+          return;
+        }
 
-        const isUniActive = selectedUniObj.status === 'active' || selectedUniObj.id === 'uniosun';
+        const selectedUniObj = universities.find(u => u.id === studentUniId);
+        if (!selectedUniObj) {
+          setAuthError('Please select your preferred school.');
+          setIsLoading(false);
+          return;
+        }
+
+        const isUniActive = selectedUniObj.status === 'active' || selectedUniObj.id === 'uniosun' || selectedUniObj.isActive === true;
         if (!isUniActive) {
-          // Block submission for coming soon university
+          setAuthError('This university is not active yet. Please choose UNIOSUN to continue.');
           setIsLoading(false);
           return;
         }
 
         const studentData = {
           uid: googleAuthData.uid || auth.currentUser?.uid || '',
-          name: studentName.trim() || googleAuthData.displayName || 'Student',
+          name: trimmedName,
           email: googleAuthData.email,
           photoURL: googleAuthData.photoURL || '',
           avatarUrl: googleAuthData.photoURL || '',
@@ -327,8 +327,34 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
     try {
       if (authMode === 'signup') {
+        const trimmedName = studentName.trim();
+        const trimmedEmail = studentEmail.trim().toLowerCase();
+        const phoneCheck = validateAndNormalizePhoneNumber(studentPhone);
+        if (!trimmedName) {
+          setAuthError('Full name is required.');
+          setIsLoading(false);
+          return;
+        }
+        if (!phoneCheck.isValid) {
+          setAuthError(phoneCheck.error || 'Phone number is required.');
+          setIsLoading(false);
+          return;
+        }
+        if (!studentUniId) {
+          setAuthError('Please select your preferred school.');
+          setIsLoading(false);
+          return;
+        }
+
+        const selectedUniObj = universities.find(u => u.id === studentUniId);
+        if (!selectedUniObj || (selectedUniObj.status !== 'active' && selectedUniObj.id !== 'uniosun' && selectedUniObj.isActive !== true)) {
+          setAuthError('This university is not active yet. Please choose UNIOSUN to continue.');
+          setIsLoading(false);
+          return;
+        }
+
         // 1. Create a new Firebase Authentication account
-        await registerWithEmail(studentEmail.trim().toLowerCase(), studentPassword);
+        await registerWithEmail(trimmedEmail, studentPassword);
 
         // 2. Refresh current Firebase user
         if (auth.currentUser) {
@@ -343,10 +369,11 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
         const studentData = {
           id: fbUser.uid,
           role: 'student' as UserRole,
-          name: studentName || studentEmail.split('@')[0],
-          email: studentEmail.trim().toLowerCase(),
-          phone: studentPhone,
-          universityName: studentUni,
+          name: trimmedName,
+          email: trimmedEmail,
+          phone: phoneCheck.normalized,
+          universityId: selectedUniObj.id,
+          universityName: selectedUniObj.name,
           isSignup: true,
           isEmailVerified: isVerified
         };
@@ -605,43 +632,8 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={async () => {
+                onClick={() => {
                   setSelectedRole('student');
-                  if (googleAuthData) {
-                    setIsLoading(true);
-                    try {
-                      const studentData = {
-                        id: googleAuthData.uid,
-                        role: 'student' as UserRole,
-                        name: googleAuthData.displayName || googleAuthData.email.split('@')[0] || 'Student',
-                        email: googleAuthData.email,
-                        phone: '',
-                        universityId: 'uniosun',
-                        universityName: 'Osun State University (UNIOSUN)',
-                        avatarUrl: googleAuthData.photoURL,
-                        isSignup: false,
-                        isEmailVerified: true
-                      };
-                      await saveUserToFirestore(studentData);
-                      await saveStudentProfileToFirestore({
-                        uid: googleAuthData.uid,
-                        name: studentData.name,
-                        email: studentData.email,
-                        photoURL: studentData.avatarUrl,
-                        avatarUrl: studentData.avatarUrl,
-                        phoneNumber: '',
-                        phone: '',
-                        universityId: 'uniosun',
-                        universityName: 'Osun State University (UNIOSUN)',
-                        profileCompleted: true
-                      });
-                      onCompleteOnboarding(studentData);
-                    } catch (e) {
-                      console.error("Student Google auto-complete error:", e);
-                    } finally {
-                      setIsLoading(false);
-                    }
-                  }
                 }}
                 className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   selectedRole === 'student'
@@ -718,7 +710,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   setAgentUni(uni.name);
                 }
               }}
-              label={selectedRole === 'student' ? 'University' : 'Primary Serviced Campus'}
+              label={selectedRole === 'student' ? 'Preferred School' : 'Primary Serviced Campus'}
               required
             />
 
@@ -1112,8 +1104,9 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                             setStudentUniId(uni.id);
                             setStudentUni(uni.name);
                           }}
-                          label="University / Institution"
+                          label="Preferred School"
                           required
+                          error={studentUniId ? null : null}
                         />
                       </div>
 

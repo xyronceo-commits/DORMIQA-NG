@@ -1,3 +1,4 @@
+import { supabase } from './supabase';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { fetchAdminEmails, addAdminEmail, removeAdminEmail, adminLogin } from './api';
 import { University } from '../types';
@@ -135,12 +136,16 @@ export const listenToFCMMessages = async (onMessageReceived: (payload: any) => v
 // Authentication Helpers
 export const signInWithGoogle = async () => {
   try {
-    const result = await signInWithPopup(auth, googleProvider);
-    return result.user;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+
+    if (error) throw error;
   } catch (error: any) {
-    if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/cancelled-popup-request') {
-      console.error("Firebase Google Sign-In Error:", error);
-    }
+    console.error('Supabase Google Sign-In Error:', error);
     throw error;
   }
 };
@@ -516,13 +521,18 @@ export const saveUserToFirestore = async (userObj: {
       email: cleanEmail,
       role: finalRole,
       phone: userObj.phone || '',
-      universityId: userObj.universityId || 'uniosun',
-      universityName: userObj.universityName || 'Osun State University',
       agencyName: userObj.agencyName || '',
       isEmailVerified: isVerified,
       avatarUrl: userObj.avatarUrl || user?.photoURL || '',
       updatedAt: new Date().toISOString()
     };
+
+    if (userObj.universityId !== undefined && userObj.universityId !== null && userObj.universityId !== '') {
+      updateData.universityId = userObj.universityId;
+    }
+    if (userObj.universityName !== undefined && userObj.universityName !== null && userObj.universityName !== '') {
+      updateData.universityName = userObj.universityName;
+    }
 
     if (userObj.businessVerificationStatus !== undefined) {
       updateData.businessVerificationStatus = userObj.businessVerificationStatus;

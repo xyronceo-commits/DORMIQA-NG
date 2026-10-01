@@ -95,6 +95,7 @@ import {
 } from './services/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
+import { supabase } from './services/supabase';
 
 export default function App() {
   const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities'>('landing');
@@ -219,6 +220,14 @@ export default function App() {
     }
 
     if (isLoggedIn) {
+      const currentAccount = accounts.find(a => a.id === activeAccountId) || accounts[0];
+      if (currentRole === 'student' && !hasCompleteStudentProfile(currentAccount)) {
+        setActiveView('onboarding');
+        pushViewUrl('onboarding');
+        setToastNotice('Complete your profile to continue to the student dashboard.');
+        setTimeout(() => setToastNotice(null), 4000);
+        return;
+      }
       if (view === 'landing' || view === 'onboarding' || view === 'agent-landing') {
         if (isAdminAuthenticated) {
           setActiveView('admin-dash');
@@ -458,7 +467,8 @@ export default function App() {
 
       // Strict role resolution from DB profile (never fallback to student if DB specifies a role)
       const resolvedRole: UserRole = profile?.role || 'student';
-      console.log(`[AUTH ROUTE PRE-CHECK] User UID: ${uid} (${email}) | Resolved Role from DB: "${resolvedRole}"`);
+      const studentProfileComplete = resolvedRole === 'student' ? hasCompleteStudentProfile(profile) : true;
+      console.log(`[AUTH ROUTE PRE-CHECK] User UID: ${uid} (${email}) | Resolved Role from DB: "${resolvedRole}" | Student Profile Complete: ${studentProfileComplete}`);
 
       const userAccount: User = {
         id: uid,
@@ -466,8 +476,8 @@ export default function App() {
         email: email,
         role: resolvedRole,
         phone: profile?.phone || '',
-        universityId: profile?.universityId || 'uniosun',
-        universityName: profile?.universityName || 'Osun State University',
+        universityId: profile?.universityId || '',
+        universityName: profile?.universityName || '',
         agencyName: profile?.agencyName || '',
         isVerifiedAgent: profile?.businessVerificationStatus === 'approved' || profile?.isVerifiedAgent || false,
         isEmailVerified: isVerified,
@@ -615,21 +625,26 @@ export default function App() {
         }
       } else {
         // STUDENT ROLE:
-        // When a student signs in, signs up, or holds an active session while on landing/onboarding/agent-landing view,
-        // take them straight to discovery page ('search')!
-        setActiveView(prev => {
-          if (
-            prev === 'landing' || 
-            prev === 'onboarding' || 
-            prev === 'agent-landing' ||
-            initialRoute.view === 'landing' ||
-            initialRoute.view === 'onboarding'
-          ) {
-            pushViewUrl('search');
-            return 'search';
-          }
-          return prev;
-        });
+        if (!studentProfileComplete) {
+          setActiveView('onboarding');
+          pushViewUrl('onboarding');
+          setToastNotice('Complete your profile to continue to student discovery.');
+          setTimeout(() => setToastNotice(null), 4000);
+        } else {
+          setActiveView(prev => {
+            if (
+              prev === 'landing' || 
+              prev === 'onboarding' || 
+              prev === 'agent-landing' ||
+              initialRoute.view === 'landing' ||
+              initialRoute.view === 'onboarding'
+            ) {
+              pushViewUrl('search');
+              return 'search';
+            }
+            return prev;
+          });
+        }
       }
 
       if (!isVerified && email) {
@@ -832,11 +847,24 @@ export default function App() {
     }
   }, [activeAccountId, accounts]);
 
+  const hasCompleteStudentProfile = (profile?: any) => {
+    if (!profile) return false;
+    if (profile.role !== 'student') return true;
+    const name = String(profile.name || '').trim();
+    const phone = String(profile.phone || profile.phoneNumber || '').trim();
+    const universityId = String(profile.universityId || '').trim();
+    const universityName = String(profile.universityName || '').trim();
+    return Boolean(name && phone && (universityId || universityName));
+  };
+
   const handleSignOut = async () => {
     try {
-      await logoutFirebase();
+      await Promise.allSettled([
+        logoutFirebase(),
+        supabase.auth.signOut().catch(() => undefined)
+      ]);
     } catch (err) {
-      console.warn("Firebase signout error:", err);
+      console.warn("Signout error:", err);
     }
     const currentAcc = accounts.find(a => a.id === activeAccountId);
     setIsLoggedIn(false);
@@ -851,7 +879,8 @@ export default function App() {
     setActiveAccountId('');
     setToastNotice(`Successfully signed out of ${currentAcc?.name || 'account'}`);
     setTimeout(() => setToastNotice(null), 4000);
-    setActiveView('landing');
+    setActiveView('onboarding');
+    pushViewUrl('onboarding');
   };
 
   const handleDeleteAccount = async (accountId?: string) => {
@@ -1272,6 +1301,7 @@ export default function App() {
                   role: userData.role,
                   avatarUrl: userData.avatarUrl || auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
                   phone: userData.phone,
+                  universityId: userData.universityId || '',
                   universityName: userData.universityName,
                   agencyName: userData.agencyName,
                   isVerifiedAgent: false,
