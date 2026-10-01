@@ -7,26 +7,15 @@ service cloud.firestore {
     }
 
     function isInitialSuperAdmin() {
-      return isSignedIn() &&
-        (request.auth.token.email == 'buildsafe247@gmail.com' || (request.auth.token.email_verified == true && request.auth.token.email == 'buildsafe247@gmail.com'));
+      return false;
     }
 
     function isAdmin() {
-      return isSignedIn() && (
-        isInitialSuperAdmin() ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        exists(/databases/$(database)/documents/authorized_admins/$(request.auth.token.email))
-      );
+      return false;
     }
 
     function isSuperAdmin() {
-      return isSignedIn() && (
-        isInitialSuperAdmin() ||
-        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'SUPER_ADMIN') ||
-        (exists(/databases/$(database)/documents/authorized_admins/$(request.auth.token.email)) &&
-          get(/databases/$(database)/documents/authorized_admins/$(request.auth.token.email)).data.role == 'SUPER_ADMIN')
-      );
+      return false;
     }
 
     // ADMINS COLLECTION

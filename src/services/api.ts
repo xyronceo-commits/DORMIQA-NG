@@ -786,147 +786,11 @@ export async function submitReport(data: Partial<Report>): Promise<Report> {
   return reportRecord;
 }
 
-export function getAdminToken(): string | null {
-  try {
-    return sessionStorage.getItem('dormiqa_admin_token') || 
-           localStorage.getItem('dormiqa_admin_token') ||
-           sessionStorage.getItem('campora_admin_token') || 
-           localStorage.getItem('campora_admin_token');
-  } catch {
-    return null;
-  }
-}
-
-export function setAdminToken(token: string) {
-  try {
-    sessionStorage.setItem('dormiqa_admin_token', token);
-    localStorage.setItem('dormiqa_admin_token', token);
-    sessionStorage.setItem('campora_admin_token', token);
-    localStorage.setItem('campora_admin_token', token);
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-export function clearAdminToken() {
-  try {
-    sessionStorage.removeItem('dormiqa_admin_token');
-    localStorage.removeItem('dormiqa_admin_token');
-    sessionStorage.removeItem('campora_admin_token');
-    localStorage.removeItem('campora_admin_token');
-  } catch (err) {
-    console.error(err);
-  }
-}
-
 function getAdminAuthHeaders() {
-  const token = getAdminToken();
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-  };
-}
-
-// SECURITY: adminLogin exchanges a real Firebase ID token (obtained after a
-// genuine Google sign-in) for a backend admin session token. The backend
-// verifies the ID token cryptographically — we never send a bare email here,
-// since that could be forged by anyone with network access to the API.
-export async function adminLogin(idToken: string): Promise<{ success: boolean; authorized?: boolean; token?: string; email?: string; role?: AdminRole; message?: string }> {
-  try {
-    const data = await safeFetchJson<{ success: boolean; authorized?: boolean; token?: string; email?: string; role?: AdminRole; message?: string }>(`${API_BASE}/admin/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken })
-    });
-
-    if (data.success && data.token) {
-      setAdminToken(data.token);
-    }
-    return data;
-  } catch (err: any) {
-    return {
-      success: false,
-      message: err.message || 'Authentication request failed. Please check connection.'
-    };
-  }
-}
-
-export async function fetchAdministrators(): Promise<AuthorizedAdmin[]> {
-  try {
-    const data = await safeFetchJson<{ success: boolean; administrators: AuthorizedAdmin[] }>(`${API_BASE}/admin/administrators`, {
-      headers: getAdminAuthHeaders()
-    });
-    return data.administrators || [];
-  } catch (err) {
-    console.warn("Backend fetchAdministrators error:", err);
-    return [];
-  }
-}
-
-export async function fetchAdminEmails(): Promise<string[]> {
-  try {
-    const admins = await fetchAdministrators();
-    return admins.map(a => a.email);
-  } catch (err) {
-    console.warn("Backend fetchAdminEmails error:", err);
-    return ['buildsafe247@gmail.com'];
-  }
-}
-
-export async function addAdministrator(email: string, role: AdminRole = 'ADMIN'): Promise<AuthorizedAdmin[]> {
-  const cleanEmail = email.trim().toLowerCase();
-  const data = await safeFetchJson<{ success: boolean; administrators: AuthorizedAdmin[]; message?: string }>(`${API_BASE}/admin/administrators`, {
-    method: 'POST',
-    headers: getAdminAuthHeaders(),
-    body: JSON.stringify({ email: cleanEmail, role })
-  });
-  return data.administrators || [];
-}
-
-export async function addAdminEmail(email: string): Promise<string[]> {
-  const list = await addAdministrator(email, 'ADMIN');
-  return list.map(a => a.email);
-}
-
-export async function removeAdministrator(email: string): Promise<AuthorizedAdmin[]> {
-  const cleanEmail = email.trim().toLowerCase();
-  const data = await safeFetchJson<{ success: boolean; administrators: AuthorizedAdmin[]; message?: string }>(`${API_BASE}/admin/administrators`, {
-    method: 'DELETE',
-    headers: getAdminAuthHeaders(),
-    body: JSON.stringify({ email: cleanEmail })
-  });
-  return data.administrators || [];
-}
-
-export async function removeAdminEmail(email: string): Promise<string[]> {
-  const list = await removeAdministrator(email);
-  return list.map(a => a.email);
-}
-
-export async function updateAdministratorRole(email: string, role: AdminRole): Promise<AuthorizedAdmin[]> {
-  const cleanEmail = email.trim().toLowerCase();
-  const data = await safeFetchJson<{ success: boolean; administrators: AuthorizedAdmin[]; message?: string }>(`${API_BASE}/admin/administrators/${encodeURIComponent(cleanEmail)}/role`, {
-    method: 'PATCH',
-    headers: getAdminAuthHeaders(),
-    body: JSON.stringify({ role })
-  });
-  return data.administrators || [];
-}
-
-export async function adminLogout(): Promise<void> {
-  const token = getAdminToken();
-  if (token) {
-    await safeFetchJson(`${API_BASE}/admin/logout`, {
-      method: 'POST',
-      headers: getAdminAuthHeaders()
-    }).catch(() => {});
-  }
-  clearAdminToken();
+  return { 'Content-Type': 'application/json' };
 }
 
 export async function checkAdminSession(): Promise<{ authenticated: boolean; email?: string; role?: AdminRole }> {
-  const token = getAdminToken();
-  if (!token) return { authenticated: false };
   try {
     const data = await safeFetchJson<{ authenticated: boolean; email?: string; role?: AdminRole }>(`${API_BASE}/admin/check-session`, {
       headers: getAdminAuthHeaders()
@@ -961,7 +825,7 @@ export async function fetchAdminAgents() {
   }
 }
 
-export async function updateAdminAgentStatus(agentId: string, status: 'verified' | 'rejected', reason?: string) {
+export async function updateAdminAgentStatus(agentId: string, status: 'verified' | 'rejected' | 'removed', reason?: string) {
   try {
     return await safeFetchJson(`${API_BASE}/admin/agents/${agentId}/status`, {
       method: 'PATCH',
@@ -969,8 +833,8 @@ export async function updateAdminAgentStatus(agentId: string, status: 'verified'
       body: JSON.stringify({ status, reason })
     });
   } catch (err) {
-    console.warn("Backend updateAdminAgentStatus unavailable, using Firestore direct update:", err);
-    return { success: true };
+    console.warn("Backend updateAdminAgentStatus failed:", err);
+    throw err;
   }
 }
 
@@ -993,8 +857,8 @@ export async function updateAdminPropertyStatus(propertyId: string, status: stri
       body: JSON.stringify({ status, reason })
     });
   } catch (err) {
-    console.warn("Backend updateAdminPropertyStatus unavailable, using Firestore direct update:", err);
-    return { success: true };
+    console.warn("Backend updateAdminPropertyStatus failed:", err);
+    throw err;
   }
 }
 

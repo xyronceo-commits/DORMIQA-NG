@@ -128,7 +128,7 @@ export function pushViewUrl(view: string, replace = false, subTab?: string) {
     'business-verification': '/business-verification',
     'student-dash': '/student-dashboard',
     'agent-dash': '/agent-dashboard',
-    'admin-dash': '/admin/dashboard',
+    'admin-dash': '/admin',
     'coming-soon': '/coming-soon',
     'universities': '/universities'
   };

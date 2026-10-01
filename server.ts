@@ -501,47 +501,18 @@ async function getFirestoreInspections(): Promise<Inspection[]> {
   }
 }
 
-// Sync authorized admin emails with Firestore collection 'authorized_admins'
 async function syncAdminEmailsFromFirestore() {
-  if (!firestoreDb) return;
-  try {
-    const colRef = collection(firestoreDb, 'authorized_admins');
-    const snap = await getDocs(colRef);
-    if (!snap.empty) {
-      snap.forEach(d => {
-        const data = d.data();
-        const email = (data?.email || d.id).trim().toLowerCase();
-        if (email && email.includes('@')) {
-          authorizedAdminMap.set(email, {
-            email,
-            role: data?.role === 'SUPER_ADMIN' || email === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : (data?.role || 'ADMIN'),
-            status: 'Active',
-            createdAt: data?.createdAt || new Date().toISOString(),
-            addedBy: data?.addedBy || 'system'
-          });
-        }
-      });
-    }
-
-    // Ensure Super Admin buildsafe247@gmail.com is always present in memory
-    const defaultEmail = 'buildsafe247@gmail.com';
-    if (!authorizedAdminMap.has(defaultEmail)) {
-      authorizedAdminMap.set(defaultEmail, {
-        email: defaultEmail,
-        role: 'SUPER_ADMIN',
-        status: 'Active',
-        createdAt: new Date().toISOString(),
-        addedBy: 'system'
-      });
-    }
-  } catch (err: any) {
-    console.warn("Notice: Admin emails synced with memory. Firestore sync notice:", err?.message || err);
-  }
+  authorizedAdminMap.clear();
+  authorizedAdminMap.set('buildsafe247@gmail.com', {
+    email: 'buildsafe247@gmail.com',
+    role: 'SUPER_ADMIN',
+    status: 'Active',
+    createdAt: new Date().toISOString(),
+    addedBy: 'system'
+  });
 }
 
 syncAdminEmailsFromFirestore();
-
-const activeAdminSessions = new Map<string, { email: string; role: 'SUPER_ADMIN' | 'ADMIN' }>();
 
 function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers['authorization'];
@@ -549,21 +520,32 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
     ? authHeader.slice(7).trim()
     : null;
 
-  // SECURITY: admin identity is only ever established via a session token
-  // issued by /api/admin/login after verifying a real Firebase ID token.
-  // We intentionally do NOT trust a client-supplied X-Admin-Email header
-  // (or any other client-asserted identity) — that field is fully
-  // attacker-controlled and previously allowed anyone to impersonate any
-  // authorized admin, including the super admin, with a single request.
-  if (token && activeAdminSessions.has(token)) {
-    (req as any).adminUser = activeAdminSessions.get(token);
-    return next();
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Unauthorized', message: 'A valid Supabase session is required.' });
   }
 
-  return res.status(401).json({
-    success: false,
-    error: 'Unauthorized',
-    message: 'Secure Admin authentication required.'
+  void supabaseAuthClient.auth.getUser(token).then(({ data, error }) => {
+    const user = data.user;
+    const email = typeof user?.email === 'string' ? user.email.trim().toLowerCase() : '';
+    const providers = [
+      user?.app_metadata?.provider,
+      ...(Array.isArray(user?.identities) ? user.identities.map(identity => identity.provider) : [])
+    ];
+
+    if (error || !user) {
+      res.status(401).json({ success: false, error: 'Unauthorized', message: 'Your Supabase session is invalid or expired.' });
+      return;
+    }
+    if (email !== 'buildsafe247@gmail.com' || !user.email_confirmed_at || !providers.includes('google')) {
+      res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin access is restricted.' });
+      return;
+    }
+
+    (req as any).adminUser = { email: 'buildsafe247@gmail.com', role: 'SUPER_ADMIN' };
+    (req as any).adminEmail = 'buildsafe247@gmail.com';
+    next();
+  }).catch(() => {
+    res.status(401).json({ success: false, error: 'Unauthorized', message: 'Your Supabase session could not be verified.' });
   });
 }
 
@@ -622,11 +604,18 @@ function sanitizeInputString(str: any, maxLength = 2000): string {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
 
   // Strict Payload Size Limit
   app.use(express.json({ limit: '2mb' }));
   app.use(securityHeadersMiddleware);
+
+  app.use('/api/admin', requireAdminAuth, (req, res, next) => {
+    if (/^\/(administrators|emails)(\/|$)/.test(req.path)) {
+      return res.status(404).json({ success: false, error: 'Not Found', message: 'Admin access is restricted.' });
+    }
+    next();
+  });
 
   // General Rate Limiting (120 requests per minute per IP)
   const generalRateLimiter = createRateLimiter(120, 60 * 1000, generalRateLimitStore);
@@ -1583,70 +1572,8 @@ Return ONLY valid JSON matching this schema:
   // Supabase Auth. We verify it server-side and trust only the user claims
   // returned by Supabase — never a
   // bare email string in the request body, which anyone could forge.
-  app.post('/api/admin/login', async (req, res) => {
-    const { idToken } = req.body || {};
-    if (!idToken || typeof idToken !== 'string') {
-      return res.status(400).json({
-        success: false,
-        authorized: false,
-        error: 'MissingIdToken',
-        message: 'A valid Supabase access token is required for administrator login.'
-      });
-    }
-
-    let decoded: any;
-    try {
-      const { data, error } = await supabaseAuthClient.auth.getUser(idToken);
-      if (error || !data.user) throw error || new Error('Supabase user not found.');
-      decoded = data.user;
-    } catch (err) {
-      return res.status(401).json({
-        success: false,
-        authorized: false,
-        error: 'InvalidIdToken',
-        message: 'Could not verify Google sign-in. Please sign in again.'
-      });
-    }
-
-    const cleanEmail = (decoded.email || '').trim().toLowerCase();
-    if (!cleanEmail || !decoded.email_confirmed_at) {
-      return res.status(403).json({
-        success: false,
-        authorized: false,
-        error: 'EmailNotVerified',
-        message: 'Your Google account email must be verified to access the Admin Portal.'
-      });
-    }
-
-    // Refresh memory map from Firestore first if needed
-    if (firestoreDb && authorizedAdminMap.size <= 1) {
-      await syncAdminEmailsFromFirestore();
-    }
-
-    const adminAccount = authorizedAdminMap.get(cleanEmail);
-
-    if (!adminAccount || adminAccount.status === 'disabled') {
-      return res.status(403).json({
-        success: false,
-        authorized: false,
-        error: 'AccessDenied',
-        message: `Account '${cleanEmail}' is not authorized as a Dormiqa Administrator. Access denied.`
-      });
-    }
-
-    // Generate secure admin session token
-    const token = `dormiqa_admin_${Date.now()}_${crypto.randomBytes(16).toString('hex')}`;
-    activeAdminSessions.set(token, { email: adminAccount.email, role: adminAccount.role });
-
-    res.json({
-      success: true,
-      authorized: true,
-      token,
-      email: adminAccount.email,
-      role: adminAccount.role,
-      message: 'Administrator authentication verified.',
-      expiresInSeconds: 86400
-    });
+  app.post('/api/admin/login', requireAdminAuth, (_req, res) => {
+    res.json({ success: true, authorized: true, email: 'buildsafe247@gmail.com', role: 'SUPER_ADMIN' });
   });
 
   // Check Admin Session
@@ -1860,16 +1787,8 @@ Return ONLY valid JSON matching this schema:
   });
 
   // Admin Logout
-  app.post('/api/admin/logout', (req, res) => {
-    const authHeader = req.headers['authorization'] || req.headers['x-admin-token'];
-    const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') 
-      ? authHeader.slice(7).trim() 
-      : typeof authHeader === 'string' ? authHeader.trim() : null;
-
-    if (token) {
-      activeAdminSessions.delete(token);
-    }
-    res.json({ success: true, message: 'Admin session terminated.' });
+  app.post('/api/admin/logout', requireAdminAuth, (_req, res) => {
+    res.json({ success: true, message: 'Sign out of the Supabase session to end administrator access.' });
   });
 
   // Check Session
@@ -1921,17 +1840,22 @@ Return ONLY valid JSON matching this schema:
     const now = new Date().toISOString();
     const adminEmail = (req as any).adminEmail || 'buildsafe247@gmail.com';
     const isApproved = status === 'verified' || status === 'approved';
+    const isRemoved = status === 'removed';
 
     agent.isVerifiedAgent = isApproved;
-    agent.status = isApproved ? 'verified' : 'rejected';
-    (agent as any).verificationStatus = isApproved ? 'approved' : 'rejected';
-    (agent as any).businessVerificationStatus = isApproved ? 'approved' : 'rejected';
+    agent.status = isApproved ? 'verified' : isRemoved ? 'removed' : 'rejected';
+    (agent as any).verificationStatus = isApproved ? 'approved' : isRemoved ? 'removed' : 'rejected';
+    (agent as any).businessVerificationStatus = isApproved ? 'approved' : isRemoved ? 'removed' : 'rejected';
     (agent as any).verificationUpdatedAt = now;
 
     if (isApproved) {
       (agent as any).verifiedAt = now;
       (agent as any).verifiedBy = adminEmail;
       (agent as any).rejectionReason = null;
+    } else if (isRemoved) {
+      (agent as any).removedAt = now;
+      (agent as any).removedBy = adminEmail;
+      (agent as any).removalReason = reason || 'Agent status revoked by administrator.';
     } else {
       (agent as any).rejectedAt = now;
       (agent as any).rejectedBy = adminEmail;
@@ -1943,9 +1867,11 @@ Return ONLY valid JSON matching this schema:
         await setDoc(doc(firestoreDb, 'users', agent.id), agent, { merge: true });
 
         // Add real-time notification document to Firestore
-        const notifTitle = isApproved ? 'Agent verification approved' : 'Agent verification update';
+        const notifTitle = isApproved ? 'Agent verification approved' : isRemoved ? 'Agent access revoked' : 'Agent verification update';
         const notifMsg = isApproved
           ? 'Your Dormiqa agent account has been verified.'
+          : isRemoved
+          ? `Your Dormiqa agent privileges have been revoked.${reason ? ` Reason: ${reason}` : ''}`
           : `Your agent verification was not approved.${reason ? ` Reason: ${reason}` : ''}`;
 
         await addDoc(collection(firestoreDb, 'notifications'), {
@@ -1960,7 +1886,7 @@ Return ONLY valid JSON matching this schema:
           relatedId: agent.id,
           metadata: {
             rejectionReason: isApproved ? null : (reason || null),
-            verificationStatus: isApproved ? 'approved' : 'rejected',
+            verificationStatus: isApproved ? 'approved' : isRemoved ? 'removed' : 'rejected',
             adminEmail
           }
         });
@@ -1987,10 +1913,14 @@ Return ONLY valid JSON matching this schema:
 
     const now = new Date().toISOString();
     const adminEmail = (req as any).adminEmail || 'buildsafe247@gmail.com';
-    const isApproved = status === 'approved';
+    const validStatuses = ['approved', 'rejected', 'changes_requested', 'banned', 'removed'];
+    if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Invalid listing status.' });
+    const nextStatus = status === 'banned' ? 'removed' : status;
+    const isApproved = nextStatus === 'approved';
+    const isRemoved = nextStatus === 'removed';
 
-    listing.status = isApproved ? 'approved' : 'rejected';
-    (listing as any).verificationStatus = isApproved ? 'approved' : 'rejected';
+    listing.status = nextStatus;
+    (listing as any).verificationStatus = nextStatus;
     (listing as any).verificationUpdatedAt = now;
 
     if (isApproved) {
@@ -1998,6 +1928,14 @@ Return ONLY valid JSON matching this schema:
       (listing as any).verifiedBy = adminEmail;
       (listing as any).rejectionReason = null;
       (listing as any).aiBanReason = null;
+    } else if (nextStatus === 'changes_requested') {
+      (listing as any).rejectionReason = reason || 'Listing details require updates.';
+      (listing as any).aiBanReason = null;
+    } else if (isRemoved) {
+      (listing as any).removedAt = now;
+      (listing as any).removedBy = adminEmail;
+      (listing as any).removalReason = reason || 'Listing removed from platform.';
+      (listing as any).rejectionReason = reason || 'Listing removed from platform.';
     } else {
       (listing as any).rejectedAt = now;
       (listing as any).rejectedBy = adminEmail;
@@ -2011,9 +1949,13 @@ Return ONLY valid JSON matching this schema:
 
         const targetAgentId = listing.agentId;
         if (targetAgentId) {
-          const notifTitle = isApproved ? 'Hostel approved' : 'Hostel verification update';
+          const notifTitle = isApproved ? 'Hostel approved' : isRemoved ? 'Hostel listing removed' : nextStatus === 'changes_requested' ? 'Hostel changes requested' : 'Hostel verification update';
           const notifMsg = isApproved
             ? 'Your hostel listing has been approved and is now eligible to appear on Dormiqa.'
+            : isRemoved
+            ? `Your hostel listing was removed.${reason ? ` Reason: ${reason}` : ''}`
+            : nextStatus === 'changes_requested'
+            ? `Changes requested for your hostel listing.${reason ? ` Reason: ${reason}` : ''}`
             : `Your hostel listing was not approved.${reason ? ` Reason: ${reason}` : ''}`;
 
           await addDoc(collection(firestoreDb, 'notifications'), {
@@ -2028,7 +1970,7 @@ Return ONLY valid JSON matching this schema:
             relatedId: listing.id,
             metadata: {
               rejectionReason: isApproved ? null : (reason || null),
-              verificationStatus: isApproved ? 'approved' : 'rejected',
+              verificationStatus: nextStatus,
               propertyId: listing.id,
               adminEmail
             }
@@ -2036,6 +1978,21 @@ Return ONLY valid JSON matching this schema:
         }
       } catch (err) {
         console.warn("Failed to sync property status/notification to Firestore:", err);
+      }
+    }
+
+    if (firestoreDb && isRemoved) {
+      try {
+        await addDoc(collection(firestoreDb, 'removal_audits'), {
+          adminId: adminEmail,
+          agentId: listing.agentId || '',
+          listingId: listing.id,
+          action: 'removed',
+          reason: reason || 'Listing removed from platform.',
+          timestamp: now
+        });
+      } catch (err) {
+        console.warn('Failed to save listing removal audit:', err);
       }
     }
 

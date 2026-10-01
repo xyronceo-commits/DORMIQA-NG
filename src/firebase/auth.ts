@@ -34,69 +34,7 @@ supabase.auth.onAuthStateChange((_event, session) => {
   syncAuthState(session?.user ?? null, session?.access_token);
 });
 
-export class GoogleAuthProvider {
-  public params: Record<string, string> = {};
-
-  setCustomParameters(params: Record<string, string>) {
-    this.params = params;
-  }
-}
-
 export const getAuth = (_app?: any) => auth;
-
-export const signInWithPopup = async (_auth: any, provider: any) => {
-  if (typeof window === 'undefined') {
-    throw new Error('Google sign-in is only available in a browser.');
-  }
-
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      skipBrowserRedirect: true,
-      redirectTo: window.location.origin,
-      queryParams: provider?.params || {},
-    },
-  });
-
-  if (error) throw error;
-  if (!data.url) throw new Error('Supabase did not return a Google authorization URL.');
-
-  const popup = window.open(data.url, 'dormiqa-google-auth', 'width=520,height=680,menubar=no,toolbar=no');
-  if (!popup) throw new Error('The sign-in popup was blocked. Allow popups and try again.');
-
-  return new Promise<{ user: any }>((resolve, reject) => {
-    let settled = false;
-    const finish = (user: any | null, error?: Error) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timeout);
-      window.clearInterval(watchPopup);
-      subscription.unsubscribe();
-      if (!popup.closed) popup.close();
-      if (error) reject(error);
-      else resolve({ user });
-    };
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        syncAuthState(session.user, session.access_token);
-        finish(normalizeUser(session.user, session.access_token));
-      }
-    });
-
-    const timeout = window.setTimeout(() => finish(null, new Error('Google sign-in timed out. Please try again.')), 120000);
-    const watchPopup = window.setInterval(async () => {
-      if (!popup.closed) return;
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        syncAuthState(session.user, session.access_token);
-        finish(normalizeUser(session.user, session.access_token));
-      } else {
-        finish(null, new Error('Google sign-in was cancelled.'));
-      }
-    }, 500);
-  });
-};
 
 export const signInWithEmailAndPassword = async (_auth: any, email: string, password: string) => {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });

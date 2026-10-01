@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { fetchAdminEmails, addAdminEmail, removeAdminEmail, adminLogin } from './api';
 import { University } from '../types';
 import { clientCache } from './cache';
 import { 
@@ -21,8 +20,6 @@ import {
 } from 'firebase/firestore';
 import { 
   getAuth, 
-  GoogleAuthProvider, 
-  signInWithPopup, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   sendEmailVerification,
@@ -66,7 +63,6 @@ function initFirestoreInstance() {
 export const db = initFirestoreInstance();
 
 export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
 export const storage = getStorage(app);
 
 // FCM Instance Lazy Getter
@@ -783,153 +779,6 @@ export const fetchUniversitiesFromFirestore = async (): Promise<University[]> =>
   });
 };
 
-/**
- * AUTHORIZED ADMINS HELPERS & GOOGLE AUTHENTICATION
- */
-
-// Ensure initial Super Admin is present in Firestore
-export const initializeSuperAdminInFirestore = async (): Promise<void> => {
-  const defaultEmail = 'buildsafe247@gmail.com';
-  try {
-    const adminRef = doc(db, 'authorized_admins', defaultEmail);
-    const snap = await getDoc(adminRef);
-    if (!snap.exists()) {
-      await setDoc(adminRef, {
-        email: defaultEmail,
-        role: 'SUPER_ADMIN',
-        status: 'active',
-        createdAt: new Date().toISOString(),
-        createdBy: 'system'
-      });
-    } else {
-      const data = snap.data();
-      if (data.role !== 'SUPER_ADMIN' || data.status !== 'active') {
-        await setDoc(adminRef, {
-          role: 'SUPER_ADMIN',
-          status: 'active'
-        }, { merge: true });
-      }
-    }
-  } catch (err) {
-    console.warn("Failed to initialize super admin in firestore:", err);
-  }
-};
-
-const adminCheckCache = new Map<string, { authorized: boolean; role?: 'SUPER_ADMIN' | 'ADMIN'; message?: string; timestamp: number }>();
-const ADMIN_CHECK_TTL_MS = 10 * 60 * 1000; // 10 minute memory cache
-
-export const checkAdminAuthorizedInFirestore = async (emailOrUid: string, uidOverride?: string): Promise<{ authorized: boolean; role?: 'SUPER_ADMIN' | 'ADMIN'; message?: string; data?: any }> => {
-  const cleanInput = emailOrUid.trim().toLowerCase();
-  if (!cleanInput) {
-    return { authorized: false, message: 'Invalid administrator identity.' };
-  }
-
-  // Initial Super Admin check
-  if (cleanInput === 'buildsafe247@gmail.com') {
-    if (uidOverride) {
-      setDoc(doc(db, 'admins', uidOverride), {
-        email: 'buildsafe247@gmail.com',
-        role: 'SUPER_ADMIN',
-        status: 'active',
-        createdAt: new Date().toISOString(),
-        createdBy: 'system',
-        uid: uidOverride
-      }, { merge: true }).catch(() => {});
-    }
-    return { authorized: true, role: 'SUPER_ADMIN' };
-  }
-
-  const cacheKey = `${cleanInput}_${uidOverride || ''}`;
-  const cached = adminCheckCache.get(cacheKey);
-  if (cached && (Date.now() - cached.timestamp < ADMIN_CHECK_TTL_MS)) {
-    return { authorized: cached.authorized, role: cached.role, message: cached.message };
-  }
-
-  try {
-    // Execute admin queries in parallel to eliminate multi-second sequential waterfalls
-    const queries = [
-      uidOverride ? getDoc(doc(db, 'admins', uidOverride)).catch(() => null) : Promise.resolve(null),
-      getDoc(doc(db, 'authorized_admins', cleanInput)).catch(() => null),
-      getDocs(query(collection(db, 'authorized_admins'), where('email', '==', cleanInput))).catch(() => null),
-      getDocs(query(collection(db, 'admins'), where('email', '==', cleanInput))).catch(() => null)
-    ];
-
-    const [uidSnap, legacySnap, qAuthSnap, qAdminSnap] = await Promise.all(queries);
-
-    if (uidSnap && (uidSnap as any).exists()) {
-      const data = (uidSnap as any).data();
-      if (data.status === 'disabled') {
-        const res = { authorized: false, message: 'This administrator account has been disabled.' };
-        adminCheckCache.set(cacheKey, { ...res, timestamp: Date.now() });
-        return res;
-      }
-      if (data.status === 'active') {
-        const res = { authorized: true, role: (data.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN') as any, data };
-        adminCheckCache.set(cacheKey, { ...res, timestamp: Date.now() });
-        return res;
-      }
-    }
-
-    let snap: any = (legacySnap && (legacySnap as any).exists()) ? legacySnap : null;
-    if (!snap && qAuthSnap && !(qAuthSnap as any).empty) {
-      snap = (qAuthSnap as any).docs[0];
-    }
-    if (!snap && qAdminSnap && !(qAdminSnap as any).empty) {
-      snap = (qAdminSnap as any).docs[0];
-    }
-
-    if (snap && snap.exists()) {
-      const data = snap.data();
-      if (data.status === 'disabled') {
-        const res = { authorized: false, message: 'This administrator account has been disabled.' };
-        adminCheckCache.set(cacheKey, { ...res, timestamp: Date.now() });
-        return res;
-      }
-      const role: 'SUPER_ADMIN' | 'ADMIN' = data.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN';
-
-      if (uidOverride) {
-        setDoc(doc(db, 'admins', uidOverride), {
-          email: cleanInput,
-          role,
-          status: 'active',
-          createdAt: data.createdAt || new Date().toISOString(),
-          createdBy: data.createdBy || 'super_admin',
-          uid: uidOverride
-        }, { merge: true }).catch(() => {});
-      }
-
-      const res = { authorized: true, role, data };
-      adminCheckCache.set(cacheKey, { ...res, timestamp: Date.now() });
-      return res;
-    }
-
-    const res = { authorized: false, message: 'This Google account is not authorized to access the Dormiqa Admin Portal.' };
-    adminCheckCache.set(cacheKey, { ...res, timestamp: Date.now() });
-    return res;
-  } catch (err) {
-    console.warn("Firestore admin check error:", err);
-    if (cleanInput === 'buildsafe247@gmail.com') {
-      return { authorized: true, role: 'SUPER_ADMIN' };
-    }
-    return { authorized: false, message: 'This Google account is not authorized to access the Dormiqa Admin Portal.' };
-  }
-};
-
-export const ADMIN_SESSION_DURATION_MS = 12 * 60 * 60 * 1000; // 12 Hours
-
-export const setAdminSessionTimestamp = (uid: string) => {
-  try {
-    const sessionData = {
-      loginTime: Date.now(),
-      uid
-    };
-    localStorage.setItem(`dormiqa_admin_session_${uid}`, JSON.stringify(sessionData));
-    localStorage.setItem('dormiqa_admin_active_uid', uid);
-  } catch (e) {
-    console.warn('Error setting admin session timestamp:', e);
-  }
-};
-
 export const USER_SESSION_DURATION_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 export const setUserSessionTimestamp = (uid: string) => {
@@ -973,116 +822,6 @@ export const checkUserSessionValid = (uid: string): boolean => {
   } catch (e) {
     return true;
   }
-};
-
-export const clearAdminSessionTimestamp = (uid?: string) => {
-  try {
-    if (uid) {
-      localStorage.removeItem(`dormiqa_admin_session_${uid}`);
-    }
-    const activeUid = localStorage.getItem('dormiqa_admin_active_uid');
-    if (activeUid) {
-      localStorage.removeItem(`dormiqa_admin_session_${activeUid}`);
-      localStorage.removeItem('dormiqa_admin_active_uid');
-    }
-    localStorage.removeItem('dormiqa_admin_email');
-  } catch (e) {
-    console.warn('Error clearing admin session timestamp:', e);
-  }
-};
-
-export const checkAdminSessionValid = (uid: string): boolean => {
-  try {
-    const raw = localStorage.getItem(`dormiqa_admin_session_${uid}`);
-    if (!raw) return false;
-    const parsed = JSON.parse(raw);
-    if (!parsed || !parsed.loginTime) return false;
-    const elapsed = Date.now() - Number(parsed.loginTime);
-    return elapsed >= 0 && elapsed < ADMIN_SESSION_DURATION_MS;
-  } catch (e) {
-    return false;
-  }
-};
-
-export const signInAdminWithGoogle = async (): Promise<{ user: FirebaseUser; authorized: boolean; role?: 'SUPER_ADMIN' | 'ADMIN'; message?: string }> => {
-  const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: 'select_account' });
-
-  const result = await signInWithPopup(auth, provider);
-  const fbUser = result.user;
-  const email = (fbUser.email || '').trim().toLowerCase();
-  const uid = fbUser.uid;
-
-  if (!email) {
-    throw new Error('No email address associated with this Google account.');
-  }
-
-  const authCheck = await checkAdminAuthorizedInFirestore(email, uid);
-  
-  if (!authCheck.authorized) {
-    // Note: Do NOT create admin record automatically for unauthorized accounts
-    return {
-      user: fbUser,
-      authorized: false,
-      message: authCheck.message || 'This Google account is not authorized to access the Dormiqa Admin Portal.'
-    };
-  }
-
-  // Exchange the real Firebase ID token for a backend admin session token.
-  // The backend independently verifies this token and re-checks
-  // authorization — it does not trust anything the client asserts.
-  const idToken = await fbUser.getIdToken();
-  const backendLogin = await adminLogin(idToken);
-  if (!backendLogin.success || !backendLogin.authorized) {
-    return {
-      user: fbUser,
-      authorized: false,
-      message: backendLogin.message || 'Admin API session could not be established.'
-    };
-  }
-
-  // Set 12-hour admin session timestamp for authorized administrator
-  setAdminSessionTimestamp(uid);
-
-  return {
-    user: fbUser,
-    authorized: true,
-    role: backendLogin.role || authCheck.role || (email === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN'),
-    message: authCheck.message
-  };
-};
-
-export const fetchAuthorizedAdminEmailsFromFirestore = async (): Promise<string[]> => {
-  try {
-    const colRef = collection(db, 'authorized_admins');
-    const snap = await getDocs(colRef);
-    const emails: string[] = [];
-    snap.forEach(d => {
-      const data = d.data();
-      if (data.status !== 'disabled') {
-        emails.push((data.email || d.id).trim().toLowerCase());
-      }
-    });
-    if (!emails.includes('buildsafe247@gmail.com')) {
-      emails.unshift('buildsafe247@gmail.com');
-    }
-    return emails;
-  } catch (err) {
-    return await fetchAdminEmails();
-  }
-};
-
-export const addAuthorizedAdminEmailToFirestore = async (email: string): Promise<string[]> => {
-  const cleanEmail = email.trim().toLowerCase();
-  if (!cleanEmail || !cleanEmail.includes('@')) {
-    throw new Error('Valid email address required.');
-  }
-  return await addAdminEmail(cleanEmail);
-};
-
-export const removeAuthorizedAdminEmailFromFirestore = async (email: string): Promise<string[]> => {
-  const cleanEmail = email.trim().toLowerCase();
-  return await removeAdminEmail(cleanEmail);
 };
 
 export const sendPasswordReset = async (email: string) => {

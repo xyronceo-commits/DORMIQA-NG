@@ -31,8 +31,6 @@ import {
   FileCheck,
   BarChart2,
   GraduationCap,
-  UserPlus,
-  Trash2,
   Key,
   AlertCircle,
   ZoomIn,
@@ -53,16 +51,10 @@ import {
   updateAdminPropertyStatus, 
   fetchStudentOverview, 
   fetchAdminAnalytics,
-  fetchAdministrators,
-  addAdministrator,
-  removeAdministrator,
-  updateAdministratorRole,
-  adminLogout,
   fetchListings 
 } from '../services/api';
-import { updateAgentVerificationInFirestore, updatePropertyVerificationInFirestore, db } from '../services/firebase';
-import { collection, onSnapshot, query, where, getDocs, addDoc } from 'firebase/firestore';
-import { sendNotification } from '../services/notificationService';
+import { db } from '../services/firebase';
+import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 
 interface AdminDashboardProps {
   currentAdminEmail?: string;
@@ -106,11 +98,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   
   // Admin Access Administrators State
-  const [administrators, setAdministrators] = useState<AuthorizedAdmin[]>([]);
-  const [newAdminEmailInput, setNewAdminEmailInput] = useState('');
-  const [newAdminRoleInput, setNewAdminRoleInput] = useState<AdminRole>('ADMIN');
-  const [isAddingEmail, setIsAddingEmail] = useState(false);
-  const [emailNotice, setEmailNotice] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [administrators] = useState<AuthorizedAdmin[]>([{
+    email: 'buildsafe247@gmail.com', role: 'SUPER_ADMIN', status: 'Active',
+    createdAt: '', addedBy: 'System'
+  }]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -221,13 +212,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const loadAllAdminData = async () => {
     setIsLoading(true);
     try {
-      const [statsRes, agentsRes, propsRes, studentsRes, analyticsRes, adminsRes] = await Promise.allSettled([
+      const [statsRes, agentsRes, propsRes, studentsRes, analyticsRes] = await Promise.allSettled([
         fetchAdminStats(),
         fetchAdminAgents(),
         fetchAdminProperties(),
         fetchStudentOverview(),
-        fetchAdminAnalytics(),
-        fetchAdministrators()
+        fetchAdminAnalytics()
       ]);
 
       if (statsRes.status === 'fulfilled' && statsRes.value) setStats(statsRes.value);
@@ -235,13 +225,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (propsRes.status === 'fulfilled' && Array.isArray(propsRes.value) && propsRes.value.length > 0) setProperties(propsRes.value);
       if (studentsRes.status === 'fulfilled' && studentsRes.value) setStudentData(studentsRes.value);
       if (analyticsRes.status === 'fulfilled' && analyticsRes.value) setAnalyticsData(analyticsRes.value);
-      if (adminsRes.status === 'fulfilled' && Array.isArray(adminsRes.value) && adminsRes.value.length > 0) setAdministrators(adminsRes.value);
-
       // Fetch from Firestore directly if REST endpoints return empty
-      const [listingsSnap, usersSnap, adminsSnap] = await Promise.allSettled([
+      const [listingsSnap, usersSnap] = await Promise.allSettled([
         getDocs(collection(db, 'listings')),
-        getDocs(collection(db, 'users')),
-        getDocs(collection(db, 'authorized_admins'))
+        getDocs(collection(db, 'users'))
       ]);
 
       if (listingsSnap.status === 'fulfilled' && !listingsSnap.value.empty) {
@@ -275,23 +262,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }
       }
 
-      if (adminsSnap.status === 'fulfilled' && !adminsSnap.value.empty) {
-        const liveAdmins: AuthorizedAdmin[] = adminsSnap.value.docs.map(docSnap => {
-          const data = docSnap.data();
-          return {
-            email: data.email || docSnap.id,
-            role: data.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN',
-            status: 'Active',
-            createdAt: data.createdAt || data.addedAt || new Date().toISOString(),
-            addedBy: data.addedBy || 'System Log'
-          };
-        });
-        if (!liveAdmins.some(a => a.email.toLowerCase() === 'buildsafe247@gmail.com')) {
-          liveAdmins.unshift({ email: 'buildsafe247@gmail.com', role: 'SUPER_ADMIN', status: 'Active', createdAt: new Date().toISOString(), addedBy: 'System Init' });
-        }
-        setAdministrators(liveAdmins);
-      }
-
       // If properties are still empty, fetch dynamically generated/cached listings
       const currentProperties = properties;
       if (!currentProperties || currentProperties.length === 0) {
@@ -316,13 +286,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsLoadingPendingListings(true);
     let unsubListings: (() => void) | null = null;
     let unsubUsers: (() => void) | null = null;
-    let unsubAdmins: (() => void) | null = null;
 
     try {
       // 1. Real-time Listings Subscriber
       unsubListings = onSnapshot(collection(db, 'listings'), (snapshot) => {
         const liveProperties: Listing[] = snapshot.docs
-          .map(docSnap => {
+          .map((docSnap: any) => {
             try {
               return normalizeListing(docSnap.data(), docSnap.id);
             } catch (err) {
@@ -330,7 +299,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               return null;
             }
           })
-          .filter((item): item is Listing => item !== null);
+          .filter((item: Listing | null): item is Listing => item !== null);
 
         setProperties(liveProperties);
 
@@ -349,7 +318,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       // 2. Real-time Users Subscriber (Agents & Students)
       unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-        const rawUsers = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })) as any[];
+        const rawUsers = snapshot.docs.map((docSnap: any) => ({ id: docSnap.id, ...docSnap.data() })) as any[];
         
         // Agents
         const agentDocs = rawUsers.filter(u => u.role === 'agent' || u.isAgent === true || u.accountType === 'agent' || Boolean(u.agencyName || u.businessName || u.cacNumber));
@@ -403,26 +372,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         console.warn("Firestore users subscription error:", err);
       });
 
-      // 3. Real-time Admins Subscriber
-      unsubAdmins = onSnapshot(collection(db, 'authorized_admins'), (snapshot) => {
-        const liveAdmins: AuthorizedAdmin[] = snapshot.docs.map(docSnap => {
-          const data = docSnap.data();
-          return {
-            email: data.email || docSnap.id,
-            role: data.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN',
-            status: 'Active',
-            createdAt: data.createdAt || data.addedAt || new Date().toISOString(),
-            addedBy: data.addedBy || 'System Log'
-          };
-        });
-        if (!liveAdmins.some(a => a.email.toLowerCase() === 'buildsafe247@gmail.com')) {
-          liveAdmins.unshift({ email: 'buildsafe247@gmail.com', role: 'SUPER_ADMIN', status: 'Active', createdAt: new Date().toISOString(), addedBy: 'System Init' });
-        }
-        setAdministrators(liveAdmins);
-      }, (err) => {
-        console.warn("Firestore admins subscription error:", err);
-      });
-
     } catch (err) {
       console.warn("Failed to establish real-time Firestore subscribers:", err);
       setIsLoadingPendingListings(false);
@@ -431,7 +380,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return () => {
       if (unsubListings) unsubListings();
       if (unsubUsers) unsubUsers();
-      if (unsubAdmins) unsubAdmins();
     };
   }, []);
 
@@ -525,66 +473,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   }, [properties, agents, studentData]);
 
-  const handleAddAdministrator = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newAdminEmailInput.trim()) return;
-    setIsAddingEmail(true);
-    setEmailNotice(null);
-    try {
-      const updated = await addAdministrator(newAdminEmailInput.trim(), newAdminRoleInput);
-      setAdministrators(updated);
-      setEmailNotice({ 
-        type: 'success', 
-        msg: `Administrator '${newAdminEmailInput.trim()}' granted ${newAdminRoleInput} access and saved in Firestore.` 
-      });
-      setNewAdminEmailInput('');
-      setNewAdminRoleInput('ADMIN');
-    } catch (err: any) {
-      setEmailNotice({ type: 'error', msg: err.message || 'Failed to authorize administrator.' });
-    } finally {
-      setIsAddingEmail(false);
-    }
-  };
-
-  const handleRemoveAdministrator = async (emailToRemove: string) => {
-    if (emailToRemove === 'buildsafe247@gmail.com') {
-      setEmailNotice({ type: 'error', msg: 'The initial Super Admin (buildsafe247@gmail.com) cannot be removed.' });
-      return;
-    }
-    if (!confirm(`Are you sure you want to revoke administrator access for ${emailToRemove}?`)) return;
-    setEmailNotice(null);
-    try {
-      const updated = await removeAdministrator(emailToRemove);
-      setAdministrators(updated);
-      setEmailNotice({ type: 'success', msg: `Administrator '${emailToRemove}' access revoked.` });
-    } catch (err: any) {
-      setEmailNotice({ type: 'error', msg: err.message || 'Failed to revoke administrator access.' });
-    }
-  };
-
-  const handleToggleRole = async (adminToToggle: AuthorizedAdmin) => {
-    const targetEmail = adminToToggle.email;
-    const newRole: AdminRole = adminToToggle.role === 'SUPER_ADMIN' ? 'ADMIN' : 'SUPER_ADMIN';
-
-    if (targetEmail === 'buildsafe247@gmail.com' && newRole !== 'SUPER_ADMIN') {
-      setEmailNotice({ type: 'error', msg: 'The initial Super Admin must maintain the SUPER_ADMIN role.' });
-      return;
-    }
-
-    setEmailNotice(null);
-    try {
-      const updated = await updateAdministratorRole(targetEmail, newRole);
-      setAdministrators(updated);
-      setEmailNotice({ type: 'success', msg: `Administrator '${targetEmail}' role changed to ${newRole}.` });
-    } catch (err: any) {
-      setEmailNotice({ type: 'error', msg: err.message || 'Failed to update administrator role.' });
-    }
-  };
-
   const handleVerifyAgent = async (agentId: string) => {
     try {
-      const adminEmail = currentAdminEmail || 'buildsafe247@gmail.com';
-      await updateAgentVerificationInFirestore(agentId, 'approved', adminEmail);
       await updateAdminAgentStatus(agentId, 'verified');
       setAgents(prev => prev.map(a => a.id === agentId ? { ...a, isVerifiedAgent: true, status: 'approved', businessVerificationStatus: 'approved' } : a));
       setStats(prev => ({
@@ -604,8 +494,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleRejectAgent = async (agentId: string, reason: string) => {
     try {
-      const adminEmail = currentAdminEmail || 'buildsafe247@gmail.com';
-      await updateAgentVerificationInFirestore(agentId, 'rejected', adminEmail, reason);
       await updateAdminAgentStatus(agentId, 'rejected', reason);
       setAgents(prev => prev.map(a => a.id === agentId ? { ...a, isVerifiedAgent: false, status: 'rejected', businessVerificationStatus: 'rejected', rejectionReason: reason } : a));
       setRejectionReasonModal(null);
@@ -621,10 +509,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleRemoveAgent = async (agentId: string, reason?: string) => {
     try {
-      const adminEmail = currentAdminEmail || 'buildsafe247@gmail.com';
       const cleanReason = reason || 'Agent status revoked by administrator.';
-      await updateAgentVerificationInFirestore(agentId, 'removed', adminEmail, cleanReason);
-      await updateAdminAgentStatus(agentId, 'rejected', cleanReason);
+      await updateAdminAgentStatus(agentId, 'removed', cleanReason);
       setAgents(prev => prev.map(a => a.id === agentId ? { ...a, isVerifiedAgent: false, status: 'removed', businessVerificationStatus: 'removed', rejectionReason: cleanReason } : a));
       setConfirmRemoveModal(null);
       setRemoveReasonText('');
@@ -639,9 +525,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleApproveProperty = async (propertyId: string) => {
     try {
-      const adminEmail = currentAdminEmail || 'buildsafe247@gmail.com';
-      const targetListing = properties.find(p => p.id === propertyId) || pendingListings.find(p => p.id === propertyId);
-      await updatePropertyVerificationInFirestore(propertyId, 'approved', adminEmail, undefined, targetListing?.agentId);
       await updateAdminPropertyStatus(propertyId, 'approved');
       setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, status: 'approved', isVerified: true } : p));
       setPendingListings(prev => prev.filter(p => p.id !== propertyId));
@@ -662,9 +545,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleRejectProperty = async (propertyId: string, status: 'rejected' | 'changes_requested', reason: string) => {
     try {
-      const adminEmail = currentAdminEmail || 'buildsafe247@gmail.com';
-      const targetListing = properties.find(p => p.id === propertyId) || pendingListings.find(p => p.id === propertyId);
-      await updatePropertyVerificationInFirestore(propertyId, status, adminEmail, reason, targetListing?.agentId);
       await updateAdminPropertyStatus(propertyId, status, reason);
       setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, status: status, rejectionReason: reason, aiBanReason: reason, isVerified: false } : p));
       setPendingListings(prev => prev.filter(p => p.id !== propertyId));
@@ -687,36 +567,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     try {
-      const adminEmail = currentAdminEmail || 'buildsafe247@gmail.com';
-      const targetListing = properties.find(p => p.id === propertyId) || pendingListings.find(p => p.id === propertyId);
-      
-      // Update property verification status in Firestore
-      await updatePropertyVerificationInFirestore(propertyId, 'removed', adminEmail, cleanReason, targetListing?.agentId);
       await updateAdminPropertyStatus(propertyId, 'banned', cleanReason);
-
-      // Save removal audit log
-      try {
-        await addDoc(collection(db, 'removal_audits'), {
-          adminId: adminEmail,
-          agentId: targetListing?.agentId || '',
-          listingId: propertyId,
-          action: 'removed',
-          reason: cleanReason,
-          timestamp: new Date().toISOString()
-        });
-      } catch (auditErr) {
-        console.warn('Failed to save removal audit:', auditErr);
-      }
-
-      // Send direct notification to agent
-      if (targetListing?.agentId) {
-        await sendNotification({
-          userId: targetListing.agentId,
-          title: 'Hostel listing removed',
-          body: `Your listing, ${targetListing.title || 'your property'}, has been removed. Reason: ${cleanReason}. Please review the issue and submit the listing again if appropriate.`,
-          type: 'system'
-        }).catch(() => {});
-      }
 
       setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, status: 'removed', isVerified: false, rejectionReason: cleanReason } : p));
       setPendingListings(prev => prev.filter(p => p.id !== propertyId));
@@ -732,7 +583,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleLogoutClick = async () => {
-    await adminLogout();
     onAdminLogout();
   };
 
@@ -1925,10 +1775,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                   <div>
                     <h3 className="text-lg font-black text-neutral-900 dark:text-white">
-                      Admin Role-Based Access Control (RBAC)
+                      Administrator Access
                     </h3>
                     <p className="text-xs text-neutral-500 font-medium">
-                      Authorized email accounts stored in Firestore collection <code className="bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded font-mono font-bold text-emerald-600 dark:text-emerald-400">authorized_admins</code>.
+                      Access is restricted to the verified Google identity buildsafe247@gmail.com.
                     </p>
                   </div>
                 </div>
@@ -1945,69 +1795,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            {/* Notice / Feedback Banner */}
-            {emailNotice && (
-              <div className={`p-4 rounded-2xl border flex items-center gap-3 text-xs font-bold ${
-                emailNotice.type === 'success' 
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 text-emerald-800 dark:text-emerald-300' 
-                  : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 text-rose-800 dark:text-rose-300'
-              }`}>
-                {emailNotice.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
-                <span>{emailNotice.msg}</span>
-              </div>
-            )}
-
-            {/* Add New Administrator Form Card (SUPER_ADMIN ONLY) */}
-            {currentAdminRole === 'SUPER_ADMIN' ? (
-              <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xs space-y-4">
-                <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500">
-                  Authorize New Administrator Account
-                </h4>
-                <form onSubmit={handleAddAdministrator} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                  <div className="relative flex-1">
-                    <Mail className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
-                    <input
-                      type="email"
-                      value={newAdminEmailInput}
-                      onChange={(e) => setNewAdminEmailInput(e.target.value)}
-                      placeholder="Enter administrator email (e.g. admin@gmail.com)"
-                      required
-                      className="w-full pl-10 pr-4 py-3 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500"
-                    />
-                  </div>
-                  <select
-                    value={newAdminRoleInput}
-                    onChange={(e) => setNewAdminRoleInput(e.target.value as AdminRole)}
-                    className="py-3 px-4 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white text-xs font-bold focus:outline-none"
-                  >
-                    <option value="ADMIN">ADMIN</option>
-                    <option value="SUPER_ADMIN">SUPER_ADMIN</option>
-                  </select>
-                  <button
-                    type="submit"
-                    disabled={isAddingEmail || !newAdminEmailInput.trim()}
-                    className="py-3 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    <span>Grant Access</span>
-                  </button>
-                </form>
-              </div>
-            ) : (
-              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-2xl text-xs text-amber-800 dark:text-amber-300 font-bold flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 shrink-0" />
-                <span>Super Admin privileges are required to add or modify administrator accounts.</span>
-              </div>
-            )}
-
             {/* List of Authorized Administrators */}
             <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500">
-                  Authorized Administrators ({administrators.length})
+                  Authorized Administrator
                 </h4>
                 <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Firebase Auth + Firestore Sync
+                  <ShieldCheck className="w-3.5 h-3.5" /> Supabase Google identity
                 </span>
               </div>
 
@@ -2035,31 +1830,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             {admin.role}
                           </span>
                         </div>
-                        <p className="text-[10px] text-neutral-400 font-medium flex items-center gap-1 mt-0.5">
-                          Added by {admin.addedBy} • Active
-                        </p>
+                        <p className="text-[10px] text-neutral-400 font-medium flex items-center gap-1 mt-0.5">Active</p>
                       </div>
                     </div>
 
-                    {currentAdminRole === 'SUPER_ADMIN' && admin.email !== 'buildsafe247@gmail.com' && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleRole(admin)}
-                          className="px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 font-extrabold text-[11px] hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-                        >
-                          Switch to {admin.role === 'SUPER_ADMIN' ? 'ADMIN' : 'SUPER_ADMIN'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAdministrator(admin.email)}
-                          title="Revoke access"
-                          className="p-2 rounded-xl text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>

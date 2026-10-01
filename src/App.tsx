@@ -73,7 +73,7 @@ import { InfoPagesModal } from './components/InfoPagesModal';
 import { ComingSoonPage } from './components/ComingSoonPage';
 import { ListingGridSkeleton, ListItemRowSkeleton, DashboardSkeleton, ChatDrawerSkeleton } from './components/SkeletonLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { checkAdminSession, clearAdminToken, adminLogin } from './services/api';
+import { checkAdminSession } from './services/api';
 import { 
   auth, 
   saveUserToFirestore, 
@@ -82,13 +82,6 @@ import {
   fetchUserProfileFromFirestore, 
   resendVerificationEmail, 
   db,
-  initializeSuperAdminInFirestore,
-  checkAdminAuthorizedInFirestore,
-  signInAdminWithGoogle,
-  setAdminSessionTimestamp,
-  clearAdminSessionTimestamp,
-  checkAdminSessionValid,
-  ADMIN_SESSION_DURATION_MS,
   setUserSessionTimestamp,
   clearUserSessionTimestamp,
   checkUserSessionValid
@@ -132,29 +125,10 @@ export default function App() {
   const [adminEmail, setAdminEmail] = useState<string>('');
   const [adminRole, setAdminRole] = useState<AdminRole>('ADMIN');
 
-  useEffect(() => {
-    // Initialize Super Admin in Firestore
-    initializeSuperAdminInFirestore().catch(err => console.warn("Failed to initialize super admin:", err));
-  }, []);
-
-  // Periodic 12-hour session expiration watcher
+  // Periodic user session expiration watcher
   useEffect(() => {
     const verifySessionExpiry = () => {
-      if (isAdminAuthenticated && auth.currentUser) {
-        const uid = auth.currentUser.uid;
-        const valid = checkAdminSessionValid(uid);
-        if (!valid) {
-          console.warn(`Admin 12-hour session expired for ${auth.currentUser.email}`);
-          clearAdminSessionTimestamp(uid);
-          signOut(auth).catch(() => {});
-          setIsAdminAuthenticated(false);
-          setAdminAuthStatus('SESSION_EXPIRED');
-          setActiveView('admin-dash');
-          pushViewUrl('admin-dash');
-          setToastNotice('Your 12-hour administrator session has expired. Please sign in with Google again.');
-          setTimeout(() => setToastNotice(null), 5000);
-        }
-      } else if (isLoggedIn && auth.currentUser) {
+      if (isLoggedIn && auth.currentUser) {
         const uid = auth.currentUser.uid;
         const valid = checkUserSessionValid(uid);
         if (!valid) {
@@ -179,26 +153,20 @@ export default function App() {
       clearInterval(interval);
       window.removeEventListener('focus', verifySessionExpiry);
     };
-  }, [isAdminAuthenticated, isLoggedIn]);
+  }, [isLoggedIn]);
 
   const handleAdminGoogleSignIn = async () => {
     setAdminAuthStatus('ADMIN_CHECKING');
     try {
-      const res = await signInAdminWithGoogle();
-      if (res.authorized) {
-        setIsAdminAuthenticated(true);
-        setAdminEmail(res.user.email || 'buildsafe247@gmail.com');
-        setAdminRole(res.role || 'SUPER_ADMIN');
-        setAdminAuthStatus('AUTHORIZED');
-        setCurrentRole('admin');
-        setActiveView('admin-dash');
-        pushViewUrl('admin-dash');
-        setToastNotice(`Authenticated as ${res.role}: ${res.user.email}`);
-        setTimeout(() => setToastNotice(null), 4000);
-      } else {
-        setIsAdminAuthenticated(false);
-        setAdminAuthStatus('UNAUTHORIZED');
-      }
+      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/admin`,
+          queryParams: { prompt: 'select_account' }
+        }
+      });
+      if (error) throw error;
     } catch (err: any) {
       console.warn('Google sign-in error:', err);
       setAdminAuthStatus('UNAUTHENTICATED');
@@ -206,6 +174,87 @@ export default function App() {
       setTimeout(() => setToastNotice(null), 5000);
     }
   };
+
+  useEffect(() => {
+    if (activeView !== 'admin-dash') return;
+
+    let isMounted = true;
+    let redirectTimer: ReturnType<typeof setTimeout> | undefined;
+    let verificationGeneration = 0;
+
+    const verifyAdmin = async () => {
+      const generation = ++verificationGeneration;
+      if (redirectTimer) clearTimeout(redirectTimer);
+      redirectTimer = undefined;
+      setAdminAuthStatus('ADMIN_CHECKING');
+      setIsAdminAuthenticated(false);
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (!isMounted || generation !== verificationGeneration) return;
+      if (error || !session) {
+        setAdminEmail('');
+        setAdminAuthStatus('UNAUTHENTICATED');
+        return;
+      }
+
+      const result = await checkAdminSession();
+      if (!isMounted || generation !== verificationGeneration) return;
+      if (result.authenticated && result.email?.trim().toLowerCase() === 'buildsafe247@gmail.com') {
+        setIsAdminAuthenticated(true);
+        setAdminEmail('buildsafe247@gmail.com');
+        setAdminRole('SUPER_ADMIN');
+        setAdminAuthStatus('AUTHORIZED');
+        setCurrentRole('admin');
+        return;
+      }
+
+      setAdminEmail('');
+      setAdminAuthStatus('UNAUTHORIZED');
+      redirectTimer = setTimeout(async () => {
+        if (!isMounted || generation !== verificationGeneration) return;
+        await Promise.all([supabase.auth.signOut(), signOut(auth)]);
+        if (!isMounted || generation !== verificationGeneration) return;
+        setIsAdminAuthenticated(false);
+        setIsLoggedIn(false);
+        setAccounts([]);
+        setActiveAccountId('');
+        setCurrentRole('student');
+        setActiveView('onboarding');
+        pushViewUrl('onboarding', true);
+      }, 1600);
+    };
+
+    const startVerification = () => {
+      const generation = verificationGeneration + 1;
+      verifyAdmin().catch(() => {
+        if (isMounted && generation === verificationGeneration) {
+          setAdminAuthStatus('UNAUTHENTICATED');
+        }
+      });
+    };
+
+    startVerification();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (!isMounted) return;
+      if (event === 'SIGNED_OUT') {
+        verificationGeneration += 1;
+        if (redirectTimer) clearTimeout(redirectTimer);
+        redirectTimer = undefined;
+        setIsAdminAuthenticated(false);
+        setAdminEmail('');
+        setAdminAuthStatus('SIGNED_OUT');
+      } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        startVerification();
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      verificationGeneration += 1;
+      if (redirectTimer) clearTimeout(redirectTimer);
+      subscription.unsubscribe();
+    };
+  }, [activeView]);
 
   const navigateView = (view: 'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities') => {
     setIs404Route(false);
@@ -358,9 +407,7 @@ export default function App() {
         localStorage.removeItem('campora_is_logged_in');
         localStorage.removeItem('dormiqa_user_accounts');
         localStorage.removeItem('dormiqa_active_account_id');
-        localStorage.removeItem('dormiqa_admin_email');
         setIsAdminAuthenticated(false);
-        setAdminAuthStatus('UNAUTHENTICATED');
         setIsAuthInitializing(false);
         return;
       }
@@ -385,13 +432,8 @@ export default function App() {
       }
       setUserSessionTimestamp(uid);
 
-      if (email) {
-        setAdminAuthStatus('ADMIN_CHECKING');
-      }
-
-      // Execute profile, conversations, inspections, listings, and admin check in parallel via Promise.all
-      const [adminCheck, fetchedProfile, initialConversations, initialInspections, initialListings] = await Promise.all([
-        email ? checkAdminAuthorizedInFirestore(email, uid) : Promise.resolve({ authorized: false }),
+      // Load the regular user profile and application data; admin authorization is verified separately via Supabase.
+      const [fetchedProfile, initialConversations, initialInspections, initialListings] = await Promise.all([
         fetchUserProfileFromFirestore(uid).then(async p => {
           if (!p && email) return await fetchUserProfileFromFirestore(email);
           return p;
@@ -422,45 +464,6 @@ export default function App() {
       if (initialListings && initialListings.length > 0) {
         setListings(initialListings);
         setIsListingsLoading(false);
-      }
-
-      // Handle Admin Authorization state
-      if (email && adminCheck.authorized) {
-        const isSessionValid = checkAdminSessionValid(uid);
-        if (isSessionValid) {
-          // Refresh the backend admin session token on restore too — the
-          // backend independently verifies this ID token rather than
-          // trusting anything read from localStorage.
-          let backendAuthorized = true;
-          try {
-            const idToken = await fbUser.getIdToken();
-            const backendLogin = await adminLogin(idToken);
-            backendAuthorized = !!(backendLogin.success && backendLogin.authorized);
-          } catch (err) {
-            console.warn('Admin API session refresh failed:', err);
-            backendAuthorized = false;
-          }
-
-          if (backendAuthorized) {
-            setIsAdminAuthenticated(true);
-            setAdminEmail(email);
-            setAdminRole((adminCheck as any).role || (email === 'buildsafe247@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN'));
-            setAdminAuthStatus('AUTHORIZED');
-          } else {
-            setIsAdminAuthenticated(false);
-            setAdminAuthStatus('UNAUTHORIZED');
-          }
-        } else {
-          console.warn(`12-hour Admin session expired for ${email}`);
-          clearAdminSessionTimestamp(uid);
-          await signOut(auth);
-          setIsAdminAuthenticated(false);
-          setAdminAuthStatus('SESSION_EXPIRED');
-        }
-      } else {
-        setIsAdminAuthenticated(false);
-        setAdminAuthStatus(email ? 'UNAUTHORIZED' : 'UNAUTHENTICATED');
-        clearAdminSessionTimestamp(uid);
       }
 
       const isVerified = fbUser.emailVerified || fbUser.providerData.some(p => p.providerId === 'google.com');
@@ -605,12 +608,7 @@ export default function App() {
       const initialRoute = parseRouteFromUrl();
       console.log(`[AUTH ROUTE DECISION] Executing Auto-Route for UID: ${uid} | Account Role: "${userAccount.role}" | Current ActiveView: "${activeView}" | Initial Route View: "${initialRoute.view}"`);
 
-      if (email && checkAdminSessionValid(uid) && (adminAuthStatus === 'AUTHORIZED' || email === 'buildsafe247@gmail.com')) {
-        if (initialRoute.view === 'landing' || initialRoute.view === 'onboarding' || activeView === 'landing' || activeView === 'onboarding') {
-          setActiveView('admin-dash');
-          pushViewUrl('admin-dash');
-        }
-      } else if (userAccount.role === 'agent') {
+      if (userAccount.role === 'agent') {
         if (initialRoute.view === 'landing' || initialRoute.view === 'onboarding' || initialRoute.view === 'agent-dash' || initialRoute.view === 'agent-landing' || activeView === 'landing' || activeView === 'onboarding') {
           if (!isVerified) {
             setActiveView('agent-landing');
@@ -738,7 +736,7 @@ export default function App() {
           // Check Visibility Rules (Requirement #6)
           const isUnavailableStatus = ['banned', 'rejected', 'deleted', 'inactive'].includes(foundListing.status || '');
           const isOwner = foundListing.agentId === activeAccountId || (auth.currentUser && foundListing.agentId === auth.currentUser.uid);
-          const isAdmin = currentRole === 'admin';
+          const isAdmin = isAdminAuthenticated && adminAuthStatus === 'AUTHORIZED';
 
           if (isUnavailableStatus && !isOwner && !isAdmin) {
             setRoutePropertyUnavailableReason('This property listing is currently unavailable or has been deactivated by the caretaker.');
@@ -1628,15 +1626,12 @@ export default function App() {
                   currentAdminRole={adminRole}
                   onRefresh={loadListingsData}
                   onAdminLogout={async () => {
-                    const uid = auth.currentUser?.uid;
-                    clearAdminSessionTimestamp(uid);
-                    await signOut(auth);
-                    clearAdminToken();
+                    await supabase.auth.signOut();
                     setIsAdminAuthenticated(false);
                     setAdminAuthStatus('SIGNED_OUT');
                     setCurrentRole('student');
                     setActiveView('admin-dash');
-                    pushViewUrl('admin-dash');
+                    pushViewUrl('admin-dash', true);
                     setToastNotice('Admin session logged out.');
                     setTimeout(() => setToastNotice(null), 3000);
                   }}
@@ -1648,10 +1643,9 @@ export default function App() {
           return (
             <AdminAccessScreen
               status={adminAuthStatus}
-              currentUserEmail={auth.currentUser?.email || undefined}
               onContinueWithGoogle={handleAdminGoogleSignIn}
               onBackToDormiqa={() => {
-                signOut(auth).catch(() => {});
+                supabase.auth.signOut().catch(() => {});
                 setIsAdminAuthenticated(false);
                 setAdminAuthStatus('UNAUTHENTICATED');
                 setActiveView('landing');

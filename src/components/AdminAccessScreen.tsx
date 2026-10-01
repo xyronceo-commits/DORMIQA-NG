@@ -49,13 +49,8 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
               Access denied
             </h2>
             <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed max-w-xs mx-auto">
-              This Google account is not authorized to access the Dormiqa Admin Portal.
+              Admin access is restricted.
             </p>
-            {currentUserEmail && (
-              <p className="text-[11px] font-mono text-neutral-400 dark:text-neutral-500 truncate pt-1">
-                {currentUserEmail}
-              </p>
-            )}
           </div>
 
           <div className="pt-2 space-y-2">
@@ -93,7 +88,7 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
             Dormiqa Admin
           </h2>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
-            Authorized administrators only.
+            Authorized account: buildsafe247@gmail.com
           </p>
         </div>
 
