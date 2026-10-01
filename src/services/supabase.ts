@@ -1,10 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : undefined;
-const supabaseAnonKey = typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : undefined;
+const supabaseUrl =
+  typeof import.meta !== 'undefined' &&
+  typeof import.meta.env !== 'undefined'
+    ? import.meta.env.VITE_SUPABASE_URL
+    : process.env.VITE_SUPABASE_URL;
+
+const supabaseAnonKey =
+  typeof import.meta !== 'undefined' &&
+  typeof import.meta.env !== 'undefined'
+    ? import.meta.env.VITE_SUPABASE_ANON_KEY
+    : process.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Supabase configuration is missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+  throw new Error(
+    'Supabase configuration is missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.'
+  );
 }
 
 export const SUPABASE_URL = supabaseUrl;
