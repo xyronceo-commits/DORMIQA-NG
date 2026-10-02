@@ -55,6 +55,7 @@ import {
 } from '../services/api';
 import { db } from '../services/firebase';
 import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
+import { supabase } from '../services/supabase';
 
 interface AdminDashboardProps {
   currentAdminEmail?: string;
@@ -109,6 +110,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   
   // Modal for reviewing agent or property
   const [selectedAgent, setSelectedAgent] = useState<any | null>(null);
+  const [signedVerificationDocument, setSignedVerificationDocument] = useState<{ path: string; url: string } | null>(null);
   const [selectedProperty, setSelectedProperty] = useState<Listing | null>(null);
   const [rejectionReasonModal, setRejectionReasonModal] = useState<{
     type: 'agent' | 'property';
@@ -124,6 +126,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     item: any;
   } | null>(null);
   const [removeReasonText, setRemoveReasonText] = useState('');
+
+  useEffect(() => {
+    const documentPath = selectedAgent?.businessVerificationDetails?.documentUrl;
+    if (!documentPath || /^https?:\/\//i.test(documentPath)) {
+      setSignedVerificationDocument(null);
+      return;
+    }
+
+    let isCurrent = true;
+    setSignedVerificationDocument(null);
+    supabase.storage.from('verification-documents').createSignedUrl(documentPath, 15 * 60)
+      .then(({ data, error }) => {
+        if (isCurrent && !error && data?.signedUrl) {
+          setSignedVerificationDocument({ path: documentPath, url: data.signedUrl });
+        }
+      })
+      .catch(err => console.warn('Could not create verification-document preview URL:', err));
+
+    return () => { isCurrent = false; };
+  }, [selectedAgent]);
 
   // Lightbox Media Viewer State
   const [lightboxMedia, setLightboxMedia] = useState<{
@@ -590,22 +612,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const getAgentDocuments = (agent: any) => {
     const docs = [];
     const bvd = agent.businessVerificationDetails || {};
-    
-    docs.push({
-      title: bvd.documentName || agent.proofType || 'Government Issued Identification / CAC Registration',
-      type: 'CAC Certificate / ID',
-      url: bvd.documentUrl || agent.documentUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80',
-      submittedAt: bvd.submittedAt || agent.createdAt || new Date().toISOString(),
-      status: agent.isVerifiedAgent ? 'Verified Document' : agent.status === 'rejected' ? 'Rejected' : agent.status === 'removed' ? 'Revoked' : 'Pending Verification'
-    });
 
-    docs.push({
-      title: 'Proof of Property Management & Office Location',
-      type: 'Business License',
-      url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=600&q=80',
-      submittedAt: bvd.submittedAt || agent.createdAt || new Date().toISOString(),
-      status: agent.isVerifiedAgent ? 'Verified Document' : agent.status === 'rejected' ? 'Rejected' : agent.status === 'removed' ? 'Revoked' : 'Pending Verification'
-    });
+    const storedDocumentPath = bvd.documentUrl || agent.documentUrl;
+    const matchingSignedDocument = signedVerificationDocument?.path === storedDocumentPath
+      ? signedVerificationDocument
+      : null;
+    const documentUrl = storedDocumentPath && /^https?:\/\//i.test(storedDocumentPath)
+      ? storedDocumentPath
+      : matchingSignedDocument
+        ? matchingSignedDocument.url
+        : '';
+
+    if (documentUrl) {
+      docs.push({
+        title: bvd.documentName || agent.proofType || 'Verification document',
+        type: 'CAC Certificate / ID',
+        url: documentUrl,
+        submittedAt: bvd.submittedAt || agent.createdAt || new Date().toISOString(),
+        status: agent.isVerifiedAgent ? 'Verified Document' : agent.status === 'rejected' ? 'Rejected' : agent.status === 'removed' ? 'Revoked' : 'Pending Verification'
+      });
+    }
 
     if (bvd.portraitPhotoUrl || agent.verificationPhotoUrl || agent.avatarUrl) {
       docs.push({
@@ -1930,7 +1956,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   Verification Proof Documents
                 </p>
                 <span className="text-[10px] font-bold text-neutral-400">
-                  {getAgentDocuments(selectedAgent).length} Files Attached
+                  {getAgentDocuments(selectedAgent).length} Uploaded Files
                 </span>
               </div>
 

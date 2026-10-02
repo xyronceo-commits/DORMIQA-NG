@@ -36,7 +36,7 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
 
   const displayEmail = email || auth.currentUser?.email || 'your registered email';
 
-  // Complete Supabase confirmation callbacks and reject legacy Firebase-only codes.
+  // Complete Supabase confirmation callbacks and reject unsupported legacy links.
   useEffect(() => {
     let isMounted = true;
 
@@ -78,7 +78,7 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
               }, 1200);
             }
           } catch (codeErr: any) {
-            console.error("Firebase applyActionCode error:", codeErr);
+            console.error("Supabase email verification error:", codeErr);
             if (isMounted) {
               setNoticeMessage({
                 text: "This verification link is invalid or has expired. Please click 'Resend verification email' to receive a fresh link.",
@@ -90,7 +90,7 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
           }
         } else if (urlParams.has('oobCode') && mode === 'verifyEmail' && isMounted) {
           setNoticeMessage({
-            text: 'This is an older Firebase verification link and cannot be used after migration. Request a fresh verification email.',
+            text: 'This older verification link is no longer supported. Request a fresh verification email.',
             type: 'warning'
           });
         }
@@ -178,7 +178,7 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
 
     try {
       if (auth.currentUser) {
-        // ALWAYS refresh current Firebase user authentication state before checking verification status
+        // Refresh the current Supabase-backed user before checking verification status.
         await auth.currentUser.reload();
 
         if (auth.currentUser.emailVerified) {
@@ -383,7 +383,7 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
           <ul className="space-y-1.5 pt-1 text-[11px] text-neutral-700 dark:text-neutral-300 font-medium">
             <li className="flex items-start gap-1.5">
               <span className="text-emerald-600 font-bold">•</span>
-              <span><strong>Check Spam / Junk Folder:</strong> Search for sender <em>Firebase / Dormiqa</em> or subject <em>Verify your email</em>.</span>
+              <span><strong>Check Spam / Junk Folder:</strong> Search for the Dormiqa verification email.</span>
             </li>
             <li className="flex items-start gap-1.5">
               <span className="text-emerald-600 font-bold">•</span>
@@ -401,7 +401,7 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
         </div>
 
         <p className="text-center text-[10px] text-neutral-400 dark:text-neutral-500 font-medium">
-          Firebase Authentication • Direct Link & Spam Protection Verified
+          Supabase Auth • Email verification
         </p>
       </div>
 

@@ -114,7 +114,7 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
     };
     try {
       await saveUserToFirestore(updatedUserData);
-      setProfileToast('Profile details updated and saved to Firebase!');
+      setProfileToast('Profile details updated and saved.');
       setTimeout(() => setProfileToast(''), 3000);
       setTimeout(() => setActiveModal(null), 1200);
     } catch (err: any) {

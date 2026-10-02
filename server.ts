@@ -602,9 +602,8 @@ function sanitizeInputString(str: any, maxLength = 2000): string {
     .replace(/javascript:/gi, '');
 }
 
-async function startServer() {
+export async function createExpressApp() {
   const app = express();
-  const PORT = Number(process.env.PORT || 3000);
 
   // Strict Payload Size Limit
   app.use(express.json({ limit: '2mb' }));
@@ -732,25 +731,27 @@ async function startServer() {
       }
     }
 
-    const mediaObjects: string[] = [];
-    for (let offset = 0; ; offset += 1000) {
-      const { data, error } = await supabaseDataClient
-        .schema('storage')
-        .from('objects')
-        .select('name')
-        .eq('bucket_id', 'listing-media')
-        .eq('owner_id', userId)
-        .order('name')
-        .range(offset, offset + 999);
-      if (error) return res.status(500).json({ message: 'Could not load account media for deletion.' });
-      mediaObjects.push(...(data || []).map((object: any) => object.name));
-      if (!data || data.length < 1000) break;
-    }
-    for (let offset = 0; offset < mediaObjects.length; offset += 1000) {
-      const { error } = await supabaseDataClient.storage
-        .from('listing-media')
-        .remove(mediaObjects.slice(offset, offset + 1000));
-      if (error) return res.status(500).json({ message: 'Could not remove all account media.' });
+    for (const bucket of ['listing-media', 'verification-documents']) {
+      const mediaObjects: string[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await supabaseDataClient
+          .schema('storage')
+          .from('objects')
+          .select('name')
+          .eq('bucket_id', bucket)
+          .eq('owner_id', userId)
+          .order('name')
+          .range(offset, offset + 999);
+        if (error) return res.status(500).json({ message: 'Could not load account media for deletion.' });
+        mediaObjects.push(...(data || []).map((object: any) => object.name));
+        if (!data || data.length < 1000) break;
+      }
+      for (let offset = 0; offset < mediaObjects.length; offset += 1000) {
+        const { error } = await supabaseDataClient.storage
+          .from(bucket)
+          .remove(mediaObjects.slice(offset, offset + 1000));
+        if (error) return res.status(500).json({ message: 'Could not remove all account media.' });
+      }
     }
 
     const { error: deleteError } = await supabaseDataClient.auth.admin.deleteUser(userId);
@@ -973,7 +974,7 @@ async function startServer() {
       result = result.filter(l => l.agentId === String(agentId));
       if (status) result = result.filter(l => l.status === status);
     } else {
-      result = result.filter(l => l.status === 'approved');
+      result = result.filter(l => l.status === 'approved' && l.universityId === 'uniosun');
     }
 
     const cached = getServerCache<Listing[]>(cacheKey);
@@ -1054,7 +1055,7 @@ async function startServer() {
     if (!listing) {
       return res.status(404).json({ error: 'Listing not found' });
     }
-    if (listing.status !== 'approved') {
+    if (listing.status !== 'approved' || listing.universityId !== 'uniosun') {
       const authorization = req.headers.authorization || '';
       const accessToken = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
       const { data, error } = accessToken
@@ -1084,6 +1085,13 @@ async function startServer() {
     if (!agentId || agentId !== authenticatedUserId) {
       return res.status(403).json({ error: 'Forbidden', message: 'You can only create listings for your own agent account.' });
     }
+    const agentProfile = (await getFirestoreUsers()).find(user => user.id === authenticatedUserId);
+    if (agentProfile?.role !== 'agent' || agentProfile.businessVerificationStatus !== 'approved' || !agentProfile.isVerifiedAgent) {
+      return res.status(403).json({ error: 'Forbidden', message: 'Approved agent verification is required to create listings.' });
+    }
+    if (universityId !== 'uniosun') {
+      return res.status(400).json({ error: 'Validation Error', message: 'New listings are currently available only for UNIOSUN.' });
+    }
     
     if (!title || title.length < 3) {
       return res.status(400).json({ error: 'Validation Error', message: 'Title is required (at least 3 characters).' });
@@ -1094,11 +1102,11 @@ async function startServer() {
     if (!address || address.length < 5) {
       return res.status(400).json({ error: 'Validation Error', message: 'Valid street address is required.' });
     }
-    if (!Array.isArray(req.body.photos) || req.body.photos.length > 3) {
-      return res.status(400).json({ error: 'Validation Error', message: 'Photos array must contain between 0 and 3 items.' });
+    if (!Array.isArray(req.body.photos) || req.body.photos.length < 1 || req.body.photos.length > 3) {
+      return res.status(400).json({ error: 'Validation Error', message: 'A front-of-building photo is required; up to 3 photos are allowed.' });
     }
-    if (!req.body.videoUrl || typeof req.body.videoUrl !== 'string' || !req.body.videoUrl.trim()) {
-      return res.status(400).json({ error: 'Validation Error', message: 'Property video is required.' });
+    if (req.body.videoUrl != null && typeof req.body.videoUrl !== 'string') {
+      return res.status(400).json({ error: 'Validation Error', message: 'Property video must be a URL when provided.' });
     }
 
     const pricePerYear = Math.max(10000, Number(req.body.pricePerYear) || 450000);
@@ -1106,7 +1114,7 @@ async function startServer() {
 
     const listingId = req.body.id || `lst_${Date.now()}`;
     const cleanPhotos = req.body.photos.slice(0, 3);
-    const cleanVideoUrl = req.body.videoUrl.trim();
+    const cleanVideoUrl = typeof req.body.videoUrl === 'string' ? req.body.videoUrl.trim() : '';
 
     const newListing: Listing = {
       ...req.body,
@@ -2106,19 +2114,20 @@ Return ONLY valid JSON matching this schema:
     });
   });
 
-  // --- VITE / STATIC SERVING ---
+  return app;
+}
+
+async function startServer() {
+  const app = await createExpressApp();
+  const PORT = Number(process.env.PORT || 3000);
+
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa'
-    });
+    const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
 
   app.listen(PORT, '0.0.0.0', () => {
@@ -2126,4 +2135,9 @@ Return ONLY valid JSON matching this schema:
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer().catch(err => {
+    console.error('Failed to start Dormiqa server:', err);
+    process.exitCode = 1;
+  });
+}

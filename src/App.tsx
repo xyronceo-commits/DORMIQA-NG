@@ -851,9 +851,43 @@ export default function App() {
     const name = String(profile.name || '').trim();
     const phone = String(profile.phone || profile.phoneNumber || '').trim();
     const universityId = String(profile.universityId || '').trim();
-    const universityName = String(profile.universityName || '').trim();
-    return Boolean(name && phone && (universityId || universityName));
+    const selectedUniversity = universities.find(university => university.id === universityId);
+    const universityIsActive = universityId === 'uniosun' || selectedUniversity?.status === 'active' || selectedUniversity?.isActive === true;
+    return Boolean(name && phone && universityId && universityIsActive);
   };
+
+  useEffect(() => {
+    if (isAuthInitializing || activeView === 'admin-dash') return;
+
+    const authenticatedViews = ['saved', 'messages', 'inspections', 'student-dash', 'agent-dash', 'business-verification'];
+    if (!isLoggedIn && authenticatedViews.includes(activeView)) {
+      setActiveView('onboarding');
+      pushViewUrl('onboarding', true);
+      return;
+    }
+
+    const currentAccount = accounts.find(account => account.id === activeAccountId) || accounts[0];
+    const studentViews = ['saved', 'messages', 'inspections', 'student-dash'];
+    if (isLoggedIn && currentRole === 'student' && studentViews.includes(activeView) && !hasCompleteStudentProfile(currentAccount)) {
+      setActiveView('onboarding');
+      pushViewUrl('onboarding', true);
+      setToastNotice('Complete your profile to continue to the student dashboard.');
+      return;
+    }
+
+    if (currentRole === 'student' && (activeView === 'agent-dash' || activeView === 'business-verification')) {
+      setActiveView(isLoggedIn ? 'search' : 'onboarding');
+      pushViewUrl(isLoggedIn ? 'search' : 'onboarding', true);
+      return;
+    }
+
+    if (currentRole === 'agent' && activeView === 'student-dash') {
+      const isAgentApproved = currentAccount?.businessVerificationStatus === 'approved' || currentAccount?.isVerifiedAgent;
+      const targetView = isAgentApproved ? 'agent-dash' : 'business-verification';
+      setActiveView(targetView);
+      pushViewUrl(targetView, true);
+    }
+  }, [activeView, isAuthInitializing, isLoggedIn, currentRole, accounts, activeAccountId, universities]);
 
   const handleSignOut = async () => {
     try {
@@ -884,25 +918,15 @@ export default function App() {
   const handleDeleteAccount = async (accountId?: string) => {
     const targetId = accountId || activeAccountId || auth.currentUser?.uid || '';
     const accToDelete = accounts.find(a => a.id === targetId || a.uid === targetId);
-
-    // 1. Wipe database records from Firebase
     try {
-      if (targetId) {
-        await deleteUserAccountData(targetId);
-      }
-    } catch (err) {
-      console.warn("Error wiping Firebase user data during account deletion:", err);
+      if (!targetId) throw new Error('No active account is available for deletion.');
+      await deleteUserAccountData(targetId);
+    } catch (err: any) {
+      console.warn('Account deletion failed:', err);
+      setToastNotice(err?.message || 'Account deletion failed. Please try again.');
+      setTimeout(() => setToastNotice(null), 5000);
+      return;
     }
-
-    // 2. Logout from Firebase Auth
-    try {
-      await logoutFirebase();
-    } catch (err) {
-      console.warn("Firebase signout on delete error:", err);
-    }
-
-    // 3. Clear local storage & active state
-    const remaining = accounts.filter(a => a.id !== targetId && a.uid !== targetId);
 
     setIsLoggedIn(false);
     setSavedIds([]);
@@ -910,24 +934,14 @@ export default function App() {
     localStorage.removeItem('campora_saved_ids');
     localStorage.removeItem('dormiqa_is_logged_in');
     localStorage.removeItem('campora_is_logged_in');
-
-    if (remaining.length === 0) {
-      localStorage.removeItem('dormiqa_user_accounts');
-      localStorage.removeItem('dormiqa_active_account_id');
-      setAccounts([]);
-      setActiveAccountId('');
-      setCurrentRole('student');
-      setActiveView('landing');
-      setToastNotice(`Account and all Firebase data deleted permanently.`);
-      setTimeout(() => setToastNotice(null), 4000);
-      return;
-    }
-
-    setAccounts(remaining);
-    setActiveAccountId(remaining[0].id);
-    setCurrentRole(remaining[0].role);
-    setActiveView('landing');
-    setToastNotice(`Permanently deleted account and database records for ${accToDelete?.name || 'user'}`);
+    localStorage.removeItem('dormiqa_user_accounts');
+    localStorage.removeItem('dormiqa_active_account_id');
+    setAccounts([]);
+    setActiveAccountId('');
+    setCurrentRole('student');
+    setActiveView('onboarding');
+    pushViewUrl('onboarding', true);
+    setToastNotice(`Account and associated Dormiqa data deleted for ${accToDelete?.name || 'user'}.`);
     setTimeout(() => setToastNotice(null), 4000);
   };
 
@@ -1284,6 +1298,18 @@ export default function App() {
             <OnboardingPage
               universities={universities}
               onCompleteOnboarding={(userData) => {
+                if (userData.role === 'student' && (
+                  !String(userData.name || '').trim()
+                  || !String(userData.phone || '').trim()
+                  || userData.universityId !== 'uniosun'
+                )) {
+                  setIsLoggedIn(false);
+                  setActiveView('onboarding');
+                  pushViewUrl('onboarding', true);
+                  setToastNotice('Complete your name, phone number, and preferred university before continuing.');
+                  return;
+                }
+
                 setIsLoggedIn(true);
                 localStorage.setItem('dormiqa_is_logged_in', 'true');
                 setCurrentRole(userData.role);
@@ -1481,7 +1507,7 @@ export default function App() {
         )}
 
         {/* Student Profile Page */}
-        {activeView === 'student-dash' && (
+        {activeView === 'student-dash' && isLoggedIn && currentRole === 'student' && hasCompleteStudentProfile(accounts.find(a => a.id === activeAccountId)) && (
           <ErrorBoundary sectionName="Student Profile">
             <StudentProfilePage
               user={accounts.find(a => a.id === activeAccountId)}

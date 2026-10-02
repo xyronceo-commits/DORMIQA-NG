@@ -57,7 +57,7 @@ export interface UploadHostelListingParams {
   agentAvatarUrl?: string;
 
   // Media Inputs
-  videoSource: File | string;
+  videoSource?: File | string;
   photos?: (File | string)[];
 
   // Optional progress reporting callback
@@ -111,18 +111,10 @@ export async function uploadHostelListing(params: UploadHostelListingParams): Pr
 
   const id = params.listingId || `lst_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-  // Validate compulsory media input
-  if (!videoSource || (typeof videoSource === 'string' && !videoSource.trim())) {
+  if (universityId !== 'uniosun') {
     throw new UploadHostelListingError(
-      'media_upload',
-      'Property video is compulsory. Exactly 1 real property video file is required.'
-    );
-  }
-
-  if (videoSource instanceof File && videoSource.size > 50 * 1024 * 1024) {
-    throw new UploadHostelListingError(
-      'media_upload',
-      'Video must be 50 MB or less.'
+      'metadata_creation',
+      'New listings are currently available only for UNIOSUN.'
     );
   }
 
@@ -130,6 +122,13 @@ export async function uploadHostelListing(params: UploadHostelListingParams): Pr
     throw new UploadHostelListingError(
       'media_upload',
       'Add a clear photo of the front of the hostel.'
+    );
+  }
+
+  if (videoSource instanceof File && videoSource.size > 50 * 1024 * 1024) {
+    throw new UploadHostelListingError(
+      'media_upload',
+      'Video must be 50 MB or less.'
     );
   }
 
@@ -180,13 +179,13 @@ export async function uploadHostelListing(params: UploadHostelListingParams): Pr
     minLeaseMonths,
     totalBedrooms,
     totalBathrooms,
-    isVerified: true,
+    isVerified: false,
     rating: 4.8,
     reviewCount: 0,
     reviews: [],
     featured: false,
-    status: 'published',
-    verificationStatus: 'published',
+    status: 'pending',
+    verificationStatus: 'pending',
     agentId,
     agent: {
       id: agentId,
@@ -239,21 +238,18 @@ export async function uploadHostelListing(params: UploadHostelListingParams): Pr
     }
 
     // Video upload promise with progress mapping
-    const videoPromise = uploadPropertyVideo(
-      videoSource,
-      id,
-      (videoPercent) => {
-        if (onProgress) {
-          // Scale video upload progress from 20% to 85%
-          const overallProgress = 20 + Math.round((videoPercent / 100) * 65);
-          onProgress({
-            step: 'media_upload',
-            progressPercent: overallProgress,
-            message: `Uploading property video... ${videoPercent}%`
-          });
-        }
-      }
-    );
+    const videoPromise = videoSource
+      ? uploadPropertyVideo(videoSource, id, (videoPercent) => {
+          if (onProgress) {
+            const overallProgress = 20 + Math.round((videoPercent / 100) * 65);
+            onProgress({
+              step: 'media_upload',
+              progressPercent: overallProgress,
+              message: `Uploading property video... ${videoPercent}%`
+            });
+          }
+        })
+      : Promise.resolve('');
 
     // Photos upload promise (up to 3 photos concurrently)
     const photosPromise = photos.length > 0
@@ -303,9 +299,9 @@ export async function uploadHostelListing(params: UploadHostelListingParams): Pr
     ...draftListing,
     videoUrl: uploadedVideoUrl,
     photos: uploadedPhotoUrls,
-    status: 'published',
-    verificationStatus: 'published',
-    isVerified: true
+    status: 'pending',
+    verificationStatus: 'pending',
+    isVerified: false
   };
 
   try {

@@ -13,7 +13,6 @@ import {
   Trash2,
   ExternalLink,
   ShieldCheck,
-  Smartphone,
   Pin,
   PinOff,
   Filter,
@@ -21,7 +20,6 @@ import {
   CircleDot
 } from 'lucide-react';
 import { AppNotification, NotificationType } from '../types';
-import { requestFCMPermission } from '../services/firebase';
 
 interface NotificationCenterProps {
   isOpen: boolean;
@@ -46,10 +44,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'message' | 'inspection' | 'listing'>('all');
   const [onlyUnread, setOnlyUnread] = useState(false);
-  const [fcmEnabled, setFcmEnabled] = useState<boolean>(
-    typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
-  );
-  const [isEnablingFcm, setIsEnablingFcm] = useState(false);
 
   if (!isOpen) return null;
 
@@ -67,15 +61,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       if (!a.isPinned && b.isPinned) return 1;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-
-  const handleEnablePush = async () => {
-    setIsEnablingFcm(true);
-    const token = await requestFCMPermission();
-    if (token) {
-      setFcmEnabled(true);
-    }
-    setIsEnablingFcm(false);
-  };
 
   const formatRelativeTime = (isoString: string) => {
     const diffMs = Date.now() - new Date(isoString).getTime();
@@ -135,23 +120,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
-
-        {/* Enable Push Banner (Compact & Clean) */}
-        {!fcmEnabled && (
-          <div className="px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/60 border-b border-emerald-200 dark:border-emerald-900 flex items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <Smartphone className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span className="text-[11px] text-emerald-900 dark:text-emerald-200 font-bold">Turn on instant push alerts</span>
-            </div>
-            <button
-              onClick={handleEnablePush}
-              disabled={isEnablingFcm}
-              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-lg text-[11px] shrink-0 transition-all cursor-pointer shadow-xs"
-            >
-              {isEnablingFcm ? 'Enabling...' : 'Allow'}
-            </button>
-          </div>
-        )}
 
         {/* Clean Filter Tabs & Actions */}
         <div className="p-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50 space-y-2.5 shrink-0">

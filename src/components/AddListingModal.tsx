@@ -48,7 +48,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
   // STEP 2: Location
   const [area, setArea] = useState('');
   const [nearbyLandmark, setNearbyLandmark] = useState('');
-  const [universityId, setUniversityId] = useState(universities[0]?.id || 'unilag');
+  const [universityId, setUniversityId] = useState('');
   const [distanceKm, setDistanceKm] = useState(1.2);
   const [walkingMinutes, setWalkingMinutes] = useState(5);
 
@@ -89,7 +89,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploadStatusText, setUploadStatusText] = useState<string>('');
-  const [submissionResult, setSubmissionResult] = useState<'approved' | 'pending' | 'needs_changes' | null>(null);
+  const [submissionResult, setSubmissionResult] = useState<'pending' | 'needs_changes' | null>(null);
 
   const selectedUni = universities.find(u => u.id === universityId);
 
@@ -204,6 +204,10 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         return;
       }
     } else if (currentStep === 2) {
+      if (!selectedUni || (selectedUni.id !== 'uniosun' && selectedUni.status !== 'active' && selectedUni.isActive !== true)) {
+        setValidationError('New listings are currently available only for UNIOSUN.');
+        return;
+      }
       if (!area.trim()) {
         setValidationError('Please enter the area / street location.');
         return;
@@ -219,11 +223,6 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         return;
       }
     } else if (currentStep === 6) {
-      const activeVideo = videoFile || videoPreviewUrl;
-      if (!activeVideo || (typeof activeVideo === 'string' && !activeVideo.trim())) {
-        setValidationError('Property video is compulsory. Please upload 1 real property video before proceeding.');
-        return;
-      }
       if (!photos || photos.length === 0) {
         setValidationError('Add a clear photo of the front of the hostel.');
         return;
@@ -247,9 +246,14 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
     setUploadProgress(0);
     setUploadStatusText('Preparing property media for submission...');
 
-    const activeVideo = videoFile || videoPreviewUrl;
-    if (!activeVideo || (typeof activeVideo === 'string' && !activeVideo.trim())) {
-      setValidationError('Property Video is required (Video 0/1). Please upload 1 real property video before submitting.');
+    if (photos.length === 0) {
+      setValidationError('Add a clear photo of the front of the hostel.');
+      setSubmitting(false);
+      return;
+    }
+
+    if (!selectedUni || (selectedUni.id !== 'uniosun' && selectedUni.status !== 'active' && selectedUni.isActive !== true)) {
+      setValidationError('New listings are currently available only for UNIOSUN.');
       setSubmitting(false);
       return;
     }
@@ -280,7 +284,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         agentAgencyName: 'Verified Accommodation Management',
         agentAvatarUrl: auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
         agentEmail: auth.currentUser?.email || '',
-        videoSource: activeVideo,
+        videoSource: videoFile || (videoPreviewUrl || undefined),
         photos,
         onProgress: (progress) => {
           setUploadProgress(progress.progressPercent);
@@ -299,12 +303,12 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
       // Non-blocking asynchronous notification dispatch
       sendNotification({
         userId: agentId,
-        title: 'Hostel Published',
-        body: `Your listing "${hostelName}" has been published and is now visible to students.`,
+        title: 'Listing submitted for review',
+        body: `Your listing "${hostelName}" is awaiting administrator review.`,
         type: 'system'
       }).catch(() => {});
 
-      setSubmissionResult('approved');
+      setSubmissionResult('pending');
       onSuccess(created);
 
     } catch (err: any) {
@@ -424,7 +428,8 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                 onChange={(e) => setUniversityId(e.target.value)}
                 className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
               >
-                {universities.map(u => (
+                <option value="">Select an active campus</option>
+                {universities.filter(u => u.status === 'active' || u.isActive === true).map(u => (
                   <option key={u.id} value={u.id}>{u.name} ({u.city})</option>
                 ))}
               </select>
@@ -647,24 +652,24 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
               </p>
             </div>
 
-            {/* SECTION 1: COMPULSORY PROPERTY VIDEO */}
+            {/* SECTION 1: OPTIONAL PROPERTY VIDEO */}
             <div className="p-4 rounded-2xl bg-slate-900 text-white border border-slate-800 space-y-3 shadow-md">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
                   <Video className="w-4 h-4 text-amber-400" />
-                  Property Video — Required
+                  Property Video — Optional (50 MB max)
                 </span>
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
                   videoFile || videoPreviewUrl 
                     ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' 
-                    : 'bg-rose-950 text-rose-300 border border-rose-800'
+                    : 'bg-neutral-800 text-neutral-300 border border-neutral-700'
                 }`}>
-                  {videoFile || videoPreviewUrl ? 'Video 1/1 ✓' : 'Video 0/1 — Required'}
+                  {videoFile || videoPreviewUrl ? 'Video attached' : 'No video'}
                 </span>
               </div>
 
               <p className="text-[11px] text-slate-300">
-                The property video is the mandatory verification evidence. Every listing MUST have 1 real property video before it can be submitted for verification.
+                Add an optional property video up to 50 MB.
               </p>
 
               {videoPreviewUrl ? (
@@ -708,20 +713,20 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
               )}
             </div>
 
-            {/* SECTION 2: OPTIONAL PHOTOS */}
+            {/* SECTION 2: REQUIRED FRONT PHOTO */}
             <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
                   <Camera className="w-4 h-4 text-emerald-600" />
-                  Photos — Optional (up to 3)
+                  Front Photo — Required (up to 3 photos)
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200">
-                  {photos.length === 0 ? '0/3 Photos — Optional' : `${photos.length}/3 Photos — Optional`}
+                  {photos.length === 0 ? 'No front photo' : `${photos.length}/3 photos`}
                 </span>
               </div>
 
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                Photos are supplementary evidence (0 to 3 photos allowed). You may submit with 0 photos if you have uploaded the required video.
+                Add a clear front-of-building photo. You may add up to two more photos.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-2">
@@ -762,7 +767,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                   ))}
                 </div>
               ) : (
-                <p className="text-[11px] text-neutral-400 italic">0/3 Photos — Optional (No photos added yet).</p>
+                <p className="text-[11px] text-neutral-400 italic">A front-of-building photo is required.</p>
               )}
             </div>
           </div>
@@ -844,28 +849,28 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
            ========================================== */}
         {currentStep === 9 && (
           <div className="space-y-4 text-center">
-            {submissionResult === 'approved' ? (
+            {submissionResult === 'pending' ? (
               <div className="p-6 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 rounded-3xl space-y-3">
                 <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
                 <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-200">
-                  Your hostel has been published.
+                  Your listing was submitted for review.
                 </h3>
                 <p className="text-xs text-emerald-800 dark:text-emerald-300 font-medium max-w-md mx-auto">
-                  Your property listing is now live and visible to students on Dormiqa.
+                  It will appear to students after it is approved.
                 </p>
                 <button
                   type="button"
                   onClick={onClose}
                   className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl cursor-pointer"
                 >
-                  View Published Hostel
+                  Close
                 </button>
               </div>
             ) : submitting ? (
               <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl space-y-4 text-white text-center shadow-lg">
                 <Loader2 className="w-10 h-10 text-emerald-400 animate-spin mx-auto" />
                 <div>
-                  <h3 className="text-base font-extrabold text-white">Publishing Hostel Listing</h3>
+                  <h3 className="text-base font-extrabold text-white">Submitting listing</h3>
                   <p className="text-xs text-slate-300 mt-1 font-semibold">{uploadStatusText || 'Uploading media files...'}</p>
                 </div>
 
@@ -890,7 +895,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                   STEP 9: Publish Hostel Listing
                 </h2>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
-                  Click below to publish your hostel listing live to students.
+                  Submit your listing for administrator review.
                 </p>
 
                 {validationError && (
@@ -912,7 +917,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                   disabled={submitting}
                   className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
                 >
-                  <span>Publish Hostel Listing</span>
+                  <span>Submit for review</span>
                 </button>
               </div>
             )}
@@ -920,7 +925,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         )}
 
         {/* Wizard Controls Bottom Bar */}
-        {submissionResult !== 'approved' && (
+        {submissionResult !== 'pending' && (
           <div className="mt-8 pt-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
             <button
               type="button"

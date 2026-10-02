@@ -90,7 +90,7 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
     setUnverifiedEmail(null);
 
     try {
-      // 1. Create account in Firebase Auth
+      // Create the account through Supabase Auth.
       await registerWithEmail(agentEmail.trim(), agentPassword);
 
       if (auth.currentUser) {
@@ -133,7 +133,7 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
       } else if (err?.code === 'auth/network-request-failed') {
         msg = "Network request failed. Please check your internet connection or use Google Sign-In below.";
       } else if (err?.code === 'auth/operation-not-allowed') {
-        msg = "Email/Password sign-up is disabled in Firebase Console for project dormiqa-e16b8. Please enable Email/Password in Firebase Console > Authentication > Sign-in method, or sign in with Google.";
+        msg = 'Email/password sign-up is disabled for this Supabase project. Enable the Email provider in Supabase Authentication settings.';
       }
       setAuthError(msg);
     } finally {

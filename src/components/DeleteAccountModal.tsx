@@ -65,7 +65,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
             <li>Your user profile & verified credentials</li>
             <li>All posted hostel listings (for caretakers/agents)</li>
             <li>Active chat conversations & inspection requests</li>
-            <li>Saved hostels and preference history from Firebase</li>
+            <li>Saved hostels and preference history</li>
           </ul>
         </div>
 

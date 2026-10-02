@@ -90,7 +90,7 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
         profileCompleted: true
       });
 
-      setProfileToast('Profile details updated & saved to Firebase!');
+      setProfileToast('Profile details updated and saved.');
       setTimeout(() => setProfileToast(''), 3000);
       setTimeout(() => setActiveModal(null), 1200);
     } catch (err: any) {
@@ -447,7 +447,7 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
                 </form>
               )}
               {activeModal === 'security' && (
-                <p>Your password & authentication token are managed securely via Firebase Auth. To reset your password, check your email inbox for password recovery instructions.</p>
+                <p>Your password and session are managed securely by Supabase Auth. Use password reset to receive a recovery link by email.</p>
               )}
               {activeModal === 'notifications' && (
                 <p>Notifications for new agent responses, tour reminders, and price drop alerts are active on your account.</p>

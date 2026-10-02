@@ -1025,7 +1025,12 @@ export const UNIVERSITIES: University[] = [
     imageUrl: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80',
     description: 'Federal university in Ebonyi state situated in Ikwo.'
   }
-];
+].map((university): University => ({
+  ...university,
+  type: university.type as University['type'],
+  status: university.id === 'uniosun' ? 'active' as const : 'coming_soon' as const,
+  isActive: university.id === 'uniosun'
+}));
 
 export const MOCK_USERS: User[] = [];
 

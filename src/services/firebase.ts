@@ -723,8 +723,8 @@ export const fetchUniversitiesFromFirestore = async (): Promise<University[]> =>
             totalListings: data.totalListings || 0,
             imageUrl: data.imageUrl || '',
             description: data.description || '',
-            status: data.status || (isUniosun ? 'active' : 'coming_soon'),
-            isActive: data.isActive !== undefined ? data.isActive : (data.status === 'active' || isUniosun),
+            status: isUniosun ? 'active' : 'coming_soon',
+            isActive: isUniosun,
             waitlistUrl: data.waitlistUrl || 'https://dormiqa-waitlist.vercel.app'
           } as University);
         });
@@ -1050,78 +1050,11 @@ export const updatePropertyVerificationInFirestore = async (
 
 export const deleteUserAccountData = async (uid: string) => {
   if (!uid) return;
-
-  // 1. Delete user doc from users collection
-  try {
-    await deleteDoc(doc(db, 'users', uid));
-  } catch (err) {
-    console.warn("Could not delete user doc from 'users':", err);
+  const currentUser = auth.currentUser;
+  if (!currentUser || currentUser.uid !== uid) {
+    throw new Error('Your active session does not match the account selected for deletion.');
   }
-
-  // 2. Delete student doc from students collection
-  try {
-    await deleteDoc(doc(db, 'students', uid));
-  } catch (err) {
-    console.warn("Could not delete student doc from 'students':", err);
-  }
-
-  // 3. Delete agent doc from agents collection
-  try {
-    await deleteDoc(doc(db, 'agents', uid));
-  } catch (err) {
-    console.warn("Could not delete agent doc from 'agents':", err);
-  }
-
-  // 4. Delete agent listings
-  try {
-    const listingsSnap1 = await getDocs(query(collection(db, 'listings'), where('agentId', '==', uid)));
-    for (const d of listingsSnap1.docs) {
-      try { await deleteDoc(d.ref); } catch {}
-    }
-    const listingsSnap2 = await getDocs(query(collection(db, 'listings'), where('agent.id', '==', uid)));
-    for (const d of listingsSnap2.docs) {
-      try { await deleteDoc(d.ref); } catch {}
-    }
-  } catch (err) {
-    console.warn("Error wiping user listings:", err);
-  }
-
-  // 5. Delete user inspections
-  try {
-    const inspSnap1 = await getDocs(query(collection(db, 'inspections'), where('studentId', '==', uid)));
-    for (const d of inspSnap1.docs) {
-      try { await deleteDoc(d.ref); } catch {}
-    }
-    const inspSnap2 = await getDocs(query(collection(db, 'inspections'), where('agentId', '==', uid)));
-    for (const d of inspSnap2.docs) {
-      try { await deleteDoc(d.ref); } catch {}
-    }
-  } catch (err) {
-    console.warn("Error wiping user inspections:", err);
-  }
-
-  // 6. Delete user conversations
-  try {
-    const convSnap1 = await getDocs(query(collection(db, 'conversations'), where('studentId', '==', uid)));
-    for (const d of convSnap1.docs) {
-      try { await deleteDoc(d.ref); } catch {}
-    }
-    const convSnap2 = await getDocs(query(collection(db, 'conversations'), where('agentId', '==', uid)));
-    for (const d of convSnap2.docs) {
-      try { await deleteDoc(d.ref); } catch {}
-    }
-  } catch (err) {
-    console.warn("Error wiping user conversations:", err);
-  }
-
-  // 7. Delete Auth user if active
-  try {
-    if (auth.currentUser) {
-      await deleteUser(auth.currentUser);
-    }
-  } catch (err) {
-    console.warn("Auth user deletion note:", err);
-  }
+  await deleteUser(currentUser);
 };
 
 export default app;

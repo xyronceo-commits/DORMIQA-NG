@@ -74,8 +74,7 @@ function dataUriToBlob(dataUri: string): Blob {
 }
 
 /**
- * Uploads a property photo file or data URL to Firebase Storage if available,
- * with a guaranteed Canvas compression fallback (lightweight Data URI) if Storage is unavailable/fails.
+ * Compresses and uploads a property photo to Supabase Storage.
  */
 export async function uploadOrCompressPropertyPhoto(
   fileOrDataUrl: File | string,
@@ -89,7 +88,7 @@ export async function uploadOrCompressPropertyPhoto(
   // 1. Compress image to clean, lightweight JPEG
   const compressedDataUrl = await compressImageToDataUrl(fileOrDataUrl);
 
-  // 2. Try Firebase Storage if storage is initialized
+  // Store uploaded photo bytes in Supabase Storage, never in the listing record.
   try {
     if (storage) {
       const blob = dataUriToBlob(compressedDataUrl);
@@ -105,16 +104,16 @@ export async function uploadOrCompressPropertyPhoto(
       }
     }
   } catch (err) {
-    console.warn(`Firebase Storage upload failed for photo ${index}, using compressed persistent URI:`, err);
+    console.warn(`Supabase Storage upload failed for photo ${index}:`, err);
+    throw new Error(`Photo upload failed: ${err instanceof Error ? err.message : 'Supabase Storage is unavailable.'}`);
   }
 
-  // 3. Fallback to lightweight compressed data URI (~30-50KB) which comfortably fits in Firestore (1MB limit)
-  return compressedDataUrl;
+  throw new Error('Photo upload failed: Supabase Storage did not return a file URL.');
 }
 
 /**
- * Direct Storage Resumable Upload for compulsory Property Video.
- * Uploads raw binary File directly to Firebase Storage with real-time percentage progress.
+ * Direct Storage resumable upload for an optional property video.
+ * Uploads raw binary File directly to Supabase Storage with real-time progress.
  * Returns an HTTP URL (never Base64 string).
  */
 export async function uploadPropertyVideo(
@@ -150,6 +149,10 @@ export async function uploadPropertyVideo(
     throw new Error("Invalid video source file provided.");
   }
 
+  if (fileBlob.size > 50 * 1024 * 1024) {
+    throw new Error('Video must be 50 MB or less.');
+  }
+
   const filename = `video_${Date.now()}.mp4`;
   const storageRef = ref(storage, `listings/${listingId}/${filename}`);
 
@@ -165,7 +168,7 @@ export async function uploadPropertyVideo(
         }
       },
       (error) => {
-        console.error("Firebase Storage video upload error:", error);
+        console.error("Supabase Storage video upload error:", error);
         reject(new Error(`Video upload failed: ${error.message}`));
       },
       async () => {

@@ -115,6 +115,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     displayName: string;
     email: string;
     photoURL?: string;
+    provider: 'google' | 'email';
   } | null>(null);
 
   // Post-Signup Business Verification Step State
@@ -138,6 +139,8 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     setAuthMethod('email');
   }
 
+    let handledGoogleUid: string | null = null;
+
   const handleSupabaseAuth = async () => {
     const { data, error } = await supabase.auth.getSession();
 
@@ -159,12 +162,51 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
       undefined;
 
     const uid = user.id;
+    if (handledGoogleUid === uid) return;
+    handledGoogleUid = uid;
+
+    if (selectedRole === 'agent') {
+      setAuthError('Google sign-in is available for students only. Agents must use email and password.');
+      await supabase.auth.signOut();
+      return;
+    }
+
+    const savedProfile = await fetchUserProfileFromFirestore(uid).catch(() => null);
+    const savedPhone = String(savedProfile?.phone || savedProfile?.phoneNumber || '').trim();
+    const savedUniversityId = String(savedProfile?.universityId || '').trim();
+    const savedName = String(savedProfile?.name || displayName).trim();
+    const isSavedProfileComplete = savedProfile?.role === 'student'
+      && Boolean(savedName)
+      && Boolean(savedPhone)
+      && savedUniversityId === 'uniosun';
+
+    if (isSavedProfileComplete) {
+      onCompleteOnboarding({
+        role: 'student',
+        name: savedName,
+        email,
+        phone: savedPhone,
+        universityId: savedUniversityId,
+        universityName: savedProfile.universityName || universities.find(uni => uni.id === 'uniosun')?.name || 'Osun State University (UNIOSUN)',
+        avatarUrl: photoURL || savedProfile.avatarUrl,
+        isSignup: false,
+        isEmailVerified: Boolean(user.email_confirmed_at)
+      });
+      return;
+    }
+
+    setStudentName(savedName);
+    setStudentPhone(savedPhone);
+    const savedUniversity = universities.find(uni => uni.id === savedUniversityId && (uni.status === 'active' || uni.isActive === true));
+    setStudentUniId(savedUniversity?.id || '');
+    setStudentUni(savedUniversity?.name || '');
 
     setGoogleAuthData({
       uid,
       displayName,
       email,
       photoURL,
+      provider: 'google',
     });
 
     setIsLoading(false);
@@ -183,7 +225,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   return () => {
     subscription.unsubscribe();
   };
-}, [selectedRole]);
+}, [selectedRole, universities, onCompleteOnboarding]);
 
   const handleGoogleAuth = async () => {
     if (selectedRole === 'agent') {
@@ -212,7 +254,7 @@ if (error) {
       let errorMsg: string | null = "Google sign-in failed. Please try again.";
       if (err?.code === 'auth/unauthorized-domain') {
         const currentHostname = typeof window !== 'undefined' ? window.location.hostname : 'dormiqa-ng.vercel.app';
-        errorMsg = `Firebase Auth Error (auth/unauthorized-domain): The domain '${currentHostname}' is not authorized for Firebase Authentication. Please add '${currentHostname}' to Authorized Domains under Firebase Console.`;
+        errorMsg = `The domain '${currentHostname}' is not in the Supabase Auth redirect allow list. Add it in Supabase Authentication settings.`;
       } else if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
         errorMsg = null;
       }
@@ -225,6 +267,10 @@ if (error) {
   const handleGoogleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!googleAuthData) return;
+    if (selectedRole !== 'student') {
+      setAuthError('Agent accounts must use email and password.');
+      return;
+    }
 
     setIsLoading(true);
     setAuthError(null);
@@ -294,23 +340,6 @@ if (error) {
         };
 
         onCompleteOnboarding(fullData);
-      } else {
-        // Agent path
-        const fullData = {
-          id: googleAuthData.uid || auth.currentUser?.uid || '',
-          role: selectedRole,
-          name: agentName || googleAuthData.displayName || 'Property Agent',
-          email: googleAuthData.email,
-          phone: agentPhoneWA,
-          universityName: agentUni,
-          agencyName: agencyName || `${agentName} Housing`,
-          avatarUrl: googleAuthData.photoURL,
-          isSignup: true,
-          isEmailVerified: true
-        };
-
-        await saveUserToFirestore(fullData);
-        onCompleteOnboarding(fullData);
       }
     } catch (err: any) {
       console.error("Failed to save profile:", err);
@@ -353,16 +382,16 @@ if (error) {
           return;
         }
 
-        // 1. Create a new Firebase Authentication account
+        // Create the Supabase Auth account.
         await registerWithEmail(trimmedEmail, studentPassword);
 
-        // 2. Refresh current Firebase user
+        // Refresh the Supabase-backed compatibility user.
         if (auth.currentUser) {
           await auth.currentUser.reload();
         }
 
         const fbUser = auth.currentUser;
-        if (!fbUser) throw new Error("Firebase account creation failed.");
+        if (!fbUser) throw new Error("Supabase account creation failed.");
 
         const isVerified = fbUser.emailVerified === true;
 
@@ -379,7 +408,7 @@ if (error) {
         };
 
         savePendingSignupProfile(studentData);
-        // 3. Save initial profile to Firestore
+        // Save the profile through the Supabase-backed document adapter.
         await saveUserToFirestore(studentData);
 
         // 4. Send to verification screen & block access until verified
@@ -401,13 +430,18 @@ if (error) {
 
         // 2. Fetch profile from Firestore
         const existingProfile = await fetchUserProfileFromFirestore(fbUser.uid) || await fetchUserProfileFromFirestore(fbUser.email || studentEmail.trim().toLowerCase());
+        if (existingProfile?.role === 'agent') {
+          setAuthError('This account is registered as an agent. Use the Agent Portal to sign in.');
+          return;
+        }
 
         const studentData = {
           id: fbUser.uid,
-          role: (existingProfile?.role || selectedRole || 'student') as UserRole,
+          role: 'student' as UserRole,
           name: existingProfile?.name || fbUser.displayName || studentEmail.split('@')[0],
           email: fbUser.email || studentEmail.trim().toLowerCase(),
           phone: existingProfile?.phone || '',
+          universityId: existingProfile?.universityId || '',
           universityName: existingProfile?.universityName || studentUni,
           avatarUrl: existingProfile?.avatarUrl || fbUser.photoURL,
           isSignup: false,
@@ -428,18 +462,34 @@ if (error) {
           setPendingUserOnboardingData(studentData);
           setShowEmailVerificationScreen(true);
         } else {
-          onCompleteOnboarding(studentData);
+          const activeUniversity = universities.find(university => university.id === studentData.universityId && (university.id === 'uniosun' || university.status === 'active' || university.isActive === true));
+          if (studentData.name.trim() && studentData.phone.trim() && activeUniversity) {
+            onCompleteOnboarding({ ...studentData, universityName: activeUniversity.name });
+          } else {
+            setStudentName(studentData.name);
+            setStudentEmail(studentData.email);
+            setStudentPhone(studentData.phone);
+            setStudentUniId(activeUniversity?.id || '');
+            setStudentUni(activeUniversity?.name || '');
+            setGoogleAuthData({
+              uid: fbUser.uid,
+              displayName: studentData.name,
+              email: studentData.email,
+              photoURL: studentData.avatarUrl,
+              provider: 'email'
+            });
+          }
         }
       }
     } catch (err: any) {
-      console.error("Firebase Student Auth Error:", err);
+      console.error("Student Auth Error:", err);
       let errorMsg = err?.message || "Authentication failed. Please check your credentials and try again.";
       if (err?.code === 'auth/network-request-failed') {
         errorMsg = "Network connection failed during authentication. Please check your internet connection or use Google Sign-In below.";
       } else if (err?.code === 'auth/operation-not-allowed') {
-        errorMsg = "Email/Password sign-up is disabled in your Firebase project (dormiqa-e16b8). Please enable Email/Password provider in Firebase Console > Authentication > Sign-in method, or sign in with Google below.";
+        errorMsg = 'Email/password sign-up is disabled for this Supabase project. Enable the Email provider in Supabase Authentication settings.';
       } else if (err?.code === 'auth/unauthorized-domain') {
-        errorMsg = "Domain not authorized for email operations in Firebase. Please use Google Sign-In below.";
+        errorMsg = 'This domain is not in the Supabase Auth redirect URL allow list.';
       } else if (err?.code === 'auth/user-not-found') {
         errorMsg = "Account not found. Please sign up first.";
       } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
@@ -466,7 +516,7 @@ if (error) {
 
     try {
       if (authMode === 'signup') {
-        // 1. Create a new Firebase Authentication account
+        // Create the Supabase Auth account.
         await registerWithEmail(agentEmail.trim().toLowerCase(), agentPassword);
 
         if (auth.currentUser) {
@@ -474,7 +524,7 @@ if (error) {
         }
 
         const fbUser = auth.currentUser;
-        if (!fbUser) throw new Error("Firebase account creation failed.");
+        if (!fbUser) throw new Error("Supabase account creation failed.");
 
         const isVerified = fbUser.emailVerified === true;
 
@@ -491,7 +541,7 @@ if (error) {
         };
 
         savePendingSignupProfile(agentData);
-        // 2. Save profile to Firestore
+        // Save the profile through the Supabase-backed document adapter.
         await saveUserToFirestore(agentData);
 
         // 3. Send to verification screen & block access until verified
@@ -542,14 +592,14 @@ if (error) {
         }
       }
     } catch (err: any) {
-      console.error("Firebase Agent Auth Error:", err);
+      console.error("Agent Auth Error:", err);
       let errorMsg = err?.message || "Authentication failed. Please check your credentials and try again.";
       if (err?.code === 'auth/network-request-failed') {
         errorMsg = "Network connection failed during authentication. Please check your internet connection or use Google Sign-In below.";
       } else if (err?.code === 'auth/operation-not-allowed') {
-        errorMsg = "Email/Password sign-up is disabled in your Firebase project (dormiqa-e16b8). Please enable Email/Password provider in Firebase Console > Authentication > Sign-in method, or sign in with Google below.";
+        errorMsg = 'Email/password sign-up is disabled for this Supabase project. Enable the Email provider in Supabase Authentication settings.';
       } else if (err?.code === 'auth/unauthorized-domain') {
-        errorMsg = "Domain not authorized for email operations in Firebase. Please use Google Sign-In below.";
+        errorMsg = 'This domain is not in the Supabase Auth redirect URL allow list.';
       } else if (err?.code === 'auth/user-not-found') {
         errorMsg = "Account not found. Please sign up first.";
       } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
@@ -608,8 +658,8 @@ if (error) {
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-[11px] font-bold">
-              <GoogleIcon />
-              <span>Google OAuth Verified</span>
+              {googleAuthData.provider === 'google' ? <GoogleIcon /> : <ShieldCheck className="w-3.5 h-3.5" />}
+              <span>{googleAuthData.provider === 'google' ? 'Google account verified' : 'Email account verified'}</span>
             </div>
             <h2 className="text-2xl font-black text-neutral-900 tracking-tight">
               Complete your profile
@@ -625,39 +675,6 @@ if (error) {
               <span>{authError}</span>
             </div>
           )}
-
-          {/* User Role Selector */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-neutral-800 block">Select Account Role</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedRole('student');
-                }}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                  selectedRole === 'student'
-                    ? 'bg-neutral-900 text-white border-neutral-900 shadow-xs'
-                    : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100'
-                }`}
-              >
-                <GraduationCap className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Student</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedRole('agent')}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                  selectedRole === 'agent'
-                    ? 'bg-neutral-900 text-white border-neutral-900 shadow-xs'
-                    : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100'
-                }`}
-              >
-                <Briefcase className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Property Agent</span>
-              </button>
-            </div>
-          </div>
 
           <form onSubmit={handleGoogleProfileSubmit} className="space-y-4">
             {/* Email Address (Readonly Verified Badge) */}
@@ -1019,7 +1036,7 @@ if (error) {
                     }
                   </h3>
                   <p className="text-xs text-neutral-500 mt-1 max-w-sm mx-auto">
-                    Instant authentication via Firebase Auth using your institutional or personal Google workspace account.
+                    Secure sign-in through Supabase using your Google account.
                   </p>
                 </div>
 

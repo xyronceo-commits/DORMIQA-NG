@@ -20,6 +20,8 @@ import {
 import { User, BusinessVerificationDetails, BusinessVerificationStatus, University } from '../types';
 import { saveUserToFirestore, auth, db } from '../services/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
+import { supabase } from '../services/supabase';
+import { uploadOrCompressPropertyPhoto } from '../utils/imageUpload';
 
 import { VerificationStatusPage } from './VerificationStatusPage';
 import { UniversitySelector } from './UniversitySelector';
@@ -112,6 +114,17 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
   const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        setErrorMessage('Upload a PDF, JPEG, PNG, or WebP verification document.');
+        e.target.value = '';
+        return;
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        setErrorMessage('Verification documents must be 20 MB or smaller.');
+        e.target.value = '';
+        return;
+      }
       setUploadedDocument(file);
       setUploadedDocName(file.name);
       setErrorMessage(null);
@@ -127,6 +140,11 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
       return;
     }
 
+    if (!uploadedDocument && !existingDetails?.documentUrl) {
+      setErrorMessage('Please upload the selected identification or business verification document.');
+      return;
+    }
+
     if (!agentFullName.trim() || !businessName.trim() || !phone.trim()) {
       setErrorMessage('Please complete all required fields (Full Name, Business Name, WhatsApp Phone).');
       return;
@@ -139,6 +157,24 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
 
     setIsSubmitting(true);
     try {
+      const uid = agentData?.id || auth.currentUser?.uid;
+      if (!uid) throw new Error('Sign in again before submitting verification documents.');
+
+      let documentUrl = existingDetails?.documentUrl;
+      if (uploadedDocument) {
+        const safeFileName = uploadedDocument.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const documentPath = `${uid}/${Date.now()}_${safeFileName}`;
+        const { error: uploadError } = await supabase.storage
+          .from('verification-documents')
+          .upload(documentPath, uploadedDocument, { contentType: uploadedDocument.type, upsert: false });
+        if (uploadError) throw uploadError;
+        documentUrl = documentPath;
+      }
+
+      const storedPortraitUrl = portraitPhoto.startsWith('http')
+        ? portraitPhoto
+        : await uploadOrCompressPropertyPhoto(portraitPhoto, uid, 0);
+
       const licenseNumber = `DMQ-AGT-${Math.floor(100000 + Math.random() * 900000)}`;
       const verificationObj: BusinessVerificationDetails = {
         businessName: businessName.trim(),
@@ -149,29 +185,27 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
         hostelManagementInfo: hostelManagementInfo.trim(),
         relationship,
         proofType,
-        documentName: uploadedDocName || 'proof_document.pdf',
-        portraitPhotoUrl: portraitPhoto,
+        documentUrl,
+        documentName: uploadedDocName || existingDetails?.documentName || 'proof_document.pdf',
+        portraitPhotoUrl: storedPortraitUrl,
         submittedAt: new Date().toISOString()
       };
 
       // 1. Persist state as PENDING and save full verification details into Firestore
-      const uid = agentData?.id || auth.currentUser?.uid;
-      if (uid) {
-        await saveUserToFirestore({
-          id: uid,
-          name: agentFullName.trim(),
-          email: agentData?.email || auth.currentUser?.email || '',
-          role: 'agent',
-          agencyName: businessName.trim(),
-          phone: phone.trim(),
-          avatarUrl: portraitPhoto,
-          isEmailVerified: true,
-          businessVerificationStatus: 'pending',
-          businessVerificationDetails: verificationObj,
-          isVerifiedAgent: false,
-          licenseNumber
-        });
-      }
+      await saveUserToFirestore({
+        id: uid,
+        name: agentFullName.trim(),
+        email: agentData?.email || auth.currentUser?.email || '',
+        role: 'agent',
+        agencyName: businessName.trim(),
+        phone: phone.trim(),
+        avatarUrl: storedPortraitUrl,
+        isEmailVerified: true,
+        businessVerificationStatus: 'pending',
+        businessVerificationDetails: verificationObj,
+        isVerifiedAgent: false,
+        licenseNumber
+      });
 
       // 2. Set submission success state which displays the dedicated Verification Status page
       setSubmissionSuccess(true);
@@ -180,7 +214,7 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
       onCompleteVerification({
         licenseNumber,
         isVerifiedAgent: false, // Remains false until admin approves
-        avatarUrl: portraitPhoto,
+        avatarUrl: storedPortraitUrl,
         verificationDetails: verificationObj
       });
 
