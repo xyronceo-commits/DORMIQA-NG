@@ -1,16 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl =
-  typeof import.meta !== 'undefined' &&
-  typeof import.meta.env !== 'undefined'
-    ? import.meta.env.VITE_SUPABASE_URL
-    : process.env.VITE_SUPABASE_URL;
+// Browser (Vite) exposes VITE_* via import.meta.env. The Node server has no import.meta.env,
+// so it reads process.env (VITE_* first, then the server-side SUPABASE_* names).
+const viteEnv: Record<string, string | undefined> | undefined =
+  typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
+const nodeEnv: Record<string, string | undefined> =
+  typeof process !== 'undefined' && process.env ? process.env : {};
 
+const supabaseUrl =
+  viteEnv?.VITE_SUPABASE_URL || nodeEnv.VITE_SUPABASE_URL || nodeEnv.SUPABASE_URL;
 const supabaseAnonKey =
-  typeof import.meta !== 'undefined' &&
-  typeof import.meta.env !== 'undefined'
-    ? import.meta.env.VITE_SUPABASE_ANON_KEY
-    : process.env.VITE_SUPABASE_ANON_KEY;
+  viteEnv?.VITE_SUPABASE_ANON_KEY || nodeEnv.VITE_SUPABASE_ANON_KEY || nodeEnv.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
