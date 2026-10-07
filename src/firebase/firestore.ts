@@ -1,4 +1,4 @@
-import { supabase } from '../services/supabase';
+import { supabase } from '../services/supabase.js';
 
 let firestoreClient: any = supabase;
 export const configureFirestoreClient = (client: any) => {
