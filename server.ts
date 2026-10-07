@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 import { createServer as createViteServer } from 'vite';
-import { configureFirestoreClient, getFirestore, doc, getDoc, setDoc, getDocs, collection, deleteDoc, addDoc } from './src/firebase/firestore';
+import { configureFirestoreClient, getFirestore, doc, getDoc, setDoc, getDocs, collection, deleteDoc, addDoc } from './src/firebase/firestore.js';
 import { 
   UNIVERSITIES, 
   MOCK_LISTINGS, 
