@@ -164,8 +164,8 @@ export interface Listing {
   totalBedrooms: number;
   totalBathrooms: number;
   isVerified: boolean;
-  status: 'published' | 'pending' | 'approved' | 'changes_requested' | 'rejected' | 'banned' | 'flagged' | 'removed';
-  verificationStatus?: 'published' | 'pending' | 'approved' | 'changes_requested' | 'rejected' | 'banned' | 'flagged' | 'removed';
+  status: 'published' | 'pending' | 'approved' | 'changes_requested' | 'rejected' | 'banned' | 'flagged' | 'removed' | 'draft' | 'uploading' | 'upload_failed' | 'incomplete';
+  verificationStatus?: 'published' | 'pending' | 'approved' | 'changes_requested' | 'rejected' | 'banned' | 'flagged' | 'removed' | 'draft' | 'uploading' | 'upload_failed' | 'incomplete';
   aiBanReason?: string;
   isAiBanned?: boolean;
   rejectionReason?: string;

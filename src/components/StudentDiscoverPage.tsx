@@ -111,13 +111,21 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
                        item.universityName?.toLowerCase().includes(currentUniversity.name.toLowerCase()) ||
                        item.universityName?.toLowerCase().includes(currentUniversity.code.toLowerCase());
       
-      const isApproved = item.status === 'published' || 
-                         item.status === 'approved' || 
-                         item.verificationStatus === 'published' || 
-                         item.verificationStatus === 'approved' || 
-                         item.isVerified === true;
+      const isApprovedStatus = (item.status === 'published' || 
+                                item.status === 'approved' || 
+                                item.verificationStatus === 'published' || 
+                                item.verificationStatus === 'approved') &&
+                               item.status !== 'draft' &&
+                               item.status !== 'uploading' &&
+                               item.status !== 'upload_failed' &&
+                               item.status !== 'incomplete' &&
+                               item.status !== 'rejected' &&
+                               item.status !== 'banned';
 
-      return matchUni && isApproved;
+      const hasRequiredFrontPhoto = Boolean(item.photos && Array.isArray(item.photos) && item.photos.length > 0 && item.photos[0] && String(item.photos[0]).trim() !== '');
+      const hasRequiredVideo = Boolean(item.videoUrl && typeof item.videoUrl === 'string' && item.videoUrl.trim() !== '');
+
+      return matchUni && isApprovedStatus && hasRequiredFrontPhoto && hasRequiredVideo;
     });
   }, [listings, currentUniversity]);
 
