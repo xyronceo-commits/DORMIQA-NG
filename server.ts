@@ -1175,6 +1175,13 @@ export async function createExpressApp() {
     if (listing.agentId !== userId) return res.status(403).json({ error: 'You can only update your own listing.' });
 
     const { 
+      title,
+      hotelName,
+      address,
+      description,
+      photos,
+      videoUrl,
+      resubmitForVerification,
       unitStatus, 
       vacanciesCount, 
       unitStatusNote, 
@@ -1187,6 +1194,26 @@ export async function createExpressApp() {
       salesNote, 
       isAvailableForSale 
     } = req.body;
+
+    if (title !== undefined) listing.title = sanitizeInputString(title, 150);
+    if (hotelName !== undefined) listing.hotelName = sanitizeInputString(hotelName, 150);
+    if (address !== undefined) listing.address = sanitizeInputString(address, 300);
+    if (description !== undefined) listing.description = sanitizeInputString(description, 2000);
+
+    if (Array.isArray(photos)) {
+      listing.photos = photos.slice(0, 3).map((p: any) => typeof p === 'string' ? p : '').filter(Boolean);
+    }
+    if (typeof videoUrl === 'string') {
+      listing.videoUrl = videoUrl.trim();
+    }
+
+    if (resubmitForVerification === true) {
+      listing.status = 'pending';
+      listing.verificationStatus = 'pending';
+      listing.rejectionReason = undefined;
+      listing.isAiBanned = false;
+      listing.aiBanReason = undefined;
+    }
 
     if (unitStatus !== undefined) listing.unitStatus = unitStatus;
     if (vacanciesCount !== undefined) listing.vacanciesCount = Number(vacanciesCount);
@@ -1336,7 +1363,9 @@ export async function createExpressApp() {
       listingPrice: listing.pricePerWeek || 0,
       lastMessage: 'Conversation started',
       lastMessageTime: 'Just now',
-      unreadCount: 0
+      unreadCount: 0,
+      studentUnreadCount: 0,
+      agentUnreadCount: 0
     };
 
     conversationsStore.unshift(newConv);
@@ -1398,10 +1427,16 @@ export async function createExpressApp() {
     messagesStore.push(msg);
     await setDoc(doc(firestoreDb, 'conversations', conversationId, 'messages', msg.id), msg, { merge: true });
 
-    // Update conversation last message
+    // Update conversation last message and participant-specific unread counters
     conversationData.lastMessage = text;
     conversationData.lastMessageTime = 'Just now';
-    conversationData.unreadCount = (conversationData.unreadCount || 0) + 1;
+    if (isStudent) {
+      conversationData.agentUnreadCount = (conversationData.agentUnreadCount || 0) + 1;
+      conversationData.unreadCount = conversationData.agentUnreadCount;
+    } else {
+      conversationData.studentUnreadCount = (conversationData.studentUnreadCount || 0) + 1;
+      conversationData.unreadCount = conversationData.studentUnreadCount;
+    }
     await setDoc(doc(firestoreDb, 'conversations', conversationId), conversationData, { merge: true });
 
     res.json(msg);

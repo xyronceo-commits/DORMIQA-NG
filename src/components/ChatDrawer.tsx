@@ -27,9 +27,15 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   useEffect(() => {
     if (!conversation) return;
 
-    // Reset unread message counter when conversation is opened
+    // Reset active participant's unread message counter when conversation is opened
     try {
-      updateDoc(doc(db, 'conversations', conversation.id), { unreadCount: 0 }).catch(() => {});
+      const resetPayload: any = { unreadCount: 0 };
+      if (currentRole === 'student') {
+        resetPayload.studentUnreadCount = 0;
+      } else {
+        resetPayload.agentUnreadCount = 0;
+      }
+      updateDoc(doc(db, 'conversations', conversation.id), resetPayload).catch(() => {});
     } catch (e) {}
 
     setLoading(true);

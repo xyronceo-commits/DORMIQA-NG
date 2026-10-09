@@ -25,6 +25,8 @@ export interface BusinessVerificationDetails {
   businessName: string;
   agentFullName: string;
   phone: string;
+  whatsapp?: string;
+  stateOfWork?: string;
   businessType: 'individual_caretaker' | 'registered_agency' | 'property_management_company';
   businessAddress: string;
   hostelManagementInfo: string;
@@ -249,6 +251,8 @@ export interface Conversation {
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;
+  studentUnreadCount?: number;
+  agentUnreadCount?: number;
 }
 
 export interface Report {

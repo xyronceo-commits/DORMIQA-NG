@@ -348,6 +348,9 @@ export async function updateListingStatusAndSales(
     hotelName?: string;
     address?: string;
     description?: string;
+    photos?: string[];
+    videoUrl?: string;
+    resubmitForVerification?: boolean;
     unitStatus?: 'vacant' | 'occupied' | 'remaining' | 'under_renovation';
     vacanciesCount?: number;
     unitStatusNote?: string;
@@ -381,7 +384,18 @@ export async function updateListingStatusAndSales(
     const { doc, updateDoc, getDoc } = await import('firebase/firestore');
     const { db } = await import('./firebase');
     const docRef = doc(db, 'listings', listingId);
-    await updateDoc(docRef, updateData as any);
+    
+    const fsUpdatePayload: any = { ...updateData };
+    if (updateData.resubmitForVerification) {
+      fsUpdatePayload.status = 'pending';
+      fsUpdatePayload.verificationStatus = 'pending';
+      fsUpdatePayload.rejectionReason = null;
+      fsUpdatePayload.isAiBanned = false;
+      fsUpdatePayload.aiBanReason = null;
+      delete fsUpdatePayload.resubmitForVerification;
+    }
+
+    await updateDoc(docRef, fsUpdatePayload);
     if (!updated) {
       const snap = await getDoc(docRef);
       if (snap.exists()) {
@@ -734,11 +748,17 @@ export async function sendMessage(conversationId: string, data: { senderId: stri
     const { doc, setDoc, updateDoc, increment } = await import('firebase/firestore');
     const { db } = await import('./firebase');
     await setDoc(doc(db, 'conversations', conversationId, 'messages', messageRecord.id), messageRecord, { merge: true });
-    await updateDoc(doc(db, 'conversations', conversationId), {
+    const updatePayload: any = {
       lastMessage: data.text,
       lastMessageTime: 'Just now',
       unreadCount: increment(1)
-    });
+    };
+    if (data.senderRole === 'student') {
+      updatePayload.agentUnreadCount = increment(1);
+    } else {
+      updatePayload.studentUnreadCount = increment(1);
+    }
+    await updateDoc(doc(db, 'conversations', conversationId), updatePayload);
   } catch (fsErr) {
     console.error('Failed to save message to Firestore:', fsErr);
   }

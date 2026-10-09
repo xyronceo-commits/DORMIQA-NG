@@ -26,7 +26,9 @@ import {
   Tag,
   Copy,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Edit3,
+  AlertCircle
 } from 'lucide-react';
 import { Listing, ListingReview, Campus } from '../types';
 import { getPropertyDistanceToCampus } from '../utils/distance';
@@ -37,6 +39,7 @@ import { sendNotification } from '../services/notificationService';
 import { updateListingSeo, updateDocumentSeo } from '../utils/seo';
 import { getCanonicalPropertyUrl, sharePropertyListing } from '../utils/routing';
 import { auth } from '../services/firebase';
+import { EditUnitStatusAndSalesModal } from './EditUnitStatusAndSalesModal';
 
 interface ListingDetailModalProps {
   listing: Listing | null;
@@ -103,6 +106,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   const [showShareModal, setShowShareModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [shareNotice, setShareNotice] = useState<string | null>(null);
+  const [isEditUnitModalOpen, setIsEditUnitModalOpen] = useState(false);
 
   useEffect(() => {
     setCurrentListing(initialListing);
@@ -245,6 +249,28 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
         {/* Modal Scrollable Body */}
         <div className="overflow-y-auto p-6 space-y-8">
           
+          {/* Rejection Alert Banner for Agent */}
+          {isAgentView && (listing.status === 'rejected' || listing.verificationStatus === 'rejected') && (
+            <div className="p-4 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 rounded-2xl space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-rose-800 dark:text-rose-200 font-extrabold">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Listing Verification Rejected</span>
+                </div>
+                <button
+                  onClick={() => setIsEditUnitModalOpen(true)}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-extrabold rounded-lg text-xs transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Correct & Resubmit</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-rose-700 dark:text-rose-300 font-medium leading-relaxed">
+                <strong>Rejection Reason:</strong> {listing.rejectionReason || listing.aiBanReason || 'Listing media or details need correction before approval.'}
+              </p>
+            </div>
+          )}
+
           {/* 1. Photos & Video Gallery */}
           <div className="space-y-3">
             {listing.photos && listing.photos.length > 0 ? (
@@ -360,9 +386,18 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                   </button>
                 </>
               ) : (
-                <div className="px-4 py-2.5 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  Your Listed Property
+                <div className="flex items-center gap-2">
+                  <div className="px-3.5 py-2.5 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    Your Listed Property
+                  </div>
+                  <button
+                    onClick={() => setIsEditUnitModalOpen(true)}
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>{listing.status === 'rejected' || listing.verificationStatus === 'rejected' ? 'Edit & Resubmit' : 'Edit Listing'}</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -956,6 +991,21 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
             </button>
           </div>
         </div>
+      )}
+
+      {/* Edit Unit & Media Modal */}
+      {isEditUnitModalOpen && (
+        <EditUnitStatusAndSalesModal
+          listing={listing}
+          isOpen={isEditUnitModalOpen}
+          onClose={() => setIsEditUnitModalOpen(false)}
+          onListingUpdated={(updated) => {
+            setCurrentListing(updated);
+            if (onListingUpdated) {
+              onListingUpdated(updated);
+            }
+          }}
+        />
       )}
 
     </div>

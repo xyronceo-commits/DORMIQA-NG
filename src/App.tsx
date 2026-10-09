@@ -1144,7 +1144,12 @@ export default function App() {
       return 0;
     });
 
-  const unreadMessageCount = conversations.reduce((total, conv) => total + (conv.unreadCount || 0), 0);
+  const unreadMessageCount = conversations.reduce((total, conv) => {
+    if (currentRole === 'student') {
+      return total + (conv.studentUnreadCount !== undefined ? conv.studentUnreadCount : conv.unreadCount || 0);
+    }
+    return total + (conv.agentUnreadCount !== undefined ? conv.agentUnreadCount : conv.unreadCount || 0);
+  }, 0);
   const savedListings = listings.filter(l => savedIds.includes(l.id));
 
   return (

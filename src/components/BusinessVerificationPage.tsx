@@ -72,6 +72,8 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
   const [businessName, setBusinessName] = useState(existingDetails?.businessName || agentData?.agencyName || '');
   const [agentFullName, setAgentFullName] = useState(existingDetails?.agentFullName || agentData?.name || '');
   const [phone, setPhone] = useState(existingDetails?.phone || agentData?.phone || '');
+  const [whatsapp, setWhatsapp] = useState(existingDetails?.whatsapp || existingDetails?.phone || agentData?.phone || '');
+  const [stateOfWork, setStateOfWork] = useState(existingDetails?.stateOfWork || 'Osun State');
   const [servicedUniId, setServicedUniId] = useState<string>(agentData?.universityId || 'uniosun');
   const [businessType, setBusinessType] = useState<'individual_caretaker' | 'registered_agency' | 'property_management_company'>(
     existingDetails?.businessType || 'individual_caretaker'
@@ -145,8 +147,8 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
       return;
     }
 
-    if (!agentFullName.trim() || !businessName.trim() || !phone.trim()) {
-      setErrorMessage('Please complete all required fields (Full Name, Business Name, WhatsApp Phone).');
+    if (!agentFullName.trim() || !businessName.trim() || !phone.trim() || !whatsapp.trim()) {
+      setErrorMessage('Please complete all required fields (Full Name, Business Name, Direct Phone, WhatsApp Phone).');
       return;
     }
 
@@ -180,6 +182,8 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
         businessName: businessName.trim(),
         agentFullName: agentFullName.trim(),
         phone: phone.trim(),
+        whatsapp: whatsapp.trim(),
+        stateOfWork,
         businessType,
         businessAddress: businessAddress.trim(),
         hostelManagementInfo: hostelManagementInfo.trim(),
@@ -237,6 +241,8 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
             businessName: businessName.trim(),
             agentFullName: agentFullName.trim(),
             phone: phone.trim(),
+            whatsapp: whatsapp.trim(),
+            stateOfWork,
             businessType,
             businessAddress: businessAddress.trim(),
             hostelManagementInfo: hostelManagementInfo.trim(),
@@ -395,7 +401,7 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
-                  WhatsApp Contact Phone *
+                  Direct Phone Number *
                 </label>
                 <input
                   type="tel"
@@ -405,6 +411,46 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
                   placeholder="+234 803 456 7890"
                   className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
                 />
+              </div>
+
+              <div>
+                <label className="font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                  WhatsApp Contact Phone *
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={whatsapp}
+                  onChange={(e) => setWhatsapp(e.target.value)}
+                  placeholder="+234 803 456 7890"
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="font-bold text-neutral-800 dark:text-neutral-200 block mb-1">
+                  State of Work (Nigerian State) *
+                </label>
+                <select
+                  value={stateOfWork}
+                  onChange={(e) => setStateOfWork(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                >
+                  {[
+                    'Abia State', 'Adamawa State', 'Akwa Ibom State', 'Anambra State', 'Bauchi State',
+                    'Bayelsa State', 'Benue State', 'Borno State', 'Cross River State', 'Delta State',
+                    'Ebonyi State', 'Edo State', 'Ekiti State', 'Enugu State', 'FCT Abuja',
+                    'Gombe State', 'Imo State', 'Jigawa State', 'Kaduna State', 'Kano State',
+                    'Katsina State', 'Kebbi State', 'Kogi State', 'Kwara State', 'Lagos State',
+                    'Nasarawa State', 'Niger State', 'Ogun State', 'Ondo State', 'Osun State',
+                    'Oyo State', 'Plateau State', 'Rivers State', 'Sokoto State', 'Taraba State',
+                    'Yobe State', 'Zamfara State'
+                  ].map((st) => (
+                    <option key={st} value={st}>{st}</option>
+                  ))}
+                </select>
               </div>
 
               <div>

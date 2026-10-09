@@ -579,6 +579,11 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                         <MapPin className="w-3.5 h-3.5 text-neutral-400" />
                         <span>{item.address}</span>
                       </p>
+                      {(item.status === 'rejected' || item.verificationStatus === 'rejected') && (item.rejectionReason || (item as any).aiBanReason) && (
+                        <div className="mt-2 p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-[11px] font-medium">
+                          <strong>Rejection Reason:</strong> {item.rejectionReason || (item as any).aiBanReason}
+                        </div>
+                      )}
                     </div>
 
                     <div className="p-3 bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl text-xs space-y-1">
@@ -615,11 +620,15 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                       </button>
                       <button
                         onClick={() => setSelectedListingForEdit(item)}
-                        className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 shadow-xs border border-emerald-600"
-                        title="Edit Property & Pricing"
+                        className={`flex-1 py-2 font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 shadow-xs border ${
+                          item.status === 'rejected' || item.verificationStatus === 'rejected'
+                            ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-600'
+                            : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600'
+                        }`}
+                        title={item.status === 'rejected' || item.verificationStatus === 'rejected' ? 'Correct & Resubmit for Verification' : 'Edit Property & Pricing'}
                       >
                         <Edit3 className="w-3.5 h-3.5" />
-                        <span>Edit</span>
+                        <span>{item.status === 'rejected' || item.verificationStatus === 'rejected' ? 'Correct & Resubmit' : 'Edit'}</span>
                       </button>
                     </div>
                   </div>
