@@ -55,7 +55,14 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
           setIsChecking(true);
           try {
             if (tokenHash && type) {
-              await applyActionCode(auth, tokenHash, type);
+              const { error: otpError } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as any });
+              if (otpError) {
+                try {
+                  await applyActionCode(auth, tokenHash, type);
+                } catch (_) {
+                  throw otpError;
+                }
+              }
             } else if (code) {
               const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
               if (error) throw error;
@@ -213,7 +220,7 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
     }
   };
 
-  // Resend Verification Link Handler
+  // Resend Verification Link Handler (Rate limited with server cooldown)
   const handleResendLink = async () => {
     if (resendCooldown > 0 || isResending) return;
 
@@ -221,32 +228,50 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
     setNoticeMessage(null);
 
     try {
-      if (auth.currentUser) {
-        await sendEmailVerification(auth.currentUser, getActionCodeSettings());
-        setResendCooldown(60); // 60s cooldown
-        setNoticeMessage({
-          text: `A fresh verification link has been sent to ${displayEmail}. Please check your inbox and spam folder.`,
-          type: 'info'
-        });
-      } else {
-        setNoticeMessage({
-          text: "No active session. Please sign in to request a verification email.",
-          type: 'error'
-        });
+      // 1. Call server rate-limited endpoint (enforces 60-second cooldown on server)
+      const res = await fetch('/api/auth/resend-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: displayEmail }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 429) {
+          const waitTime = data.retryAfterSeconds || 60;
+          setResendCooldown(waitTime);
+          setNoticeMessage({
+            text: data.message || `Please wait ${waitTime} seconds before requesting another verification email.`,
+            type: 'error'
+          });
+          return;
+        }
+        throw new Error(data.message || data.error || 'Could not resend verification email.');
       }
+
+      // Also call Supabase auth resend from client if email is present
+      if (displayEmail && displayEmail.includes('@')) {
+        await supabase.auth.resend({
+          type: 'signup',
+          email: displayEmail,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/confirmed`
+          }
+        }).catch((sbErr) => console.warn('Supabase client resend note:', sbErr));
+      }
+
+      setResendCooldown(60); // 60s cooldown
+      setNoticeMessage({
+        text: `A fresh verification link has been sent to ${displayEmail}. Please check your inbox and spam folder.`,
+        type: 'info'
+      });
     } catch (err: any) {
       console.error("Resend verification email error:", err);
-      if (err?.code === 'auth/too-many-requests') {
-        setNoticeMessage({
-          text: "Too many verification requests. Please wait a moment before trying again.",
-          type: 'error'
-        });
-      } else {
-        setNoticeMessage({
-          text: err?.message || "Could not resend verification email. Please try again.",
-          type: 'error'
-        });
-      }
+      setNoticeMessage({
+        text: err?.message || "Could not resend verification email. Please try again.",
+        type: 'error'
+      });
     } finally {
       setIsResending(false);
     }

@@ -37,6 +37,11 @@ const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
   '/admin/access': 'admin-dash',
   '/coming-soon': 'coming-soon',
   '/universities': 'universities',
+  '/auth/confirmed': 'onboarding',
+  '/auth/reset-password': 'onboarding',
+  '/auth/verify': 'onboarding',
+  '/reset-password': 'onboarding',
+  '/forgot-password': 'onboarding',
 };
 
 /**

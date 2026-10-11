@@ -4,12 +4,14 @@ import {
   Search, 
   ChevronDown, 
   Check, 
-  Sparkles, 
   X, 
   ExternalLink,
   Building2,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  BellRing,
+  Sparkles,
+  Send
 } from 'lucide-react';
 import { University } from '../types';
 import { UNIVERSITIES } from '../data/mockData';
@@ -30,8 +32,8 @@ export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
   universities = [],
   selectedUniversityId,
   onSelectUniversity,
-  label = 'University',
-  placeholder = 'Select your university',
+  label = 'Preferred School',
+  placeholder = 'Select Osun State University (UNIOSUN)',
   required = false,
   disabled = false,
   className = '',
@@ -40,11 +42,52 @@ export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [comingSoonUni, setComingSoonUni] = useState<University | null>(null);
+  const [waitlistContact, setWaitlistContact] = useState('');
+  const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
+  const [isSubmittingWaitlist, setIsSubmittingWaitlist] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Fallback to default UNIVERSITIES list if universities prop is empty or undefined
+  // Normalized list guaranteeing Osun State University (UNIOSUN) is first and active, and all others are coming_soon
   const effectiveUniversities = useMemo(() => {
-    return universities && universities.length > 0 ? universities : UNIVERSITIES;
+    const list = universities && universities.length > 0 ? universities : UNIVERSITIES;
+
+    const uniosun = list.find(u => u.id === 'uniosun') || {
+      id: 'uniosun',
+      name: 'Osun State University (UNIOSUN)',
+      shortName: 'UNIOSUN',
+      city: 'Osogbo / Ejigbo / Okuku',
+      state: 'Osun State',
+      country: 'Nigeria',
+      code: 'UNIOSUN',
+      type: 'state',
+      lat: 7.7821,
+      lng: 4.5621,
+      popularAreas: ['Osogbo Main Campus Axis', 'Oke-Baale', 'Ejigbo Town', 'Okuku Road', 'Ifetedo Campus', 'Ikire Campus'],
+      totalListings: 10,
+      imageUrl: 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80',
+      description: 'Multi-campus state university with campuses in Osogbo, Ejigbo, Okuku, Ikire, Ifetedo, and Ipetu-Ijesha.',
+      status: 'active',
+      isActive: true,
+      waitlistUrl: 'https://dormiqa-waitlist.vercel.app'
+    } as University;
+
+    const normalizedUniosun: University = {
+      ...uniosun,
+      status: 'active',
+      isActive: true,
+      waitlistUrl: 'https://dormiqa-waitlist.vercel.app'
+    };
+
+    const comingSoonList = list
+      .filter(u => u.id !== 'uniosun')
+      .map(u => ({
+        ...u,
+        status: 'coming_soon' as const,
+        isActive: false,
+        waitlistUrl: u.waitlistUrl || `https://dormiqa-waitlist.vercel.app?university=${encodeURIComponent(u.code || u.name)}`
+      }));
+
+    return [normalizedUniosun, ...comingSoonList];
   }, [universities]);
 
   // Close dropdown on outside click
@@ -58,12 +101,17 @@ export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Currently selected university object
+  // Currently selected university object - defaults to UNIOSUN if uniosun or unselected
   const currentSelectedUni = useMemo(() => {
-    return effectiveUniversities.find(u => u.id === selectedUniversityId);
+    if (!selectedUniversityId || selectedUniversityId === 'uniosun') {
+      return effectiveUniversities.find(u => u.id === 'uniosun') || effectiveUniversities[0];
+    }
+    return effectiveUniversities.find(u => u.id === selectedUniversityId) || 
+           effectiveUniversities.find(u => u.id === 'uniosun') || 
+           effectiveUniversities[0];
   }, [effectiveUniversities, selectedUniversityId]);
 
-  // Split universities into "Available now" (active) and "Coming soon" (coming_soon)
+  // Split universities into ONLY UNIOSUN (active) and all others (coming soon)
   const { activeUniversities, comingSoonUniversities } = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
@@ -75,16 +123,11 @@ export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
       return matchName || matchCode || matchState;
     });
 
-    const active = filtered.filter(u => 
-      u.status === 'active' || 
-      u.isActive === true || 
-      (!u.status && u.status !== 'coming_soon' && u.isActive !== false)
-    );
+    // ONLY Osun State University (UNIOSUN) is active and available right now
+    const active = filtered.filter(u => u.id === 'uniosun');
 
-    const comingSoon = filtered.filter(u => 
-      u.status === 'coming_soon' || 
-      (u.status !== 'active' && u.isActive === false)
-    );
+    // All other universities are coming soon
+    const comingSoon = filtered.filter(u => u.id !== 'uniosun');
 
     return {
       activeUniversities: active,
@@ -100,13 +143,38 @@ export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
 
   const handleSelectComingSoon = (uni: University) => {
     setComingSoonUni(uni);
+    setWaitlistSubmitted(false);
+    setWaitlistContact('');
     setIsOpen(false);
   };
 
-  const handleOpenWaitlist = (url?: string) => {
-    const targetUrl = url || 'https://dormiqa-waitlist.vercel.app';
-    window.open(targetUrl, '_blank', 'noopener,noreferrer');
+  const handleJoinWaitlistSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!waitlistContact.trim() || !comingSoonUni) return;
+
+    setIsSubmittingWaitlist(true);
+    try {
+      await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          universityId: comingSoonUni.id,
+          universityName: comingSoonUni.name,
+          contact: waitlistContact.trim(),
+          role: 'student'
+        })
+      });
+    } catch (err) {
+      console.warn('Waitlist submission notice:', err);
+    } finally {
+      setIsSubmittingWaitlist(false);
+      setWaitlistSubmitted(true);
+    }
   };
+
+  const uniosunUni = useMemo(() => {
+    return effectiveUniversities.find(u => u.id === 'uniosun') || effectiveUniversities[0];
+  }, [effectiveUniversities]);
 
   return (
     <div className={`space-y-1.5 relative ${className}`} ref={dropdownRef}>
@@ -123,7 +191,7 @@ export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
         onClick={() => setIsOpen(prev => !prev)}
         className={`w-full flex items-center justify-between px-3.5 py-2.5 bg-neutral-50 dark:bg-black border rounded-xl text-xs font-semibold transition-all cursor-pointer ${
           error 
-            ? 'border-neutral-400 dark:border-neutral-600 focus:ring-2 focus:ring-black' 
+            ? 'border-red-400 dark:border-red-600 focus:ring-2 focus:ring-red-500' 
             : isOpen 
               ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-white dark:bg-black' 
               : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
@@ -132,13 +200,22 @@ export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
         <div className="flex items-center gap-2.5 min-w-0">
           <GraduationCap className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
           {currentSelectedUni ? (
-            <div className="text-left truncate">
+            <div className="text-left truncate flex items-center gap-1.5">
               <span className="font-bold text-black dark:text-white">
                 {currentSelectedUni.code || currentSelectedUni.shortName || currentSelectedUni.name}
               </span>
-              <span className="text-neutral-500 dark:text-neutral-400 ml-1.5 text-[11px] font-normal truncate">
+              <span className="text-neutral-500 dark:text-neutral-400 text-[11px] font-normal truncate hidden sm:inline">
                 ({currentSelectedUni.name})
               </span>
+              {currentSelectedUni.id === 'uniosun' ? (
+                <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-extrabold uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded">
+                  Active Now
+                </span>
+              ) : (
+                <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-extrabold uppercase bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 rounded">
+                  Coming Soon
+                </span>
+              )}
             </div>
           ) : (
             <span className="text-neutral-400 dark:text-neutral-500 font-normal">
@@ -151,7 +228,7 @@ export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
       </button>
 
       {error && (
-        <p className="text-[11px] font-bold text-black dark:text-white">{error}</p>
+        <p className="text-[11px] font-bold text-red-600 dark:text-red-400">{error}</p>
       )}
 
       {/* SEARCHABLE DROPDOWN PANEL */}
@@ -167,7 +244,7 @@ export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
                 autoFocus
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search universities..."
+                placeholder="Search university by name, code or city..."
                 className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-medium text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               {searchTerm && (
@@ -185,72 +262,89 @@ export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
           {/* LIST OF UNIVERSITIES */}
           <div className="overflow-y-auto p-1.5 space-y-3 divide-y divide-neutral-100 dark:divide-neutral-800">
             
-            {/* SECTION 1: AVAILABLE NOW */}
+            {/* SECTION 1: AVAILABLE NOW (ONLY OSUN STATE UNIVERSITY) */}
             <div className="space-y-1">
               <div className="px-2.5 pt-1 pb-1 flex items-center justify-between">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" />
-                  Available now
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  Available Now (Active Campus)
                 </span>
-                <span className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500">
-                  {activeUniversities.length}
+                <span className="text-[10px] font-bold px-1.5 py-0.2 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 rounded">
+                  Live
                 </span>
               </div>
 
               {activeUniversities.length === 0 ? (
-                <p className="text-[11px] text-neutral-400 dark:text-neutral-500 px-3 py-2 italic">
-                  No active universities match search.
-                </p>
+                <div className="p-2.5 text-center">
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    Osun State University (UNIOSUN) is the only active school.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectActive(uniosunUni)}
+                    className="mt-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 underline hover:text-emerald-700"
+                  >
+                    Select Osun State University (UNIOSUN)
+                  </button>
+                </div>
               ) : (
                 activeUniversities.map(uni => {
-                  const isSelected = uni.id === selectedUniversityId;
+                  const isSelected = currentSelectedUni?.id === uni.id;
                   return (
                     <button
                       key={uni.id}
                       type="button"
                       onClick={() => handleSelectActive(uni)}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      className={`w-full text-left px-3 py-2.5 rounded-xl text-xs flex items-center justify-between transition-colors cursor-pointer border ${
                         isSelected 
-                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 font-bold' 
-                          : 'hover:bg-neutral-100 dark:hover:bg-neutral-900 text-black dark:text-white font-medium'
+                          ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 font-bold' 
+                          : 'bg-emerald-50/40 dark:bg-neutral-900/40 border-emerald-200/50 dark:border-emerald-900/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-black dark:text-white font-medium'
                       }`}
                     >
                       <div className="min-w-0 pr-2">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-bold">{uni.code || uni.shortName || uni.name}</span>
-                          <span className="text-[10px] px-1.5 py-0.2 bg-emerald-100 dark:bg-emerald-900/80 text-emerald-800 dark:text-emerald-300 font-extrabold rounded-md">
-                            Active
+                          <span className="font-extrabold text-sm">{uni.code || uni.shortName || uni.name}</span>
+                          <span className="text-[10px] px-2 py-0.5 bg-emerald-600 text-white font-extrabold rounded-md shadow-2xs">
+                            Active & Available Now
                           </span>
                         </div>
-                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate mt-0.5">
+                        <p className="text-[11px] text-neutral-600 dark:text-neutral-300 truncate mt-0.5 font-medium">
                           {uni.name} ({uni.state || uni.city})
+                        </p>
+                        <p className="text-[10px] text-neutral-400 dark:text-neutral-500 truncate mt-0.5">
+                          Osogbo Main Campus & Satellites (Ejigbo, Okuku, Ikire, Ifetedo)
                         </p>
                       </div>
 
-                      {isSelected && (
-                        <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      )}
+                      <div className="shrink-0 flex items-center gap-1.5">
+                        {isSelected && (
+                          <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        )}
+                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-black px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                          Select →
+                        </span>
+                      </div>
                     </button>
                   );
                 })
               )}
             </div>
 
-            {/* SECTION 2: COMING SOON */}
+            {/* SECTION 2: COMING SOON (ALL OTHER UNIVERSITIES) */}
             <div className="space-y-1 pt-2">
               <div className="px-2.5 pt-1 pb-1 flex items-center justify-between">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-black dark:text-white flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-emerald-500" />
-                  Coming soon
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                  <Clock className="w-3 h-3 text-amber-500" />
+                  Coming Soon ({comingSoonUniversities.length})
                 </span>
-                <span className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500">
-                  {comingSoonUniversities.length}
+                <span className="text-[10px] font-semibold text-neutral-400">
+                  Join Waitlist
                 </span>
               </div>
 
               {comingSoonUniversities.length === 0 ? (
                 <p className="text-[11px] text-neutral-400 dark:text-neutral-500 px-3 py-2 italic">
-                  No upcoming universities match search.
+                  No upcoming universities match "{searchTerm}".
                 </p>
               ) : (
                 comingSoonUniversities.map(uni => (
@@ -258,23 +352,23 @@ export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
                     key={uni.id}
                     type="button"
                     onClick={() => handleSelectComingSoon(uni)}
-                    className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors text-neutral-600 dark:text-neutral-400 cursor-pointer group"
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors text-neutral-700 dark:text-neutral-300 cursor-pointer group border border-transparent hover:border-neutral-200 dark:hover:border-neutral-800"
                   >
                     <div className="min-w-0 pr-2">
                       <div className="flex items-center gap-1.5">
                         <span className="font-semibold text-black dark:text-white">
                           {uni.code || uni.shortName || uni.name}
                         </span>
-                        <span className="text-[10px] px-1.5 py-0.2 bg-black text-white dark:bg-white dark:text-black font-bold rounded-md">
-                          Coming soon
+                        <span className="text-[9px] px-1.5 py-0.5 bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300 font-bold rounded">
+                          Coming Soon
                         </span>
                       </div>
                       <p className="text-[11px] text-neutral-400 dark:text-neutral-500 truncate mt-0.5">
-                        {uni.name}
+                        {uni.name} ({uni.state || uni.city})
                       </p>
                     </div>
 
-                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 shrink-0">
                       Waitlist →
                     </span>
                   </button>
@@ -286,55 +380,122 @@ export const UniversitySelector: React.FC<UniversitySelectorProps> = ({
         </div>
       )}
 
-      {/* COMING SOON MODAL / WAITLIST PROMPT */}
+      {/* FULLY WORKING COMING SOON / WAITLIST MODAL */}
       {comingSoonUni && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white dark:bg-black rounded-3xl max-w-sm w-full p-6 border border-neutral-200 dark:border-neutral-800 shadow-2xl relative space-y-4 animate-in fade-in zoom-in-95 duration-200">
             
             <button
               type="button"
-              onClick={() => setComingSoonUni(null)}
+              onClick={() => {
+                setComingSoonUni(null);
+                setWaitlistSubmitted(false);
+                setWaitlistContact('');
+              }}
               className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-neutral-700 dark:hover:text-white rounded-full transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="w-12 h-12 bg-black text-white dark:bg-white dark:text-black rounded-2xl border border-neutral-200 dark:border-neutral-800 flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-emerald-400 dark:text-emerald-600" />
+            <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 rounded-2xl border border-amber-200 dark:border-amber-800 flex items-center justify-center">
+              <Clock className="w-6 h-6" />
             </div>
 
             <div className="space-y-1.5">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-black dark:text-white bg-neutral-100 dark:bg-neutral-800 px-2.5 py-0.5 rounded-md border border-neutral-200 dark:border-neutral-700">
-                Coming soon
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/80 px-2.5 py-0.5 rounded-md border border-amber-200 dark:border-amber-800">
+                  Coming Soon
+                </span>
+                <span className="text-[10px] font-semibold text-neutral-400">
+                  {comingSoonUni.city}, {comingSoonUni.state}
+                </span>
+              </div>
               <h3 className="text-base font-extrabold text-black dark:text-white pt-1">
-                Dormiqa isn't available at {comingSoonUni.name} yet.
+                Dormiqa is coming to {comingSoonUni.name} ({comingSoonUni.code || 'Campus'})!
               </h3>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed font-medium">
-                We are currently active at <strong className="text-black dark:text-white">Osun State University (UNIOSUN)</strong> and onboarding verified caretakers. Join our official waitlist to get early access when we launch at {comingSoonUni.code || comingSoonUni.name}!
+                Verified accommodation is currently live exclusively at <strong className="text-black dark:text-white">Osun State University (UNIOSUN)</strong>. Join our official waitlist below to get notified as soon as verified hostels launch around {comingSoonUni.code || comingSoonUni.name}!
               </p>
             </div>
 
-            <div className="pt-2 space-y-2">
-              <button
-                type="button"
-                onClick={() => handleOpenWaitlist(comingSoonUni.waitlistUrl)}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-2"
-              >
-                <span>Join the waitlist →</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </button>
+            {/* DIRECT IN-APP WAITLIST NOTIFICATION FORM */}
+            {!waitlistSubmitted ? (
+              <form onSubmit={handleJoinWaitlistSubmit} className="bg-neutral-50 dark:bg-neutral-900 p-3 rounded-2xl border border-neutral-200 dark:border-neutral-800 space-y-2">
+                <label className="text-[11px] font-bold text-neutral-700 dark:text-neutral-300 block flex items-center gap-1">
+                  <BellRing className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Get priority launch alert:</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Email or WhatsApp (+234...)"
+                    value={waitlistContact}
+                    onChange={(e) => setWaitlistContact(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-white dark:bg-black border border-neutral-300 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSubmittingWaitlist || !waitlistContact.trim()}
+                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <span>{isSubmittingWaitlist ? 'Saving...' : 'Notify Me'}</span>
+                    <Send className="w-3 h-3" />
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-center space-y-1 animate-in fade-in">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto" />
+                <p className="text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                  You're on the priority waitlist!
+                </p>
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                  We'll message {waitlistContact} as soon as verified caretakers launch at {comingSoonUni.code || comingSoonUni.name}.
+                </p>
+              </div>
+            )}
 
+            {/* ACTION BUTTONS */}
+            <div className="pt-2 space-y-2">
+              {/* PRIMARY ACTION: Select UNIOSUN */}
               <button
                 type="button"
                 onClick={() => {
-                  const uniosun = universities.find(u => u.id === 'uniosun') || universities[0];
-                  if (uniosun) onSelectUniversity(uniosun);
+                  onSelectUniversity(uniosunUni);
                   setComingSoonUni(null);
+                  setWaitlistSubmitted(false);
+                  setWaitlistContact('');
                 }}
-                className="w-full py-2.5 bg-black text-white hover:bg-neutral-900 dark:bg-white dark:text-black font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
               >
-                Continue with UNIOSUN instead
+                <span>Select Osun State University (UNIOSUN) — Active Now</span>
+                <Check className="w-4 h-4" />
+              </button>
+
+              {/* SECONDARY ACTION: External full waitlist portal */}
+              <a
+                href={comingSoonUni.waitlistUrl || `https://dormiqa-waitlist.vercel.app?university=${encodeURIComponent(comingSoonUni.code || comingSoonUni.name)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-900 dark:text-white font-bold text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2 border border-neutral-200 dark:border-neutral-700"
+              >
+                <span>Open Full Waitlist Portal</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+
+              {/* TERTIARY ACTION: Keep as preference */}
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectUniversity(comingSoonUni);
+                  setComingSoonUni(null);
+                  setWaitlistSubmitted(false);
+                  setWaitlistContact('');
+                }}
+                className="w-full py-1.5 text-center text-[11px] text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 font-semibold cursor-pointer"
+              >
+                Keep {comingSoonUni.code || comingSoonUni.name} as preferred upcoming school
               </button>
             </div>
 

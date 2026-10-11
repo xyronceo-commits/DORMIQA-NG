@@ -1,30 +1,45 @@
-# Dormiqa — Verified Off-Campus Student Accommodation Platform
+# Dormiqa Nigeria — Verified Student Accommodation Platform
 
 <p align="center">
   <img src="/public/dormiqa-logo.svg" alt="Dormiqa Logo" width="180" />
 </p>
 
-**Dormiqa** is Africa’s leading digital marketplace technology platform connecting tertiary institution students directly with verified property hosts, estate caretakers, and landlords near university campus gates.
+**Dormiqa** is Nigeria's dedicated digital student housing marketplace connecting tertiary institution students directly with verified property hosts, estate caretakers, and landlords near campus gates.
 
 ---
 
-## 🌟 Overview & Core Value Proposition
+## 🌟 Overview & Active Launch Strategy
 
-Finding safe, affordable, and honest off-campus housing near African university gates has historically been fraught with fake listings, unverified middle-men, extortionate viewing fees, and lack of transparency.
+### 🟢 Active Launch Campus: Osun State University (UNIOSUN)
+**Osun State University (UNIOSUN) is currently the ONLY active, live, and fully available school on Dormiqa.**
+- Verified lodges and hostels are actively listed across all UNIOSUN campus towns: **Osogbo Main Campus**, **Ejigbo**, **Okuku**, **Ikire**, **Ifetedo**, and **Ipetu-Ijesha**.
+- Physical lodge inspection scheduling with verified caretakers is live.
+- Real-time chat and student-caretaker messaging is operational.
 
-**Dormiqa transforms student accommodation hunting into a seamless, transparent experience.** By combining verified agent credentials, precise campus gate walking distance calculations, and scheduled physical inspection tools, Dormiqa empowers students to secure ideal lodges with total peace of mind.
+### 🟡 Comprehensive Public Institutions Directory (184 Institutions — Coming Soon)
+In strict compliance with our national institutional policy, Dormiqa cataloged **all Nigerian public tertiary institutions** excluding private universities:
+- **53 Federal Universities** (UNILAG, UI, OAU, UNIBEN, UNN, ABU, FUTA, FUTMINNA, UNILORIN, etc.)
+- **63 State Universities** (UNIOSUN [ACTIVE], LASU, OOU, EKSU, KWASU, DELSU, PLASU, etc.)
+- **40 Federal Polytechnics** (Yaba College of Technology, Federal Poly Ilaro, Ado-Ekiti, Ede, Nekede, etc.)
+- **20 State Polytechnics** (The Polytechnic Ibadan, Lagos State Poly/LASUSTECH, Osun State Poly Iree, etc.)
+- **8 Public Colleges of Education / Specialized Institutes** (Federal College of Education Akoka, Osun State College of Education Ilesa, etc.)
+- **ZERO PRIVATE UNIVERSITIES** are listed on Dormiqa.
 
-> **CRITICAL LEGAL NOTICE:** Dormiqa operates strictly as a technology intermediary platform and venue. Dormiqa does **not** own, rent, manage, or process payments for accommodation. All tenancy agreements, house inspections, and rent payments are executed directly between the student and the verified agent or landlord.
+All 183 upcoming institutions feature an integrated **Priority Campus Waitlist Modal**:
+- Instant in-app email or WhatsApp notification registration (`/api/waitlist`).
+- External waitlist portal integration.
+- Direct quick-switch option to select UNIOSUN to proceed with an active account immediately.
 
 ---
 
-## 🚀 Key Features & Capabilities
+## 🚀 Key Features & Student Experience
 
 ### 🎓 For University Students
-- **Campus Gate Walking Radius Search:** Filter hostels and self-contain apartments by walking minutes directly to specific university gates (e.g. UNILAG Main Gate, OAU Asherifa Gate, UI Sub Gate).
+- **"Preferred School" Selector:** Clean, intuitive searchable dropdown highlighting Osun State University (UNIOSUN) under **"Available Now (Active Campus)"** with distinct green status badges. Upcoming schools are grouped under **"Coming Soon"** with instant waitlist prompts.
+- **Campus Gate Walking Radius Search:** Filter student hostels and self-contain units by walking minutes (e.g. within 5, 8, or 10 minutes to campus gates).
 - **100% Free Physical Inspection Scheduling:** Pick preferred dates and times to view lodges in-person with verified caretakers without paying advance viewing fees.
-- **In-App Verified Messaging & Chat:** Communicate directly with agents and schedule viewings securely.
-- **AI Housing Assistant (Gemini-Powered):** Ask natural language queries like *"Find me a self-contain under ₦400,000 within 10 mins walk to UNILAG gate with 24/7 power."*
+- **In-App Verified Messaging & Chat:** Communicate directly with hosts and schedule viewings securely.
+- **AI Housing Assistant (Gemini-Powered):** Ask natural language queries for room recommendations and amenities.
 - **Roommate Matching Engine:** Connect with verified fellow students searching for roommates to share accommodation costs safely.
 - **Saved Favorites & Listing Comparison:** Benchmark price breakdowns, caution fees, and amenities across multiple lodges.
 
@@ -38,101 +53,75 @@ Finding safe, affordable, and honest off-campus housing near African university 
 - **Terms & Conditions:** Full intermediary platform agreement compliant with Nigerian law.
 - **Privacy Policy:** Data protection framework aligned with NDPA & NDPR guidelines.
 - **Anti-Fraud & Anti-Extortion Policy:** Clear guidelines protecting students from advance-fee scams.
-- **Complete Information Center:** Dedicated, searchable documentation hub for Terms, Privacy, Cookie Policy, Acceptable Use, Agent/Student Terms, Disclaimers, Verification Standards, and Help Center FAQs.
+- **Complete Information Center:** Dedicated documentation hub for Terms, Privacy, Cookie Policy, Acceptable Use, Agent/Student Terms, Disclaimers, Verification Standards, and Help Center FAQs.
 
 ---
 
 ## 🛠️ Technology Stack & Architecture
 
+- **Backend & Database:** **Supabase** (PostgreSQL, Supabase Auth, Storage, and Realtime) running in production.
 - **Frontend Framework:** React 18 with TypeScript & Vite
 - **Styling:** Tailwind CSS with fluid responsive layouts
 - **Icons:** Lucide React
-- **Backend & Server:** Express.js + Vite Development Middleware (`server.ts`)
-- **Database & Persistence:** Supabase Auth, PostgreSQL JSONB documents, Realtime, and Storage
-- **AI Integration:** Google Gemini API (`@google/genai`) for natural language student search and AI housing assistance
-- **Build & Bundle:** `esbuild` for production CommonJS bundle (`dist/server.cjs`)
+- **Server:** Express.js + Vite Development Middleware (`server.ts`)
+- **API Endpoints:**
+  - `GET /api/universities` — Serves the clean registry of 184 public institutions with UNIOSUN marked as active.
+  - `POST /api/waitlist` — Registers student/agent campus launch alert notifications.
+  - `GET /api/listings` — Filters active listings by university, price, property type, and walk duration.
+  - `POST /api/auth/*` — Manages authentication and verification flows through Supabase.
 
 ---
 
-## 📂 Directory Structure
+## 📂 Key File Map
 
 ```
-├── public/
-│   ├── favicon.svg             # Official Dormiqa map pin roof logo
-│   └── dormiqa-logo.svg        # Dormiqa logo with brand typography
 ├── src/
-│   ├── App.tsx                 # Core App component & layout router
-│   ├── main.tsx                # React DOM entrypoint
-│   ├── index.css               # Global Tailwind CSS imports
 │   ├── components/
-│   │   ├── Navbar.tsx          # Campus switcher, role badge & header
-│   │   ├── Footer.tsx          # Multi-column footer with legal doc links
-│   │   ├── LandingPage.tsx     # Hero section, walking radius search & university selector
-│   │   ├── InfoPagesModal.tsx  # Modal viewer for all 20+ legal & info documents
-│   │   ├── StudentDashboard.tsx# Student inspections, saved lodges & roommate finder
-│   │   ├── AgentDashboard.tsx  # Host property manager, appointment calendar & listings
-│   │   ├── AdminDashboard.tsx  # Trust & safety moderation, agent NIN/CAC verifications
-│   │   ├── AIChatbotWidget.tsx # AI student housing assistant drawer
+│   │   ├── UniversitySelector.tsx   # Searchable preferred school dropdown with UNIOSUN active & coming-soon waitlist
+│   │   ├── OnboardingPage.tsx       # Student & Agent signup/signin flow with school validation
+│   │   ├── ComingSoonPage.tsx       # Standalone upcoming campus waitlist screen with quick switch to UNIOSUN
+│   │   ├── UniversitiesPage.tsx     # Full directory of all 184 public higher institutions
+│   │   ├── StudentDiscoverPage.tsx  # Student hostel discovery & campus gate filter
 │   │   └── ...
 │   ├── data/
-│   │   ├── infoPagesData.ts    # Comprehensive legal docs, terms, policies & FAQs
-│   │   └── mockData.ts         # University campuses, verified listings & agents
-│   └── types.ts                # TypeScript interfaces & types
-├── server.ts                   # Express server entry point
-├── package.json                # Project dependencies & npm scripts
-├── vite.config.ts              # Vite configuration
-└── README.md                   # Project documentation
+│   │   ├── publicUniversities.ts    # 184 Nigerian public institutions (zero private universities)
+│   │   └── mockData.ts              # Active UNIOSUN lodge listings & campus data
+│   ├── services/
+│   │   ├── supabase.ts              # Official Supabase client configuration
+│   │   └── api.ts                   # Client-side API service with cache deduplication
+│   └── types.ts                     # TypeScript data contracts & interfaces
+├── server.ts                        # Express server entry point & REST API routes
+├── supabase/
+│   └── migrations/                  # SQL migration scripts for Supabase tables & RLS policies
+└── README.md                        # Platform documentation & architectural specification
 ```
 
 ---
 
-## 🏁 Getting Started & Development
+## 🏁 Development & Local Setup
 
-### Prerequisites
-- Node.js 18+ or Bun
-- npm or yarn package manager
+### 1. Environment Variables
+Ensure the following variables are configured in your environment or `.env`:
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-server-only-service-role-key
+GEMINI_API_KEY=your_gemini_api_key_here
+```
 
-### Local Installation
-1. **Clone repository:**
-   ```bash
-   git clone https://github.com/dormiqa/dormiqa-applet.git
-   cd dormiqa-applet
-   ```
+### 2. Run the Development Server
+```bash
+npm run dev
+```
+The application runs on `http://localhost:3000`.
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-3. **Configure Environment Variables:**
-   Create a `.env` file based on `.env.example`:
-   ```env
-   VITE_SUPABASE_URL=https://your-project.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-   SUPABASE_URL=https://your-project.supabase.co
-   SUPABASE_ANON_KEY=your-supabase-anon-key
-   SUPABASE_SERVICE_ROLE_KEY=your-server-only-service-role-key
-   GEMINI_API_KEY=your_gemini_api_key_here
-   ```
-   The service-role key must remain server-only and must never use a `VITE_` prefix.
-
-4. **Create the Supabase schema:** Run [`supabase/migrations/202609300001_app_documents.sql`](supabase/migrations/202609300001_app_documents.sql) in the Supabase SQL Editor. Configure Google as an enabled provider under Supabase Authentication, and add your local and deployed app URLs to the redirect allow list.
-
-5. **Run Development Server:**
-   ```bash
-   npm run dev
-   ```
-   The application will be accessible at `http://localhost:3000`.
-
-6. **Build for Production:**
-   ```bash
-   npm run build
-   ```
-
-7. **Start Production Server:**
-   ```bash
-   npm run start
-   ```
+### 3. Build & Verify
+```bash
+npm run build
+npm run lint
+```
 
 ---
 
@@ -140,4 +129,5 @@ Finding safe, affordable, and honest off-campus housing near African university 
 
 © 2026 Dormiqa Technologies Limited. All rights reserved.
 Dormiqa is a registered trademark under the Federal Republic of Nigeria.
+Operates strictly as a technology intermediary platform under Nigerian commercial law.
 

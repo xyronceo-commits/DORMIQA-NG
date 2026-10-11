@@ -1,0 +1,31 @@
+# Supabase configuration for Dormiqa
+
+[auth]
+enabled = true
+site_url = "https://dormiqa.com"
+additional_redirect_urls = [
+  "http://localhost:3000",
+  "http://localhost:3000/auth/confirmed",
+  "http://localhost:3000/auth/reset-password",
+  "https://dormiqa.com/auth/confirmed",
+  "https://dormiqa.com/auth/reset-password",
+  "https://ais-pre-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app",
+  "https://ais-pre-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app/auth/confirmed",
+  "https://ais-pre-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app/auth/reset-password"
+]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+otp_expiry = 3600
+
+[auth.email.template.confirmation]
+subject = "Confirm your Dormiqa email address"
+content_path = "./supabase/templates/confirm-signup.html"
+
+[auth.email.template.recovery]
+subject = "Reset your Dormiqa password"
+content_path = "./supabase/templates/reset-password.html"

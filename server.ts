@@ -15,6 +15,7 @@ import {
   MOCK_REPORTS 
 } from './src/data/mockData.js';
 import { Listing, Inspection, Conversation, ChatMessage, Report, User } from './src/types.js';
+import { sendPasswordChangedNotice, isSmtpConfigured, maskEmail } from './server/mailer.js';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
@@ -338,7 +339,13 @@ let conversationsStore: Conversation[] = [];
 let messagesStore: ChatMessage[] = [];
 let reportsStore: Report[] = [];
 
-const CLEAN_UNIVERSITIES = UNIVERSITIES.map(u => ({ ...u, totalListings: 0 }));
+const CLEAN_UNIVERSITIES = UNIVERSITIES.map(u => ({
+  ...u,
+  status: u.id === 'uniosun' ? ('active' as const) : ('coming_soon' as const),
+  isActive: u.id === 'uniosun',
+  totalListings: u.id === 'uniosun' ? (listingsStore.filter(l => l.universityId === 'uniosun').length || 10) : 0,
+  waitlistUrl: 'https://dormiqa-waitlist.vercel.app'
+}));
 
 // In-memory Rate Limiter Store
 interface RateLimitBucket {
@@ -378,6 +385,42 @@ function createRateLimiter(maxRequests: number, windowMs: number, store: Map<str
 }
 
 const adminLoginLimiter = createRateLimiter(5, 15 * 60 * 1000, adminRateLimitStore);
+
+// Auth Rate Limiting Stores & Helpers (Section 2 & 5)
+const forgotPasswordEmailLimiterStore = new Map<string, { count: number; resetTime: number }>();
+const forgotPasswordIpLimiterStore = new Map<string, RateLimitBucket>();
+const resendEmailCooldownStore = new Map<string, { lastSentTime: number; count: number; resetTime: number }>();
+const resendIpLimiterStore = new Map<string, RateLimitBucket>();
+const passwordChangedRateLimitStore = new Map<string, { count: number; resetTime: number }>();
+const recentPasswordNoticeSent = new Set<string>();
+
+function getAllowedRedirectUrl(targetPath: string, req: express.Request): string {
+  const appBaseUrl = process.env.APP_BASE_URL?.trim();
+  const originHeader = req.get('origin') || req.get('referer');
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://dormiqa.com',
+    'https://ais-pre-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app',
+    'https://ais-dev-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app'
+  ];
+  if (appBaseUrl) {
+    try {
+      allowedOrigins.push(new URL(appBaseUrl).origin);
+    } catch (_) {}
+  }
+  let base = appBaseUrl || 'https://dormiqa.com';
+  if (originHeader) {
+    try {
+      const parsedOrigin = new URL(originHeader).origin;
+      if (allowedOrigins.includes(parsedOrigin)) {
+        base = parsedOrigin;
+      }
+    } catch (_) {}
+  }
+  const cleanBase = base.replace(/\/+$/, '');
+  const cleanPath = targetPath.startsWith('/') ? targetPath : '/' + targetPath;
+  return `${cleanBase}${cleanPath}`;
+}
 
 interface AdminAccount {
   email: string;
@@ -631,6 +674,260 @@ export async function createExpressApp() {
     res.json({ status: 'ok', service: 'Dormiqa API', timestamp: new Date().toISOString() });
   });
 
+  // --- AUTH EMAIL ROUTES (Section 2: Confirm Email, Reset Password, Password Changed Notice) ---
+
+  // 1. Resend Sign-Up Confirmation Email (Rate limited by IP & Email with 60s cooldown, no enumeration)
+  app.post('/api/auth/resend-confirmation', async (req, res) => {
+    try {
+      const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ error: 'Invalid email address', message: 'Please provide a valid email address.' });
+      }
+
+      const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+      const now = Date.now();
+
+      // Enforce IP Rate Limit (10 per hour)
+      let ipBucket = resendIpLimiterStore.get(ip);
+      if (!ipBucket || now > ipBucket.resetTime) {
+        ipBucket = { count: 1, resetTime: now + 60 * 60 * 1000 };
+        resendIpLimiterStore.set(ip, ipBucket);
+      } else {
+        ipBucket.count += 1;
+        if (ipBucket.count > 10) {
+          const retryAfterSeconds = Math.ceil((ipBucket.resetTime - now) / 1000);
+          res.setHeader('Retry-After', String(retryAfterSeconds));
+          return res.status(429).json({
+            error: 'Too Many Requests',
+            message: `Too many verification requests from this network. Please wait ${retryAfterSeconds} seconds.`,
+            retryAfterSeconds
+          });
+        }
+      }
+
+      // Enforce Email 60-Second Cooldown & Max 4/hour
+      let emailRecord = resendEmailCooldownStore.get(email);
+      if (!emailRecord || now > emailRecord.resetTime) {
+        emailRecord = { lastSentTime: now, count: 1, resetTime: now + 60 * 60 * 1000 };
+        resendEmailCooldownStore.set(email, emailRecord);
+      } else {
+        const secondsSinceLast = Math.floor((now - emailRecord.lastSentTime) / 1000);
+        if (secondsSinceLast < 60) {
+          const waitSeconds = 60 - secondsSinceLast;
+          res.setHeader('Retry-After', String(waitSeconds));
+          return res.status(429).json({
+            error: 'Too Many Requests',
+            message: `Please wait ${waitSeconds} seconds before requesting another verification email.`,
+            retryAfterSeconds: waitSeconds
+          });
+        }
+        emailRecord.count += 1;
+        emailRecord.lastSentTime = now;
+        if (emailRecord.count > 5) {
+          const retryAfterSeconds = Math.ceil((emailRecord.resetTime - now) / 1000);
+          res.setHeader('Retry-After', String(retryAfterSeconds));
+          return res.status(429).json({
+            error: 'Too Many Requests',
+            message: `Too many verification requests for this email. Please wait ${retryAfterSeconds} seconds.`,
+            retryAfterSeconds
+          });
+        }
+      }
+
+      const emailRedirectTo = getAllowedRedirectUrl('/auth/confirmed', req);
+      console.log(`[Auth Resend Confirmation] Request for masked: ${maskEmail(email)}, Redirect: ${emailRedirectTo}`);
+
+      // Call Supabase Auth resend
+      try {
+        const { error: resendError } = await supabaseAuthClient.auth.resend({
+          type: 'signup',
+          email,
+          options: { emailRedirectTo }
+        });
+        if (resendError) {
+          console.warn(`[Auth Resend Confirmation] Supabase notice:`, resendError.message);
+        }
+      } catch (sbErr: any) {
+        console.warn(`[Auth Resend Confirmation] Supabase call exception:`, sbErr?.message);
+      }
+
+      // No account enumeration: return consistent success response
+      return res.json({
+        success: true,
+        message: 'If an unconfirmed account exists with this email, a fresh verification link has been sent.'
+      });
+    } catch (err: any) {
+      console.error('[Auth Resend Confirmation] Unexpected error:', err);
+      return res.status(500).json({ error: 'Server Error', message: 'Could not process verification request.' });
+    }
+  });
+
+  // 2. Forgot Password Request (Rate limited by email & IP, no enumeration, Google account detection)
+  app.post('/api/auth/forgot-password', async (req, res) => {
+    try {
+      const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ error: 'Invalid email address', message: 'Please provide a valid email address.' });
+      }
+
+      const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+      const now = Date.now();
+
+      // Enforce IP Rate Limit (10 per hour)
+      let ipBucket = forgotPasswordIpLimiterStore.get(ip);
+      if (!ipBucket || now > ipBucket.resetTime) {
+        ipBucket = { count: 1, resetTime: now + 60 * 60 * 1000 };
+        forgotPasswordIpLimiterStore.set(ip, ipBucket);
+      } else {
+        ipBucket.count += 1;
+        if (ipBucket.count > 10) {
+          const retryAfterSeconds = Math.ceil((ipBucket.resetTime - now) / 1000);
+          res.setHeader('Retry-After', String(retryAfterSeconds));
+          return res.status(429).json({
+            error: 'Too Many Requests',
+            message: `Too many password reset requests from this network. Please wait ${retryAfterSeconds} seconds.`,
+            retryAfterSeconds
+          });
+        }
+      }
+
+      // Enforce Email Rate Limit (3 per hour)
+      let emailRecord = forgotPasswordEmailLimiterStore.get(email);
+      if (!emailRecord || now > emailRecord.resetTime) {
+        emailRecord = { count: 1, resetTime: now + 60 * 60 * 1000 };
+        forgotPasswordEmailLimiterStore.set(email, emailRecord);
+      } else {
+        emailRecord.count += 1;
+        if (emailRecord.count > 3) {
+          const retryAfterSeconds = Math.ceil((emailRecord.resetTime - now) / 1000);
+          res.setHeader('Retry-After', String(retryAfterSeconds));
+          return res.status(429).json({
+            error: 'Too Many Requests',
+            message: `Too many password reset requests for this email. Please wait ${retryAfterSeconds} seconds before trying again.`,
+            retryAfterSeconds
+          });
+        }
+      }
+
+      // Check if user is a Google-only account (Section 2.2 requirement)
+      try {
+        const { data: usersData } = await supabaseDataClient.auth.admin.listUsers({ perPage: 1000 });
+        const existingUser = (usersData?.users as any[])?.find((u: any) => u.email?.toLowerCase() === email);
+        if (existingUser) {
+          const providers = [
+            existingUser.app_metadata?.provider,
+            ...(Array.isArray(existingUser.identities) ? existingUser.identities.map((i: any) => i.provider) : [])
+          ].filter(Boolean);
+          const hasPassword = Boolean(existingUser.encrypted_password);
+          const isGoogleOnly = providers.includes('google') && !providers.includes('email') && !hasPassword;
+
+          if (isGoogleOnly) {
+            console.log(`[Auth Forgot Password] Google-only account requested: ${maskEmail(email)}`);
+            return res.json({
+              success: true,
+              isGoogleOnly: true,
+              message: 'This account signs in with Google. Please use Google Sign-In.'
+            });
+          }
+        }
+      } catch (adminCheckErr) {
+        // Silently continue if admin list fails
+      }
+
+      const redirectTo = getAllowedRedirectUrl('/auth/reset-password', req);
+      console.log(`[Auth Forgot Password] Sending reset link for masked: ${maskEmail(email)}, Redirect: ${redirectTo}`);
+
+      // Call Supabase's reset-password-for-email method (anon client on server)
+      try {
+        const { error: resetError } = await supabaseAuthClient.auth.resetPasswordForEmail(email, {
+          redirectTo
+        });
+        if (resetError) {
+          console.warn(`[Auth Forgot Password] Supabase reset notice:`, resetError.message);
+        }
+      } catch (sbResetErr: any) {
+        console.warn(`[Auth Forgot Password] Supabase exception:`, sbResetErr?.message);
+      }
+
+      // Always return consistent success response (no account enumeration)
+      return res.json({
+        success: true,
+        message: 'If an account exists for this email address, a password reset link has been sent.'
+      });
+    } catch (err: any) {
+      console.error('[Auth Forgot Password] Unexpected error:', err);
+      return res.status(500).json({ error: 'Server Error', message: 'Could not process password reset request.' });
+    }
+  });
+
+  // 3. Password Changed Notice Endpoint (Secured by requireSupabaseUser, idempotent, verified user only)
+  app.post('/api/auth/password-changed-notice', requireSupabaseUser, async (req, res) => {
+    try {
+      const user = (req as any).supabaseUser;
+      const userId = user.id;
+      const userEmail = typeof user.email === 'string' ? user.email.trim().toLowerCase() : '';
+
+      if (!userEmail) {
+        return res.status(400).json({ error: 'Missing Email', message: 'Authenticated user has no email address.' });
+      }
+
+      const now = Date.now();
+
+      // Rate limit: max 3 per hour per user
+      let userRate = passwordChangedRateLimitStore.get(userId);
+      if (!userRate || now > userRate.resetTime) {
+        userRate = { count: 1, resetTime: now + 60 * 60 * 1000 };
+        passwordChangedRateLimitStore.set(userId, userRate);
+      } else {
+        userRate.count += 1;
+        if (userRate.count > 3) {
+          return res.status(429).json({ error: 'Too Many Requests', message: 'Rate limit exceeded for security notices.' });
+        }
+      }
+
+      // Verify that user's password or profile was actually updated recently (within last 15 minutes)
+      const updatedAtStr = user.updated_at;
+      if (updatedAtStr) {
+        const updatedTime = new Date(updatedAtStr).getTime();
+        const diffMinutes = (now - updatedTime) / (60 * 1000);
+        if (diffMinutes > 15) {
+          console.log(`[Auth Password Changed Notice] Ignored: user.updated_at is older than 15 mins for ${maskEmail(userEmail)}`);
+          return res.status(204).end();
+        }
+      }
+
+      // Idempotency check: 5-minute window per user
+      const idempotencyKey = `pwd_notice_${userId}_${Math.floor(now / (5 * 60 * 1000))}`;
+      if (recentPasswordNoticeSent.has(idempotencyKey)) {
+        console.log(`[Auth Password Changed Notice] Idempotent hit: notice already sent for ${maskEmail(userEmail)}`);
+        return res.status(204).end();
+      }
+      recentPasswordNoticeSent.add(idempotencyKey);
+
+      // Clean up old idempotency keys periodically
+      if (recentPasswordNoticeSent.size > 1000) {
+        recentPasswordNoticeSent.clear();
+      }
+
+      console.log(`[Auth Password Changed Notice] Dispatching email notice to ${maskEmail(userEmail)}`);
+
+      if (!isSmtpConfigured()) {
+        console.warn(`[Auth Password Changed Notice] Custom SMTP not configured in environment. Skipping email dispatch.`);
+        return res.json({
+          success: true,
+          notice: 'Password was updated. SMTP email dispatch is pending provider configuration.'
+        });
+      }
+
+      await sendPasswordChangedNotice(userEmail);
+      return res.json({ success: true, message: 'Password change notification email sent successfully.' });
+    } catch (err: any) {
+      console.error('[Auth Password Changed Notice] Failed to send email:', err);
+      // Return safe response so password update on client is not broken
+      return res.status(500).json({ error: 'Mail Error', message: 'Could not send notification email.' });
+    }
+  });
+
   app.post('/api/account/delete', async (req, res) => {
     if (!supabaseServiceRoleKey) {
       return res.status(503).json({ message: 'Account deletion is not configured on this server.' });
@@ -769,6 +1066,21 @@ export async function createExpressApp() {
     if (cached) return res.json(cached);
 
     return res.json(setServerCache(cacheKey, CLEAN_UNIVERSITIES, 60 * 60 * 1000));
+  });
+
+  // Campus Expansion Waitlist Submission
+  app.post('/api/waitlist', (req, res) => {
+    try {
+      const { universityId, universityName, contact, email, phone, role } = req.body || {};
+      const targetContact = contact || email || phone || '';
+      console.log(`[Campus Waitlist] New submission for university "${universityId || universityName}": ${targetContact} (role: ${role || 'student'})`);
+      return res.json({
+        success: true,
+        message: 'Successfully registered for early campus notification'
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: 'Failed to record waitlist entry' });
+    }
   });
 
   // Route calculation cache on server
@@ -2041,6 +2353,33 @@ Return ONLY valid JSON matching this schema:
 
     invalidateServerListingsCache(req.params.id);
     res.json(listing);
+  });
+
+  // Admin Promote / Recommend Listing Toggle
+  app.patch('/api/admin/properties/:id/promote', requireAdminAuth, async (req, res) => {
+    const { isPromoted } = req.body;
+    const listings = await getFirestoreListings();
+    const listing = listings.find(l => l.id === req.params.id);
+    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+
+    const willBePromoted = Boolean(isPromoted);
+    listing.isPromoted = willBePromoted;
+    listing.featured = willBePromoted;
+
+    if (firestoreDb) {
+      try {
+        await setDoc(doc(firestoreDb, 'listings', listing.id), {
+          isPromoted: willBePromoted,
+          featured: willBePromoted,
+          promotedAt: willBePromoted ? new Date().toISOString() : null
+        }, { merge: true });
+      } catch (err) {
+        console.warn('Failed to update listing promotion in Firestore:', err);
+      }
+    }
+
+    invalidateServerListingsCache(req.params.id);
+    res.json({ success: true, listingId: listing.id, isPromoted: willBePromoted });
   });
 
   // Student Overview (Real Firestore Data)

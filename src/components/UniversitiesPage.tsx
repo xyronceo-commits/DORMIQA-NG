@@ -42,17 +42,16 @@ export const UniversitiesPage: React.FC<UniversitiesPageProps> = ({
     return matchesState && matchesQuery;
   });
 
-  // UNIOSUN is the active launch university
+  // UNIOSUN is the only active launch university; the rest are coming soon
   const activeUniversities = filteredUniversities.filter(
-    (u) => u.id === 'uniosun' || u.status === 'active'
+    (u) => u.id === 'uniosun'
   );
   const comingSoonUniversities = filteredUniversities.filter(
-    (u) => u.id !== 'uniosun' && u.status !== 'active'
+    (u) => u.id !== 'uniosun'
   );
 
-  const handleJoinWaitlist = (uniName: string) => {
-    const targetUrl = `${WAITLIST_BASE_URL}?university=${encodeURIComponent(uniName)}`;
-    window.open(targetUrl, '_blank', 'noopener,noreferrer');
+  const getWaitlistUrl = (uniName: string) => {
+    return `${WAITLIST_BASE_URL}?university=${encodeURIComponent(uniName)}`;
   };
 
   return (
@@ -243,13 +242,15 @@ export const UniversitiesPage: React.FC<UniversitiesPageProps> = ({
                   </div>
 
                   <div className="pt-2">
-                    <button
-                      onClick={() => handleJoinWaitlist(uni.name)}
+                    <a
+                      href={getWaitlistUrl(uni.name)}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="w-full py-3 bg-neutral-900 hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                     >
                       <span>Join the waitlist</span>
                       <ExternalLink className="w-3.5 h-3.5 text-neutral-400" />
-                    </button>
+                    </a>
                   </div>
                 </div>
               ))}

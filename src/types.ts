@@ -196,6 +196,7 @@ export interface Listing {
   rating: number;
   reviewCount: number;
   featured: boolean;
+  isPromoted?: boolean;
   createdAt: string;
   viewCount?: number;
 }

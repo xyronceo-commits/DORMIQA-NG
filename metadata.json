@@ -1,6 +1,6 @@
 {
   "name": "Dormiqa Nigeria",
-  "description": "Nigeria's verified student accommodation platform for Federal, State, Private Universities and Polytechnics.",
+  "description": "Nigeria's verified student accommodation platform for Federal and State Universities, Polytechnics, and Colleges of Education.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

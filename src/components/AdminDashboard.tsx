@@ -49,6 +49,7 @@ import {
   updateAdminAgentStatus, 
   fetchAdminProperties, 
   updateAdminPropertyStatus, 
+  toggleAdminPropertyPromoted,
   fetchStudentOverview, 
   fetchAdminAnalytics,
   fetchListings 
@@ -562,6 +563,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       onRefresh();
     } catch (err: any) {
       alert(err.message || 'Failed to approve property.');
+    }
+  };
+
+  const handleTogglePromoteProperty = async (property: Listing) => {
+    const nextPromoted = !(property.isPromoted || property.featured);
+    try {
+      await toggleAdminPropertyPromoted(property.id, nextPromoted);
+      setProperties(prev => prev.map(p => p.id === property.id ? { ...p, isPromoted: nextPromoted, featured: nextPromoted } : p));
+      onRefresh();
+    } catch (err: any) {
+      alert(err.message || 'Failed to update property promotion.');
     }
   };
 
@@ -1548,14 +1560,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       )}
 
                       {(prop.status === 'approved' || prop.isVerified) && (
-                        <button
-                          type="button"
-                          onClick={() => setConfirmRemoveModal({ type: 'property', item: prop })}
-                          className="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                          <span>Remove Listing</span>
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePromoteProperty(prop)}
+                            className={`px-3.5 py-2 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                              prop.isPromoted || prop.featured
+                                ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                                : 'bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700'
+                            }`}
+                            title={prop.isPromoted || prop.featured ? "Remove from Recommend for You" : "Promote to Recommend for You on Student Home screen"}
+                          >
+                            <Sparkles className={`w-3.5 h-3.5 ${prop.isPromoted || prop.featured ? 'text-amber-600 dark:text-amber-400 fill-amber-500' : 'text-neutral-500'}`} />
+                            <span>{prop.isPromoted || prop.featured ? 'Promoted ✓' : 'Promote'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setConfirmRemoveModal({ type: 'property', item: prop })}
+                            className="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Remove Listing</span>
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>

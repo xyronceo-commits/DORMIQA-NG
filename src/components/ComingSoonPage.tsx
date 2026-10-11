@@ -26,8 +26,34 @@ export const ComingSoonPage: React.FC<ComingSoonPageProps> = ({
   onGoBackToUniosun
 }) => {
   const WAITLIST_URL = 'https://dormiqa-waitlist.vercel.app';
+  const [contact, setContact] = React.useState('');
+  const [submitted, setSubmitted] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const nonUniosunUnis = universities.filter(u => u.id !== 'uniosun');
+
+  const handleWaitlistSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contact.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          universityId: university.id,
+          universityName: university.name,
+          contact: contact.trim(),
+          role: 'student'
+        })
+      });
+    } catch (err) {
+      console.warn('Waitlist notification error:', err);
+    } finally {
+      setIsSubmitting(false);
+      setSubmitted(true);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col justify-between selection:bg-emerald-500 selection:text-white">
@@ -128,6 +154,51 @@ export const ComingSoonPage: React.FC<ComingSoonPageProps> = ({
                 Waitlist members receive priority notifications before public launch.
               </p>
             </div>
+          </div>
+
+          {/* In-Page Quick Waitlist Form */}
+          <div className="pt-2">
+            {!submitted ? (
+              <form onSubmit={handleWaitlistSubmit} className="bg-neutral-50 dark:bg-neutral-800/80 p-4 sm:p-5 rounded-2xl border border-neutral-200 dark:border-neutral-700 space-y-3">
+                <div className="flex items-center gap-2">
+                  <BellRing className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <h4 className="text-xs sm:text-sm font-extrabold text-neutral-900 dark:text-white">
+                    Get priority notification when we launch at {university.name}:
+                  </h4>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2.5">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter your student email or WhatsApp (+234...)"
+                    value={contact}
+                    onChange={(e) => setContact(e.target.value)}
+                    className="flex-1 px-4 py-3 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-xl text-xs sm:text-sm font-medium text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !contact.trim()}
+                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs sm:text-sm rounded-xl transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <span>{isSubmitting ? 'Joining...' : 'Notify Me at Launch'}</span>
+                    <Sparkles className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  ⚡ We will never spam. You'll receive early access to verified off-campus lodges 48 hours before public launch.
+                </p>
+              </form>
+            ) : (
+              <div className="p-5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-center space-y-1.5 animate-in fade-in">
+                <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400 mx-auto" />
+                <h4 className="text-sm font-extrabold text-emerald-900 dark:text-emerald-200">
+                  You're on the priority launch waitlist for {university.name}!
+                </h4>
+                <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                  We've recorded {contact}. You will be among the first students notified when vetted lodges go live.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Primary CTA & Secondary Action */}

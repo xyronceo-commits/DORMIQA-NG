@@ -126,13 +126,23 @@ export async function fetchUniversities(): Promise<University[]> {
   const cacheKey = 'universities_list';
   return clientCache.dedupe(cacheKey, async () => {
     try {
-      const { fetchUniversitiesFromFirestore } = await import('./firebase');
-      const result = await fetchUniversitiesFromFirestore();
-      return clientCache.set(cacheKey, result, CACHE_TTL.UNIVERSITIES);
+      const res = await fetch(`${API_BASE}/universities`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          return clientCache.set(cacheKey, data as University[], CACHE_TTL.UNIVERSITIES);
+        }
+      }
     } catch (err) {
-      console.warn('API fetchUniversities error, falling back to local data:', err);
+      console.warn('API /api/universities fetch failed, falling back to local list:', err);
+    }
+
+    try {
       const { UNIVERSITIES } = await import('../data/mockData');
       return clientCache.set(cacheKey, UNIVERSITIES, CACHE_TTL.UNIVERSITIES);
+    } catch (err) {
+      console.error('Failed to load local universities fallback:', err);
+      return [];
     }
   });
 }
@@ -878,6 +888,19 @@ export async function updateAdminPropertyStatus(propertyId: string, status: stri
     });
   } catch (err) {
     console.warn("Backend updateAdminPropertyStatus failed:", err);
+    throw err;
+  }
+}
+
+export async function toggleAdminPropertyPromoted(propertyId: string, isPromoted: boolean) {
+  try {
+    return await safeFetchJson(`${API_BASE}/admin/properties/${propertyId}/promote`, {
+      method: 'PATCH',
+      headers: getAdminAuthHeaders(),
+      body: JSON.stringify({ isPromoted })
+    });
+  } catch (err) {
+    console.warn("Backend toggleAdminPropertyPromoted failed:", err);
     throw err;
   }
 }

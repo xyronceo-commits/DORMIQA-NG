@@ -1,0 +1,13 @@
+Confirm your Dormiqa email address
+
+Hello,
+
+Thank you for signing up for Dormiqa. To protect your student accommodation account, please verify your email address ({{ .Email }}) by visiting the link below:
+
+{{ .ConfirmationURL }}
+
+This verification link will expire in 1 hour. If you did not create a Dormiqa account, you can safely ignore this email.
+
+Need help? Contact our support team at dormiqa.ng@gmail.com.
+
+© 2026 Dormiqa Technologies Limited. All rights reserved.

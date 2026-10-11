@@ -43,6 +43,7 @@ import { Footer } from './components/Footer';
 import { LandingPage } from './components/LandingPage';
 import { UniversitiesPage } from './components/UniversitiesPage';
 import { getCampusesByUniversityId } from './data/campuses';
+import { UNIVERSITIES } from './data/mockData';
 import { calculateHaversineDistanceKm } from './utils/distance';
 import { SearchAndFilterBar } from './components/SearchAndFilterBar';
 import { ListingCard } from './components/ListingCard';
@@ -91,7 +92,17 @@ import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { supabase } from './services/supabase';
 
 export default function App() {
-  const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities'>('landing');
+  const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities'>(() => {
+    const route = parseRouteFromUrl();
+    if (route.type === 'view' && route.view) return route.view;
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname;
+      if (p.startsWith('/auth/') || p.includes('reset-password')) return 'onboarding';
+      const hash = window.location.hash;
+      if (hash.includes('type=recovery') || hash.includes('type=signup')) return 'onboarding';
+    }
+    return 'landing';
+  });
   const [selectedComingSoonUniId, setSelectedComingSoonUniId] = useState<string>('unilag');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [isAuthInitializing, setIsAuthInitializing] = useState<boolean>(true);
@@ -339,7 +350,7 @@ export default function App() {
   };
   const [pendingAgentRegistration, setPendingAgentRegistration] = useState<User | null>(null);
   const [currentRole, setCurrentRole] = useState<UserRole>('student');
-  const [universities, setUniversities] = useState<University[]>([]);
+  const [universities, setUniversities] = useState<University[]>(UNIVERSITIES);
   const [listings, setListings] = useState<Listing[]>([]);
   const [isListingsLoading, setIsListingsLoading] = useState<boolean>(true);
   const [inspections, setInspections] = useState<Inspection[]>([]);
@@ -966,7 +977,9 @@ export default function App() {
   const loadUniversitiesData = async () => {
     try {
       const data = await fetchUniversities();
-      setUniversities(data);
+      if (Array.isArray(data) && data.length > 0) {
+        setUniversities(data);
+      }
     } catch (err) {
       console.warn("Failed to load universities:", err);
     }
@@ -1124,7 +1137,7 @@ export default function App() {
     }
   };
 
-  const selectedUni = universities.find(u => u.id === filters.universityId) || universities[0];
+  const selectedUni = universities.find(u => u.id === filters.universityId) || universities.find(u => u.id === 'uniosun') || universities[0];
   const availableCampuses = getCampusesByUniversityId(filters.universityId, universities);
   const selectedCampus = availableCampuses.find(c => c.id === filters.selectedCampusId) || availableCampuses[0];
 
@@ -1461,8 +1474,8 @@ export default function App() {
               notificationCount={notifications.filter(n => !n.read).length}
               onOpenNotifications={() => setIsNotificationCenterOpen(true)}
               onOpenProfile={() => navigateView('student-dash')}
-              userAvatar={auth.currentUser?.photoURL || undefined}
-              userName={auth.currentUser?.displayName || undefined}
+              userAvatar={accounts.find(a => a.id === activeAccountId)?.avatarUrl || auth.currentUser?.photoURL || undefined}
+              userName={accounts.find(a => a.id === activeAccountId)?.name || auth.currentUser?.displayName || undefined}
             />
           </ErrorBoundary>
         )}

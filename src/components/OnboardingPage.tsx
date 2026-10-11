@@ -22,6 +22,7 @@ import {
 import { UserRole, University } from '../types';
 import { EmailVerificationCard } from './EmailVerificationCard';
 import { UniversitySelector } from './UniversitySelector';
+import { PasswordResetModal, PasswordResetStep } from './PasswordResetModal';
 import { supabase } from '../services/supabase';
 import { 
   auth,
@@ -93,8 +94,10 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   const [studentName, setStudentName] = useState('');
   const [studentEmail, setStudentEmail] = useState('');
   const [studentPhone, setStudentPhone] = useState('');
-  const [studentUniId, setStudentUniId] = useState('');
-  const [studentUni, setStudentUni] = useState('');
+  const [studentUniId, setStudentUniId] = useState('uniosun');
+  const [studentUni, setStudentUni] = useState(
+    universities.find(u => u.id === 'uniosun')?.name || 'Osun State University (UNIOSUN)'
+  );
   const [studentPassword, setStudentPassword] = useState('');
 
   // Agent Form State
@@ -128,11 +131,30 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   const [resendStatusMessage, setResendStatusMessage] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
 
+  // Password Reset Modal State (Section 2.2)
+  const isResetUrl = typeof window !== 'undefined' && (
+    window.location.pathname === '/auth/reset-password' ||
+    window.location.hash.includes('type=recovery') ||
+    window.location.search.includes('type=recovery')
+  );
+  const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(isResetUrl);
+  const [passwordResetStep, setPasswordResetStep] = useState<PasswordResetStep>(isResetUrl ? 'reset' : 'forgot');
+
   useEffect(() => {
     if (googleAuthData && !studentName.trim() && googleAuthData.displayName) {
       setStudentName(googleAuthData.displayName);
     }
   }, [googleAuthData, studentName]);
+
+  useEffect(() => {
+    if (!studentUniId || studentUniId === 'uniosun') {
+      const uniosun = universities.find(u => u.id === 'uniosun');
+      if (uniosun && (!studentUni || studentUni !== uniosun.name)) {
+        setStudentUniId('uniosun');
+        setStudentUni(uniosun.name);
+      }
+    }
+  }, [universities, studentUniId, studentUni]);
 
   useEffect(() => {
   if (selectedRole === 'agent') {
@@ -297,16 +319,15 @@ if (error) {
           return;
         }
 
-        const selectedUniObj = universities.find(u => u.id === studentUniId);
-        if (!selectedUniObj) {
-          setAuthError('Please select your preferred school.');
-          setIsLoading(false);
-          return;
-        }
-
-        const isUniActive = selectedUniObj.status === 'active' || selectedUniObj.id === 'uniosun' || selectedUniObj.isActive === true;
+        const selectedUniObj = universities.find(u => u.id === studentUniId) || {
+          id: 'uniosun',
+          name: 'Osun State University (UNIOSUN)',
+          status: 'active' as const,
+          isActive: true
+        };
+        const isUniActive = selectedUniObj.id === 'uniosun' || selectedUniObj.status === 'active' || selectedUniObj.isActive === true;
         if (!isUniActive) {
-          setAuthError('This university is not active yet. Please choose UNIOSUN to continue.');
+          setAuthError('Osun State University (UNIOSUN) is the only active school right now. The rest are coming soon.');
           setIsLoading(false);
           return;
         }
@@ -375,14 +396,36 @@ if (error) {
           return;
         }
 
-        const selectedUniObj = universities.find(u => u.id === studentUniId);
-        if (!selectedUniObj || (selectedUniObj.status !== 'active' && selectedUniObj.id !== 'uniosun' && selectedUniObj.isActive !== true)) {
-          setAuthError('This university is not active yet. Please choose UNIOSUN to continue.');
+        const selectedUniObj = universities.find(u => u.id === studentUniId) || {
+          id: 'uniosun',
+          name: 'Osun State University (UNIOSUN)',
+          status: 'active' as const,
+          isActive: true
+        };
+        const isUniActive = selectedUniObj.id === 'uniosun' || selectedUniObj.status === 'active' || selectedUniObj.isActive === true;
+        if (!isUniActive) {
+          setAuthError('Osun State University (UNIOSUN) is the only active school right now. The rest are coming soon.');
           setIsLoading(false);
           return;
         }
 
-        // Create the Supabase Auth account.
+        // Create the Supabase Auth account with email confirmation redirect.
+        const emailRedirectTo = `${window.location.origin}/auth/confirmed`;
+        await supabase.auth.signUp({
+          email: trimmedEmail,
+          password: studentPassword,
+          options: {
+            emailRedirectTo,
+            data: {
+              role: 'student',
+              full_name: trimmedName,
+              phone: phoneCheck.normalized,
+              university_id: selectedUniObj.id,
+              university_name: selectedUniObj.name
+            }
+          }
+        }).catch((sbErr) => console.warn('Supabase signUp secondary notice:', sbErr));
+
         await registerWithEmail(trimmedEmail, studentPassword);
 
         // Refresh the Supabase-backed compatibility user.
@@ -516,7 +559,24 @@ if (error) {
 
     try {
       if (authMode === 'signup') {
-        // Create the Supabase Auth account.
+        // Create the Supabase Auth account with email confirmation redirect.
+        const emailRedirectTo = `${window.location.origin}/auth/confirmed`;
+        await supabase.auth.signUp({
+          email: agentEmail.trim().toLowerCase(),
+          password: agentPassword,
+          options: {
+            emailRedirectTo,
+            data: {
+              role: 'agent',
+              full_name: agentName || agentEmail.split('@')[0],
+              agency_name: agencyName || `${agentName || 'Agent'} Housing`,
+              phone: agentPhoneWA,
+              university_id: agentUniId,
+              university_name: agentUni
+            }
+          }
+        }).catch((sbErr) => console.warn('Supabase agent signUp notice:', sbErr));
+
         await registerWithEmail(agentEmail.trim().toLowerCase(), agentPassword);
 
         if (auth.currentUser) {
@@ -1119,14 +1179,15 @@ if (error) {
                         {/* University Selection */}
                         <UniversitySelector
                           universities={universities}
-                          selectedUniversityId={studentUniId}
+                          selectedUniversityId={studentUniId || 'uniosun'}
                           onSelectUniversity={(uni) => {
                             setStudentUniId(uni.id);
                             setStudentUni(uni.name);
+                            if (authError) setAuthError(null);
                           }}
                           label="Preferred School"
                           required
-                          error={studentUniId ? null : null}
+                          error={null}
                         />
                       </div>
 
@@ -1167,7 +1228,19 @@ if (error) {
                         </div>
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-neutral-800 block mb-1">Password</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200">Password</label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPasswordResetStep('forgot');
+                              setIsPasswordResetOpen(true);
+                            }}
+                            className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 cursor-pointer"
+                          >
+                            Forgot password?
+                          </button>
+                        </div>
                         <div className="relative">
                           <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
                           <input
@@ -1323,7 +1396,19 @@ if (error) {
                         </div>
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-neutral-800 block mb-1">Password</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200">Password</label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPasswordResetStep('forgot');
+                              setIsPasswordResetOpen(true);
+                            }}
+                            className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 cursor-pointer"
+                          >
+                            Forgot password?
+                          </button>
+                        </div>
                         <div className="relative">
                           <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
                           <input
@@ -1358,6 +1443,22 @@ if (error) {
         </div>
 
       </div>
+
+      {/* Branded Password Reset Modal Flow (Section 2.2) */}
+      <PasswordResetModal
+        isOpen={isPasswordResetOpen}
+        initialStep={passwordResetStep}
+        initialEmail={selectedRole === 'student' ? studentEmail : agentEmail}
+        onClose={() => setIsPasswordResetOpen(false)}
+        onSwitchToSignIn={(emailParam) => {
+          setIsPasswordResetOpen(false);
+          setAuthMode('signin');
+          if (emailParam) {
+            setStudentEmail(emailParam);
+            setAgentEmail(emailParam);
+          }
+        }}
+      />
     </div>
   );
 };

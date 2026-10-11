@@ -328,7 +328,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         {/* Compact Responsive Grid: 2 columns on mobile, 3 on tablet/desktop */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-4 lg:gap-5">
           {featuredUniversities.map((uni) => {
-            const isActive = uni.id === 'uniosun' || uni.status === 'active';
+            const isActive = uni.id === 'uniosun';
 
             if (isActive) {
               return (
