@@ -5,13 +5,24 @@ enabled = true
 site_url = "https://dormiqa.com"
 additional_redirect_urls = [
   "http://localhost:3000",
+  "http://localhost:3000/admin",
+  "http://localhost:3000/**",
   "http://localhost:3000/auth/confirmed",
   "http://localhost:3000/auth/reset-password",
+  "https://dormiqa.com",
+  "https://dormiqa.com/admin",
+  "https://dormiqa.com/**",
   "https://dormiqa.com/auth/confirmed",
   "https://dormiqa.com/auth/reset-password",
+  "https://*.vercel.app",
+  "https://*.vercel.app/admin",
+  "https://*.vercel.app/**",
   "https://ais-pre-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app",
-  "https://ais-pre-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app/auth/confirmed",
-  "https://ais-pre-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app/auth/reset-password"
+  "https://ais-pre-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app/admin",
+  "https://ais-pre-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app/**",
+  "https://ais-dev-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app",
+  "https://ais-dev-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app/admin",
+  "https://ais-dev-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app/**"
 ]
 jwt_expiry = 3600
 enable_signup = true

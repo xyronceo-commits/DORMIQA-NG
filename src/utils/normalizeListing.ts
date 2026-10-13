@@ -91,7 +91,7 @@ export function normalizeListing(data: any, docId?: string): Listing {
     isVerified: isListingVerified,
     status,
     verificationStatus: data?.verificationStatus || status,
-    rejectionReason: data?.rejectionReason || data?.aiBanReason || null,
+    rejectionReason: data?.rejectionReason || null,
     agentId,
     agent,
     reviews: Array.isArray(data?.reviews) ? data.reviews : [],

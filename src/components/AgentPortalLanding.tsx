@@ -23,6 +23,7 @@ import {
 import { University, User } from '../types';
 import { ThemeToggle } from './ThemeToggle';
 import { UniversitySelector } from './UniversitySelector';
+import { mapAuthError } from '../utils/authErrors';
 import { 
   auth,
   registerWithEmail, 
@@ -90,52 +91,20 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
     setUnverifiedEmail(null);
 
     try {
-      // Create the account through Supabase Auth.
-      await registerWithEmail(agentEmail.trim(), agentPassword);
-
-      if (auth.currentUser) {
-        await auth.currentUser.reload();
-      }
-
-      const isVerified = auth.currentUser?.emailVerified === true;
-
-      const newAgent: User = {
-        id: auth.currentUser?.uid || `agt_${Date.now()}`,
-        name: agentName || agentEmail.split('@')[0],
-        email: agentEmail.trim().toLowerCase(),
+      await registerWithEmail(agentEmail.trim().toLowerCase(), agentPassword, {
         role: 'agent',
+        full_name: agentName || agentEmail.split('@')[0],
+        agency_name: agencyName || `${agentName || 'Agent'} Housing`,
         phone: agentPhone,
-        universityId: agentUniId || 'uniosun',
-        universityName: agentUni,
-        agencyName: agencyName || `${agentName || 'Agent'} Housing`,
-        isVerifiedAgent: false,
-        isEmailVerified: isVerified,
-        businessVerificationStatus: 'none',
-        avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
-        createdAt: new Date().toISOString().split('T')[0]
-      };
+        university_id: agentUniId || 'uniosun',
+        university_name: agentUni
+      });
 
-      savePendingSignupProfile(newAgent);
-      await saveUserToFirestore(newAgent);
-
-      if (!isVerified) {
-        // Block dashboard access, redirect to email verification notice
-        setUnverifiedEmail(newAgent.email);
-        setAuthError(null);
-      } else {
-        onAgentAuthenticated(newAgent);
-      }
+      setUnverifiedEmail(agentEmail.trim().toLowerCase());
+      setAuthError(null);
     } catch (err: any) {
-      console.error("Agent Sign Up Error:", err);
-      let msg = err?.message || "Failed to create account. Please try again.";
-      if (err?.code === 'auth/email-already-in-use') {
-        msg = "An account with this email address already exists. Please Sign In below.";
-      } else if (err?.code === 'auth/network-request-failed') {
-        msg = "Network request failed. Please check your internet connection or use Google Sign-In below.";
-      } else if (err?.code === 'auth/operation-not-allowed') {
-        msg = 'Email/password sign-up is disabled for this Supabase project. Enable the Email provider in Supabase Authentication settings.';
-      }
-      setAuthError(msg);
+      console.error("[AGENT SIGNUP] Error:", err);
+      setAuthError(mapAuthError(err));
     } finally {
       setIsLoading(false);
     }
@@ -185,16 +154,15 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
         onAgentAuthenticated(agentData);
       }
     } catch (err: any) {
-      console.error("Agent Sign In Error:", err);
-      let msg = err?.message || "Authentication failed. Please check your credentials and try again.";
-      if (err?.code === 'auth/user-not-found') {
-        msg = "Account not found. Please sign up first.";
-      } else if (err?.code === 'auth/invalid-credential' || err?.code === 'auth/wrong-password') {
-        msg = "Incorrect email or password.";
-      } else if (err?.code === 'auth/user-disabled') {
-        msg = "This account has been disabled. Please contact support.";
+      console.error("[AGENT SIGNIN] Error:", err);
+      const code = String(err?.code || err?.error_code || '').toLowerCase();
+      const msg = String(err?.message || '').toLowerCase();
+      if (code === 'email_not_confirmed' || msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+        setUnverifiedEmail(agentEmail.trim().toLowerCase());
+        setAuthError(null);
+        return;
       }
-      setAuthError(msg);
+      setAuthError(mapAuthError(err));
     } finally {
       setIsLoading(false);
     }

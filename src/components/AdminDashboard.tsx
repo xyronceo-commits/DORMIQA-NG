@@ -580,7 +580,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleRejectProperty = async (propertyId: string, status: 'rejected' | 'changes_requested', reason: string) => {
     try {
       await updateAdminPropertyStatus(propertyId, status, reason);
-      setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, status: status, rejectionReason: reason, aiBanReason: reason, isVerified: false } : p));
+      setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, status: status, rejectionReason: reason, isVerified: false } : p));
       setPendingListings(prev => prev.filter(p => p.id !== propertyId));
       setRejectionReasonModal(null);
       setRejectionReasonText('');

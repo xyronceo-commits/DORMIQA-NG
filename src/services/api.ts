@@ -400,8 +400,6 @@ export async function updateListingStatusAndSales(
       fsUpdatePayload.status = 'pending';
       fsUpdatePayload.verificationStatus = 'pending';
       fsUpdatePayload.rejectionReason = null;
-      fsUpdatePayload.isAiBanned = false;
-      fsUpdatePayload.aiBanReason = null;
       delete fsUpdatePayload.resubmitForVerification;
     }
 
@@ -816,29 +814,41 @@ export async function submitReport(data: Partial<Report>): Promise<Report> {
   return reportRecord;
 }
 
-function getAdminAuthHeaders() {
-  return { 'Content-Type': 'application/json' };
+async function getAdminAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+  } catch {
+    return { 'Content-Type': 'application/json' };
+  }
 }
 
 export async function checkAdminSession(): Promise<{ authenticated: boolean; email?: string; role?: AdminRole }> {
   try {
+    const authHeaders = await getAdminAuthHeaders();
     const data = await safeFetchJson<{ authenticated: boolean; email?: string; role?: AdminRole }>(`${API_BASE}/admin/check-session`, {
-      headers: getAdminAuthHeaders()
+      headers: authHeaders
     });
     return {
       authenticated: Boolean(data.authenticated),
       email: data.email,
       role: data.role || 'ADMIN'
     };
-  } catch {
+  } catch (err) {
+    console.warn('[ADMIN API] checkAdminSession error:', err);
     return { authenticated: false };
   }
 }
 
 export async function fetchAdminStats() {
   try {
+    const headers = await getAdminAuthHeaders();
     return await safeFetchJson(`${API_BASE}/admin/stats`, {
-      headers: getAdminAuthHeaders()
+      headers
     });
   } catch {
     return null;
@@ -847,8 +857,9 @@ export async function fetchAdminStats() {
 
 export async function fetchAdminAgents() {
   try {
+    const headers = await getAdminAuthHeaders();
     return await safeFetchJson(`${API_BASE}/admin/agents`, {
-      headers: getAdminAuthHeaders()
+      headers
     });
   } catch {
     return [];
@@ -857,9 +868,10 @@ export async function fetchAdminAgents() {
 
 export async function updateAdminAgentStatus(agentId: string, status: 'verified' | 'rejected' | 'removed', reason?: string) {
   try {
+    const headers = await getAdminAuthHeaders();
     return await safeFetchJson(`${API_BASE}/admin/agents/${agentId}/status`, {
       method: 'PATCH',
-      headers: getAdminAuthHeaders(),
+      headers,
       body: JSON.stringify({ status, reason })
     });
   } catch (err) {
@@ -870,8 +882,9 @@ export async function updateAdminAgentStatus(agentId: string, status: 'verified'
 
 export async function fetchAdminProperties() {
   try {
+    const headers = await getAdminAuthHeaders();
     return await safeFetchJson(`${API_BASE}/admin/properties`, {
-      headers: getAdminAuthHeaders()
+      headers
     });
   } catch (err) {
     console.warn("Backend fetchAdminProperties unavailable, falling back to Firestore:", err);
@@ -881,9 +894,10 @@ export async function fetchAdminProperties() {
 
 export async function updateAdminPropertyStatus(propertyId: string, status: string, reason?: string) {
   try {
+    const headers = await getAdminAuthHeaders();
     return await safeFetchJson(`${API_BASE}/admin/properties/${propertyId}/status`, {
       method: 'PATCH',
-      headers: getAdminAuthHeaders(),
+      headers,
       body: JSON.stringify({ status, reason })
     });
   } catch (err) {
@@ -894,9 +908,10 @@ export async function updateAdminPropertyStatus(propertyId: string, status: stri
 
 export async function toggleAdminPropertyPromoted(propertyId: string, isPromoted: boolean) {
   try {
+    const headers = await getAdminAuthHeaders();
     return await safeFetchJson(`${API_BASE}/admin/properties/${propertyId}/promote`, {
       method: 'PATCH',
-      headers: getAdminAuthHeaders(),
+      headers,
       body: JSON.stringify({ isPromoted })
     });
   } catch (err) {
@@ -907,8 +922,9 @@ export async function toggleAdminPropertyPromoted(propertyId: string, isPromoted
 
 export async function fetchStudentOverview() {
   try {
+    const headers = await getAdminAuthHeaders();
     return await safeFetchJson(`${API_BASE}/admin/students/overview`, {
-      headers: getAdminAuthHeaders()
+      headers
     });
   } catch {
     return null;
@@ -917,8 +933,9 @@ export async function fetchStudentOverview() {
 
 export async function fetchAdminAnalytics() {
   try {
+    const headers = await getAdminAuthHeaders();
     return await safeFetchJson(`${API_BASE}/admin/analytics`, {
-      headers: getAdminAuthHeaders()
+      headers
     });
   } catch {
     return null;
@@ -927,7 +944,8 @@ export async function fetchAdminAnalytics() {
 
 export async function fetchReports(): Promise<Report[]> {
   try {
-    const res = await apiFetch(`${API_BASE}/reports`, { headers: getAdminAuthHeaders() });
+    const headers = await getAdminAuthHeaders();
+    const res = await apiFetch(`${API_BASE}/reports`, { headers });
     const parsed = await safeParseResponse<Report[]>(res);
     if (!parsed.ok || !parsed.data) throw new Error(parsed.error || 'Failed to fetch reports');
     return parsed.data;
@@ -938,9 +956,10 @@ export async function fetchReports(): Promise<Report[]> {
 }
 
 export async function updateReportStatus(id: string, status: string): Promise<Report> {
+  const headers = await getAdminAuthHeaders();
   const res = await apiFetch(`${API_BASE}/admin/reports/${id}/status`, {
     method: 'PATCH',
-    headers: getAdminAuthHeaders(),
+    headers,
     body: JSON.stringify({ status })
   });
   const parsed = await safeParseResponse<Report>(res);
@@ -949,9 +968,10 @@ export async function updateReportStatus(id: string, status: string): Promise<Re
 }
 
 export async function updateListingStatus(id: string, status: string): Promise<Listing> {
+  const headers = await getAdminAuthHeaders();
   const res = await apiFetch(`${API_BASE}/admin/listings/${id}/status`, {
     method: 'PATCH',
-    headers: getAdminAuthHeaders(),
+    headers,
     body: JSON.stringify({ status })
   });
   const parsed = await safeParseResponse<Listing>(res);
@@ -963,26 +983,6 @@ export async function updateListingStatus(id: string, status: string): Promise<L
   return parsed.data;
 }
 
-export async function verifyAgentBusiness(payload: {
-  businessName?: string;
-  proofType?: 'banner' | 'logo' | 'office' | 'cac' | 'business_card';
-  documentFileName?: string | null;
-  documentStorageUrl?: string | null;
-  agentName?: string;
-  agencyName?: string;
-  agentPortraitUrl?: string | null;
-  preferredModel?: string;
-}) {
-  const res = await apiFetch(`${API_BASE}/ai/verify-agent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  const parsed = await safeParseResponse(res);
-  if (!parsed.ok || !parsed.data) {
-    throw new Error(parsed.error || 'Failed to analyze business verification with AI');
-  }
-  return parsed.data;
-}
+
 
 

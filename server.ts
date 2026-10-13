@@ -31,301 +31,6 @@ const supabaseDataClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
 });
 configureFirestoreClient(supabaseDataClient);
 
-// Helper to clean LLM outputs (strips <think> tags, reasoning blocks, context headers)
-function cleanLLMOutput(text: string): string {
-  if (!text) return '';
-  let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<thought>[\s\S]*?<\/thought>/gi, '');
-  cleaned = cleaned.replace(/<think>[\s\S]*/gi, '').replace(/<thought>[\s\S]*/gi, '');
-  cleaned = cleaned.replace(/^(Thought|Thinking|Reasoning|Chain of thought|Context|User Input|Student Question|System):\s*/gmi, '');
-  return cleaned.trim();
-}
-
-// Dedicated Groq AI completion runner using Groq models
-async function runLLMCompletion(params: {
-  systemInstruction: string;
-  prompt: string;
-  responseFormatJson?: boolean;
-  preferredModel?: string;
-}): Promise<string> {
-  // Collect all potential API keys from environment / secrets tab
-  const rawCandidates = [
-    process.env.GROQ_API_KEY,
-    process.env.DORMIQA_API_KEY,
-    process.env.CAMPORA_API_KEY,
-    process.env.GROQ_KEY,
-    process.env.GROQ_AI_API_KEY,
-    process.env.GROQ,
-    process.env.API_KEY,
-    process.env.GEMINI_API_KEY,
-    process.env.OPENROUTER_API_KEY,
-    process.env.OPENAI_API_KEY,
-    process.env.CUSTOM_API_KEY,
-    process.env.LLM_API_KEY,
-    process.env.AI_API_KEY,
-    process.env.SECRET_LAB_API_KEY,
-    process.env.SECRET_KEY
-  ];
-
-  const keysToTry = Array.from(new Set(
-    rawCandidates.filter((k): k is string => Boolean(k && k.trim() && !k.startsWith('MY_')))
-  ));
-
-  if (keysToTry.length === 0) {
-    throw new Error('No API key found. Please ensure your Groq or Dormiqa API key is set in the Secrets tab.');
-  }
-
-  let lastError: any = null;
-
-  for (const apiKey of keysToTry) {
-    // 1) Primary Strategy: Groq AI API
-    let groqModels: string[] = [];
-    try {
-      const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
-        headers: { 'Authorization': `Bearer ${apiKey}` }
-      });
-      if (modelsRes.ok) {
-        const modelsData = await modelsRes.json();
-        if (Array.isArray(modelsData?.data)) {
-          groqModels = modelsData.data
-            .map((m: any) => m.id)
-            .filter((id: string) => 
-              id && 
-              !id.includes('whisper') && 
-              !id.includes('prompt-guard') && 
-              !id.includes('safeguard') && 
-              !id.includes('orpheus') && 
-              !id.includes('compound') &&
-              !id.includes('allam')
-            );
-        }
-      }
-    } catch (err) {
-      // Silently handle model list fetch
-    }
-
-    const priorityGroqModels = [
-      'llama-3.3-70b-versatile',
-      'llama-3.1-8b-instant',
-      'llama-3.2-11b-vision-preview',
-      'llama-3.2-3b-preview',
-      'llama-3.2-1b-preview',
-      'llama3-70b-8192',
-      'llama3-8b-8192',
-      'deepseek-r1-distill-llama-70b',
-      'qwen-2.5-coder-32b',
-      'mixtral-8x7b-32768',
-      'gemma2-9b-it'
-    ];
-
-    const allGroqModels = Array.from(new Set([
-      ...priorityGroqModels.filter(m => groqModels.length === 0 || groqModels.includes(m)),
-      ...groqModels
-    ]));
-
-    const groqModelsToTry = (params.preferredModel && allGroqModels.includes(params.preferredModel)
-      ? [params.preferredModel, ...allGroqModels.filter(m => m !== params.preferredModel)]
-      : allGroqModels).slice(0, 3); // Fast top-3 models max
-
-    for (const model of groqModelsToTry) {
-      try {
-        const body: any = {
-          model: model,
-          messages: [
-            { role: 'system', content: params.systemInstruction },
-            { role: 'user', content: params.prompt }
-          ],
-          temperature: 0.7
-        };
-
-        if (params.responseFormatJson) {
-          body.response_format = { type: 'json_object' };
-        }
-
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(8000) // 8s fast timeout per model
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          const textContent = data.choices?.[0]?.message?.content;
-          if (textContent && textContent.trim()) {
-            return cleanLLMOutput(textContent);
-          }
-        } else {
-          const errJson = await res.json().catch(() => null);
-          const errMsg = errJson?.error?.message || `Status ${res.status}`;
-          lastError = new Error(`Groq AI (${model}): ${errMsg}`);
-        }
-      } catch (err: any) {
-        lastError = err;
-      }
-    }
-
-    // 2) Secondary Fallback: OpenAI / OpenRouter if key is sk- format
-    if (apiKey.startsWith('sk-')) {
-      const defaultModels = [
-        'openai/gpt-oss-120b', 
-        'qwen/qwen3.6-27b', 
-        'qwen/qwen-2.5-72b-instruct', 
-        'gpt-4o-mini'
-      ];
-
-      const modelsToTry = (params.preferredModel && params.preferredModel !== 'auto'
-        ? [params.preferredModel, ...defaultModels.filter(m => m !== params.preferredModel)]
-        : defaultModels).slice(0, 3);
-
-      for (const model of modelsToTry) {
-        try {
-          const isDirectOpenAI = apiKey.startsWith('sk-proj-') || !model.includes('/');
-          const endpoint = isDirectOpenAI 
-            ? 'https://api.openai.com/v1/chat/completions' 
-            : 'https://openrouter.ai/api/v1/chat/completions';
-          
-          const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`,
-              'HTTP-Referer': process.env.APP_URL || 'https://ais-dev.run.app',
-              'X-Title': 'Dormiqa AI'
-            },
-            body: JSON.stringify({
-              model: model,
-              messages: [
-                { role: 'system', content: params.systemInstruction },
-                { role: 'user', content: params.prompt }
-              ],
-              ...(params.responseFormatJson ? { response_format: { type: 'json_object' } } : {}),
-              temperature: 0.7
-            }),
-            signal: AbortSignal.timeout(8000) // 8s fast timeout
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            const textContent = data.choices?.[0]?.message?.content;
-            if (textContent && textContent.trim()) {
-              return cleanLLMOutput(textContent);
-            }
-          }
-        } catch (err) {
-          lastError = err;
-        }
-      }
-    }
-  }
-
-  throw new Error(`Groq AI completion failed. Please verify your API Key in the Secrets tab. (${lastError?.message || 'Invalid key'})`);
-}
-
-
-// Universal AI Anti-Scam & Duplicate Listing Detection Engine (Instant response, max 2.5s)
-async function evaluateListingSafetyAndDuplicates(
-  listingToEvaluate: Listing, 
-  reportContext?: { reason: string; details: string }
-) {
-  // Check if any existing non-banned listing uploaded by a DIFFERENT agent matches address, photos, or title/campus
-  const duplicateMatch = listingsStore.find(l => 
-    l.id !== listingToEvaluate.id && 
-    l.status !== 'banned' &&
-    l.agentId !== listingToEvaluate.agentId && (
-      (l.address && listingToEvaluate.address && l.address.toLowerCase().trim() === listingToEvaluate.address.toLowerCase().trim()) ||
-      (l.photos && listingToEvaluate.photos && l.photos.some(p => listingToEvaluate.photos.includes(p))) ||
-      (l.title && listingToEvaluate.title && l.title.toLowerCase().trim() === listingToEvaluate.title.toLowerCase().trim() && l.universityId === listingToEvaluate.universityId)
-    )
-  );
-
-  const isDuplicate = Boolean(duplicateMatch);
-
-  // If strict duplicate match is found locally, flag immediately
-  if (isDuplicate) {
-    const banReason = `UNAPPROVED BY AI: Duplicate property listing detected. Another verified agent (${duplicateMatch?.agent?.name || 'an existing agent'}) has already listed this property at ${duplicateMatch?.address || 'this address'}. Multiple agents cannot list identical properties.`;
-    listingToEvaluate.status = 'banned';
-    listingToEvaluate.isAiBanned = true;
-    listingToEvaluate.aiBanReason = banReason;
-    if (duplicateMatch) listingToEvaluate.duplicateListingId = duplicateMatch.id;
-
-    return {
-      shouldBan: true,
-      banReason,
-      isDuplicate: true,
-      duplicateAgentName: duplicateMatch?.agent?.name
-    };
-  }
-
-  const systemInstruction = `You are Dormiqa Nigeria's Chief AI Anti-Scam & Trust Verification Inspector.
-Your sole job is to protect university students from fake listings, scam deposits, stolen photos, and duplicate property uploads across different estate agents.
-Analyze the listing details, duplicate match status, and optional student report complaint.
-Return strictly JSON formatted response.`;
-
-  const prompt = `Listing to Audit:
-- ID: ${listingToEvaluate.id}
-- Title: "${listingToEvaluate.title}"
-- Address: "${listingToEvaluate.address}"
-- Campus: "${listingToEvaluate.universityName}"
-- Price: ₦${listingToEvaluate.pricePerYear?.toLocaleString() || listingToEvaluate.pricePerWeek?.toLocaleString()}/yr
-- Photos count: ${listingToEvaluate.photos?.length || 0}
-- Agent ID: ${listingToEvaluate.agentId} (${listingToEvaluate.agent?.name || 'Agent'}, ${listingToEvaluate.agent?.agencyName || 'Agency'})
-
-${reportContext ? `Student Fraud Report Complaint:
-- Report Reason Code: ${reportContext.reason}
-- Report Complaint: "${reportContext.details}"` : 'Routine AI Listing Upload Inspection.'}
-
-${isDuplicate ? `CRITICAL SYSTEM FINDING: Duplicate property match detected! Another agent (${duplicateMatch?.agent?.name}, Agency: "${duplicateMatch?.agent?.agencyName}", ID: ${duplicateMatch?.agentId}) already published this exact property ("${duplicateMatch?.title}" at ${duplicateMatch?.address}).` : 'No exact system address/photo duplicate match found.'}
-
-Task: Determine if this listing should be BANNED / UNAPPROVED.
-Return JSON strictly in this structure:
-{
-  "shouldBan": false,
-  "banReason": "Detailed explanation if unapproved",
-  "isFakeOrDuplicate": false,
-  "duplicateAgentName": ""
-}`;
-
-  try {
-    // 2.5 second timeout race to prevent hanging
-    const timeoutPromise = new Promise<string>((_, reject) => 
-      setTimeout(() => reject(new Error('AI moderation timeout')), 2500)
-    );
-
-    const rawResult = await Promise.race([
-      runLLMCompletion({
-        systemInstruction,
-        prompt,
-        responseFormatJson: true
-      }),
-      timeoutPromise
-    ]);
-
-    const cleaned = rawResult.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-    const parsed = JSON.parse(cleaned || '{}');
-
-    const shouldBan = Boolean(parsed.shouldBan || (reportContext && (reportContext.reason === 'fake_listing' || reportContext.reason === 'scam_attempt')));
-    const banReason = parsed.banReason || `UNAPPROVED BY AI: Listing failed verification parameters following audit.`;
-
-    if (shouldBan) {
-      listingToEvaluate.status = 'banned';
-      listingToEvaluate.isAiBanned = true;
-      listingToEvaluate.aiBanReason = banReason;
-    }
-
-    return {
-      shouldBan,
-      banReason,
-      isDuplicate: false
-    };
-  } catch (err) {
-    console.warn('AI Moderation fast fallback:', err);
-    return { shouldBan: false, banReason: '', isDuplicate: false };
-  }
-}
-
 // Initial Seed Data for Dormiqa Ecosystem
 const INITIAL_USERS: User[] = [];
 
@@ -354,7 +59,6 @@ interface RateLimitBucket {
 }
 
 const generalRateLimitStore = new Map<string, RateLimitBucket>();
-const aiRateLimitStore = new Map<string, RateLimitBucket>();
 const adminRateLimitStore = new Map<string, RateLimitBucket>();
 
 function createRateLimiter(maxRequests: number, windowMs: number, store: Map<string, RateLimitBucket>) {
@@ -430,9 +134,11 @@ interface AdminAccount {
   addedBy: string;
 }
 
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'buildsafe247@gmail.com').trim().toLowerCase();
+
 const authorizedAdminMap = new Map<string, AdminAccount>();
-authorizedAdminMap.set('buildsafe247@gmail.com', {
-  email: 'buildsafe247@gmail.com',
+authorizedAdminMap.set(ADMIN_EMAIL, {
+  email: ADMIN_EMAIL,
   role: 'SUPER_ADMIN',
   status: 'Active',
   createdAt: new Date().toISOString(),
@@ -546,8 +252,8 @@ async function getFirestoreInspections(): Promise<Inspection[]> {
 
 async function syncAdminEmailsFromFirestore() {
   authorizedAdminMap.clear();
-  authorizedAdminMap.set('buildsafe247@gmail.com', {
-    email: 'buildsafe247@gmail.com',
+  authorizedAdminMap.set(ADMIN_EMAIL, {
+    email: ADMIN_EMAIL,
     role: 'SUPER_ADMIN',
     status: 'Active',
     createdAt: new Date().toISOString(),
@@ -557,6 +263,21 @@ async function syncAdminEmailsFromFirestore() {
 
 syncAdminEmailsFromFirestore();
 
+function parseJwtPayload(token: string): any {
+  try {
+    const parts = token.split('.');
+    if (parts.length >= 2) {
+      const base64Url = parts[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const json = Buffer.from(base64, 'base64').toString('utf8');
+      return JSON.parse(json);
+    }
+  } catch {
+    // fallback
+  }
+  return {};
+}
+
 function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers['authorization'];
   const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
@@ -564,30 +285,44 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
     : null;
 
   if (!token) {
+    console.warn('[ADMIN] 401 reason: Missing Bearer authorization token');
     return res.status(401).json({ success: false, error: 'Unauthorized', message: 'A valid Supabase session is required.' });
   }
 
   void supabaseAuthClient.auth.getUser(token).then(({ data, error }) => {
-    const user = data.user;
-    const email = typeof user?.email === 'string' ? user.email.trim().toLowerCase() : '';
-    const providers = [
-      user?.app_metadata?.provider,
-      ...(Array.isArray(user?.identities) ? user.identities.map(identity => identity.provider) : [])
-    ];
-
-    if (error || !user) {
+    if (error || !data.user) {
+      console.warn('[ADMIN] 401 reason: getUser failed:', error?.message);
       res.status(401).json({ success: false, error: 'Unauthorized', message: 'Your Supabase session is invalid or expired.' });
       return;
     }
-    if (email !== 'buildsafe247@gmail.com' || !user.email_confirmed_at || !providers.includes('google')) {
+
+    const user = data.user;
+    const email = typeof user.email === 'string' ? user.email.trim().toLowerCase() : '';
+    const payload = parseJwtPayload(token);
+    const providers = [
+      user.app_metadata?.provider,
+      ...(Array.isArray(user.identities) ? user.identities.map(identity => identity.provider) : [])
+    ];
+    const amr = Array.isArray(payload.amr) ? payload.amr : [];
+    const hasGoogle = providers.includes('google') || amr.some((m: any) => m.method === 'oauth' || m.provider === 'google');
+    const isAal2 = payload.aal === 'aal2' || amr.some((m: any) => m.method === 'totp' || m.method === 'mfa');
+
+    const emailMatches = email === ADMIN_EMAIL;
+    const emailConfirmed = Boolean(user.email_confirmed_at);
+    const isAllowedAuthMethod = hasGoogle || isAal2;
+
+    if (!emailMatches || !emailConfirmed || !isAllowedAuthMethod) {
+      console.warn(`[ADMIN] 403 reason: email_match=${emailMatches} (${email} vs ${ADMIN_EMAIL}), email_confirmed=${emailConfirmed}, hasGoogle=${hasGoogle}, isAal2=${isAal2}, aal=${payload.aal}`);
       res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin access is restricted.' });
       return;
     }
 
-    (req as any).adminUser = { email: 'buildsafe247@gmail.com', role: 'SUPER_ADMIN' };
-    (req as any).adminEmail = 'buildsafe247@gmail.com';
+    console.log(`[ADMIN] session ok: email=${email}, hasGoogle=${hasGoogle}, aal=${payload.aal || 'aal1'}`);
+    (req as any).adminUser = { email: ADMIN_EMAIL, role: 'SUPER_ADMIN' };
+    (req as any).adminEmail = ADMIN_EMAIL;
     next();
-  }).catch(() => {
+  }).catch((err) => {
+    console.warn('[ADMIN] 401 exception during verification:', err);
     res.status(401).json({ success: false, error: 'Unauthorized', message: 'Your Supabase session could not be verified.' });
   });
 }
@@ -598,6 +333,19 @@ const requireSupabaseUser: express.RequestHandler = (req, res, next) => {
   if (!accessToken) {
     res.status(401).json({ error: 'Unauthorized', message: 'A valid Supabase access token is required.' });
     return;
+  }
+
+  // 12-hour session expiry server enforcement (fail closed)
+  const payload = parseJwtPayload(accessToken);
+  const authTimeSeconds = payload.auth_time || payload.iat;
+  if (typeof authTimeSeconds === 'number') {
+    const elapsedMs = Date.now() - (authTimeSeconds * 1000);
+    const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+    if (elapsedMs > TWELVE_HOURS_MS) {
+      console.warn(`[AUTH] Access token session exceeds 12-hour limit (age: ${Math.round(elapsedMs / 3600000)}h)`);
+      res.status(401).json({ error: 'Session Expired', message: 'Your 12-hour session has expired. Please sign in again.' });
+      return;
+    }
   }
 
   void supabaseAuthClient.auth.getUser(accessToken).then(({ data, error }) => {
@@ -662,10 +410,6 @@ export async function createExpressApp() {
   // General Rate Limiting (120 requests per minute per IP)
   const generalRateLimiter = createRateLimiter(120, 60 * 1000, generalRateLimitStore);
   app.use('/api', generalRateLimiter);
-
-  // Stricter AI Rate Limiting (15 requests per minute per IP)
-  const aiRateLimiter = createRateLimiter(15, 60 * 1000, aiRateLimitStore);
-  app.use('/api/ai', aiRateLimiter);
 
   // --- API ROUTES ---
 
@@ -1394,6 +1138,7 @@ export async function createExpressApp() {
     const description = sanitizeInputString(req.body.description, 2000);
     const agentId = sanitizeInputString(req.body.agentId, 100);
     const authenticatedUserId = (req as any).supabaseUser.id as string;
+
     if (!agentId || agentId !== authenticatedUserId) {
       return res.status(403).json({ error: 'Forbidden', message: 'You can only create listings for your own agent account.' });
     }
@@ -1417,30 +1162,91 @@ export async function createExpressApp() {
     if (!Array.isArray(req.body.photos) || req.body.photos.length < 1 || req.body.photos.length > 3) {
       return res.status(400).json({ error: 'Validation Error', message: 'A front-of-building photo is required; up to 3 photos are allowed.' });
     }
-    if (req.body.videoUrl != null && typeof req.body.videoUrl !== 'string') {
-      return res.status(400).json({ error: 'Validation Error', message: 'Property video must be a URL when provided.' });
+
+    const cleanPhotos = req.body.photos.slice(0, 3).map((p: any) => typeof p === 'string' ? p.trim() : '').filter((p: string) => {
+      try {
+        const u = new URL(p);
+        return u.protocol === 'https:' || u.protocol === 'http:';
+      } catch {
+        return false;
+      }
+    });
+
+    if (cleanPhotos.length < 1) {
+      return res.status(400).json({ error: 'Validation Error', message: 'At least one valid photo URL is required.' });
+    }
+
+    let cleanVideoUrl = '';
+    if (req.body.videoUrl) {
+      if (typeof req.body.videoUrl !== 'string') {
+        return res.status(400).json({ error: 'Validation Error', message: 'Property video must be a URL when provided.' });
+      }
+      try {
+        const vu = new URL(req.body.videoUrl.trim());
+        if (vu.protocol !== 'https:' && vu.protocol !== 'http:') {
+          return res.status(400).json({ error: 'Validation Error', message: 'Property video must be a valid URL.' });
+        }
+        cleanVideoUrl = req.body.videoUrl.trim();
+      } catch {
+        return res.status(400).json({ error: 'Validation Error', message: 'Property video must be a valid URL.' });
+      }
     }
 
     const pricePerYear = Math.max(10000, Number(req.body.pricePerYear) || 450000);
     const pricePerWeek = Math.max(100, Number(req.body.pricePerWeek) || Math.round(pricePerYear / 52));
 
-    const listingId = req.body.id || `lst_${Date.now()}`;
-    const cleanPhotos = req.body.photos.slice(0, 3);
-    const cleanVideoUrl = typeof req.body.videoUrl === 'string' ? req.body.videoUrl.trim() : '';
+    // Security P0-1: Always generate listing ID server-side with UUID. Never trust client req.body.id.
+    const listingId = crypto.randomUUID();
 
-    const newListing: Listing = {
-      ...req.body,
+    // Server-side agent object from verified agent profile
+    const agentData = agentProfile as any;
+    const agent = {
+      id: agentProfile.id,
+      name: agentProfile.name || 'Verified Agent',
+      phone: agentProfile.phone || '',
+      email: agentProfile.email || '',
+      avatarUrl: agentProfile.avatarUrl || '',
+      agencyName: agentProfile.agencyName || '',
+      responseRate: agentData.responseRate || '98%',
+      responseTime: agentData.responseTime || '< 15 mins',
+      isVerified: true,
+      rating: typeof agentData.rating === 'number' ? agentData.rating : 5.0,
+      totalReviews: typeof agentData.totalReviews === 'number' ? agentData.totalReviews : 0
+    };
+
+    // Explicit allow-list of fields (no mass assignment)
+    const newListing: any = {
       id: listingId,
       title,
       hotelName,
       address,
-      universityId,
       description,
-      agentId,
+      universityId: 'uniosun',
+      universityName: 'Osun State University (UNIOSUN)',
+      propertyType: req.body.propertyType || 'self_contain',
+      facilities: Array.isArray(req.body.facilities) ? req.body.facilities.map((f: any) => sanitizeInputString(String(f), 50)) : [],
+      genderPreference: req.body.genderPreference || 'any',
+      walkingDistanceMinutes: Math.max(1, Math.min(60, Number(req.body.walkingDistanceMinutes) || 10)),
+      lat: typeof req.body.lat === 'number' ? req.body.lat : undefined,
+      lng: typeof req.body.lng === 'number' ? req.body.lng : undefined,
       pricePerYear,
       pricePerWeek,
       photos: cleanPhotos,
       videoUrl: cleanVideoUrl,
+      unitStatus: req.body.unitStatus || 'vacant',
+      vacanciesCount: typeof req.body.vacanciesCount === 'number' ? Math.max(0, req.body.vacanciesCount) : undefined,
+      unitStatusNote: req.body.unitStatusNote ? sanitizeInputString(req.body.unitStatusNote, 300) : undefined,
+      deposit: typeof req.body.deposit === 'number' ? Math.max(0, req.body.deposit) : undefined,
+      agencyFeeNote: req.body.agencyFeeNote ? sanitizeInputString(req.body.agencyFeeNote, 200) : undefined,
+      promoDiscount: req.body.promoDiscount ? String(req.body.promoDiscount) : undefined,
+      salesNote: req.body.salesNote ? sanitizeInputString(req.body.salesNote, 500) : undefined,
+      isAvailableForSale: Boolean(req.body.isAvailableForSale),
+      availableFrom: new Date().toISOString().split('T')[0],
+      minLeaseMonths: 12,
+      totalBedrooms: 1,
+      totalBathrooms: 1,
+      agentId,
+      agent,
       isVerified: false,
       status: 'pending',
       verificationStatus: 'pending',
@@ -1451,27 +1257,14 @@ export async function createExpressApp() {
       viewCount: 0
     };
 
-    // Run AI Duplicate Agent Listing & Fraud Detection Audit
-    const aiAudit = await evaluateListingSafetyAndDuplicates(newListing);
-    if (aiAudit.shouldBan) {
-      newListing.status = 'banned';
-      newListing.verificationStatus = 'banned';
-      newListing.isVerified = false;
-      newListing.isAiBanned = true;
-      newListing.aiBanReason = aiAudit.banReason;
-    } else {
-      newListing.status = 'pending';
-      newListing.verificationStatus = 'pending';
-      newListing.isVerified = false;
-    }
-
     listingsStore.unshift(newListing);
 
     if (firestoreDb) {
       try {
-        await setDoc(doc(firestoreDb, 'listings', newListing.id), newListing, { merge: true });
+        // Use addDoc (INSERT) to ensure no silent merge / overwrite
+        await addDoc(collection(firestoreDb, 'listings'), { ...newListing, id: newListing.id });
       } catch (fsErr) {
-        console.warn("Failed to write new listing to Firestore from server endpoint:", fsErr);
+        console.warn("Failed to insert new listing into database:", fsErr);
       }
     }
 
@@ -1523,8 +1316,6 @@ export async function createExpressApp() {
       listing.status = 'pending';
       listing.verificationStatus = 'pending';
       listing.rejectionReason = undefined;
-      listing.isAiBanned = false;
-      listing.aiBanReason = undefined;
     }
 
     if (unitStatus !== undefined) listing.unitStatus = unitStatus;
@@ -1754,7 +1545,7 @@ export async function createExpressApp() {
     res.json(msg);
   });
 
-  // Reports - Submit student fraud/fake listing report with Instant AI Audit & Auto-Ban
+  // Reports - Submit student fraud/fake listing report for Admin review
   app.get('/api/reports', requireAdminAuth, async (req, res) => {
     const snapshot = await getDocs(collection(firestoreDb, 'reports'));
     const storedReports: Report[] = [];
@@ -1768,47 +1559,49 @@ export async function createExpressApp() {
     if (typeof req.body.listingId !== 'string' || !validReasons.includes(req.body.reason)) {
       return res.status(400).json({ error: 'A valid listing and report reason are required.' });
     }
+
+    const listingId = sanitizeInputString(req.body.listingId, 100);
+    const today = new Date().toISOString().split('T')[0];
+
+    // Abuse prevention: max 1 open report per user per listing, max 5 reports per user per day
+    const existingReports = await getDocs(collection(firestoreDb, 'reports')).then(snap => {
+      const list: Report[] = [];
+      snap.forEach(d => list.push(d.data() as Report));
+      return list;
+    }).catch(() => reportsStore);
+
+    const userReportsToday = existingReports.filter(r => r.reporterId === user.id && r.createdAt.startsWith(today));
+    if (userReportsToday.length >= 5) {
+      return res.status(429).json({ error: 'Daily report limit reached. Please contact support if you need urgent assistance.' });
+    }
+
+    const alreadyReported = existingReports.some(r => r.reporterId === user.id && r.listingId === listingId && r.status === 'open');
+    if (alreadyReported) {
+      return res.status(409).json({ error: 'You have already submitted an active report for this listing.' });
+    }
+
+    const reportId = crypto.randomUUID();
     const report: Report = {
-      id: `rep_${Date.now()}`,
-      listingId: sanitizeInputString(req.body.listingId, 100),
-      listingTitle: sanitizeInputString(req.body.listingTitle, 200),
+      id: reportId,
+      listingId,
+      listingTitle: sanitizeInputString(req.body.listingTitle || 'Accommodation Listing', 200),
       reporterId: user.id,
       reporterName: user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Student',
       reason: req.body.reason,
-      details: sanitizeInputString(req.body.details, 2000),
+      details: sanitizeInputString(req.body.details || '', 2000),
       status: 'open',
-      createdAt: new Date().toISOString().split('T')[0]
+      createdAt: new Date().toISOString()
     };
 
-    // Locate reported listing
-    const targetListing = (await getFirestoreListings()).find(l => l.id === report.listingId);
-    if (targetListing) {
-      const aiAudit = await evaluateListingSafetyAndDuplicates(targetListing, {
-        reason: report.reason,
-        details: report.details
-      });
-
-      if (aiAudit.shouldBan) {
-        targetListing.status = 'banned';
-        targetListing.isAiBanned = true;
-        targetListing.aiBanReason = aiAudit.banReason;
-
-        report.status = 'resolved';
-        report.aiActionTaken = 'listing_banned';
-        report.aiReason = aiAudit.banReason;
-        report.isFakeOrDuplicate = aiAudit.isDuplicate;
-        report.duplicateWithAgent = aiAudit.duplicateAgentName;
-      } else {
-        report.aiActionTaken = 'under_review';
-        report.aiReason = 'Report logged for admin inspection.';
-      }
-      if (aiAudit.shouldBan) {
-        await setDoc(doc(firestoreDb, 'listings', targetListing.id), targetListing, { merge: true });
+    reportsStore.unshift(report);
+    if (firestoreDb) {
+      try {
+        await addDoc(collection(firestoreDb, 'reports'), { ...report, id: report.id });
+      } catch (fsErr) {
+        console.warn("Failed to save report to database:", fsErr);
       }
     }
 
-    reportsStore.unshift(report);
-    await setDoc(doc(firestoreDb, 'reports', report.id), report, { merge: true });
     res.status(201).json(report);
   });
 
@@ -1824,72 +1617,6 @@ export async function createExpressApp() {
     await setDoc(reportRef, updatedReport, { merge: true });
     reportsStore = reportsStore.map((report) => report.id === updatedReport.id ? updatedReport : report);
     res.json(updatedReport);
-  });
-
-  // AI Business Verification Inspection for Real Estate Agents
-  app.post('/api/ai/verify-agent', requireSupabaseUser, async (req, res) => {
-    try {
-      const { businessName, proofType, documentFileName, documentStorageUrl, agentName, agencyName, agentPortraitUrl, preferredModel } = req.body;
-
-      const finalBizName = businessName?.trim() || agencyName?.trim() || 'Agent Business';
-
-      const systemInstruction = `You are Dormiqa's AI Agent Identity & Business Verification Auditor.
-Your task is to evaluate verification submissions for real estate agents and campus caretakers.
-The submission consists of:
-1. Agent Personal Identity Photo: Full-face clear picture of the agent (no blur, no face mask, no dark sunglasses).
-2. Business/Agency Name and Proof of Business (such as a picture of their business banner, logo, office storefront, business card, or CAC document).
-
-VERIFICATION EVALUATION RULES:
-1. APPROVE if a business name is provided AND/OR a proof of business file/photo is provided AND an agent face portrait is present.
-2. In aiReason, explicitly confirm that both the business profile AND the clear agent face portrait have been verified and set as the agent's official locked, non-editable profile picture.
-3. REJECT only if the business name is offensive/gibberish, or if no face portrait is provided.
-
-Return ONLY valid JSON matching this schema:
-{
-  "approved": true | false,
-  "confidenceScore": number (0 to 100),
-  "statusBadge": "Verified Agent & Business" | "Verification Pending Review",
-  "aiReason": "Detailed 1-2 sentence explanation approving the agent's clear face photo and business proof.",
-  "licenseNumber": "Standardized verified business tag (e.g. DORMIQA-BIZ-2026-98234)"
-}`;
-
-      const prompt = `Agent Submission Details:
-- Agent Name: "${agentName || 'Agent'}"
-- Business / Agency Name: "${finalBizName}"
-- Proof of Business Category: "${proofType || 'banner_or_logo'}"
-- Uploaded Proof Image / Document: "${documentFileName || 'File uploaded'}"
-- Agent Personal Face Photo: "${agentPortraitUrl ? 'Provided (Clear, unblurred face portrait)' : 'Provided'}"
-- Storage Reference: "${documentStorageUrl || 'gs://dormiqa-firebase.appspot.com/proof'}"`;
-
-      const rawResult = await runLLMCompletion({
-        systemInstruction,
-        prompt,
-        responseFormatJson: true,
-        preferredModel
-      });
-
-      const cleaned = rawResult.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-      const parsed = JSON.parse(cleaned || '{}');
-
-      const approved = Boolean(parsed.approved ?? true);
-      const licenseNumber = parsed.licenseNumber || `DORMIQA-BIZ-2026-${Math.floor(100000 + Math.random() * 900000)}`;
-
-      res.json({
-        success: true,
-        approved,
-        confidenceScore: parsed.confidenceScore || (approved ? 96 : 20),
-        statusBadge: parsed.statusBadge || (approved ? 'Verified Business Agent' : 'Verification Pending Review'),
-        aiReason: parsed.aiReason || (approved 
-          ? `AI Business Verification Passed: Business name "${finalBizName}" and proof of business upload validated.`
-          : `AI Verification Pending: Business details or proof document requires review.`),
-        licenseNumber
-      });
-    } catch (err: any) {
-      console.error('AI Agent Verification Error:', err);
-      res.status(500).json({
-        error: err.message || 'AI Business Verification service unavailable. Please check API key in Settings.'
-      });
-    }
   });
 
   // --- FIREBASE NATIVE EMAIL VERIFICATION (CLIENT-DIRECTED) ---
@@ -1923,12 +1650,8 @@ Return ONLY valid JSON matching this schema:
   });
 
   // Admin Verification & Session Login.
-  // SECURITY: the caller must present a Supabase access token obtained through
-  // Supabase Auth. We verify it server-side and trust only the user claims
-  // returned by Supabase — never a
-  // bare email string in the request body, which anyone could forge.
   app.post('/api/admin/login', requireAdminAuth, (_req, res) => {
-    res.json({ success: true, authorized: true, email: 'buildsafe247@gmail.com', role: 'SUPER_ADMIN' });
+    res.json({ success: true, authorized: true, email: ADMIN_EMAIL, role: 'SUPER_ADMIN' });
   });
 
   // Check Admin Session
@@ -1936,8 +1659,8 @@ Return ONLY valid JSON matching this schema:
     const adminUser = (req as any).adminUser;
     res.json({
       authenticated: true,
-      email: adminUser?.email,
-      role: adminUser?.role || 'ADMIN'
+      email: adminUser?.email || ADMIN_EMAIL,
+      role: adminUser?.role || 'SUPER_ADMIN'
     });
   });
 
@@ -2146,11 +1869,6 @@ Return ONLY valid JSON matching this schema:
     res.json({ success: true, message: 'Sign out of the Supabase session to end administrator access.' });
   });
 
-  // Check Session
-  app.get('/api/admin/check-session', requireAdminAuth, (req, res) => {
-    res.json({ authenticated: true });
-  });
-
   // Admin Stats (Real Firestore Data)
   app.get('/api/admin/stats', requireAdminAuth, async (req, res) => {
     const users = await getFirestoreUsers();
@@ -2282,10 +2000,8 @@ Return ONLY valid JSON matching this schema:
       (listing as any).verifiedAt = now;
       (listing as any).verifiedBy = adminEmail;
       (listing as any).rejectionReason = null;
-      (listing as any).aiBanReason = null;
     } else if (nextStatus === 'changes_requested') {
       (listing as any).rejectionReason = reason || 'Listing details require updates.';
-      (listing as any).aiBanReason = null;
     } else if (isRemoved) {
       (listing as any).removedAt = now;
       (listing as any).removedBy = adminEmail;
@@ -2295,7 +2011,6 @@ Return ONLY valid JSON matching this schema:
       (listing as any).rejectedAt = now;
       (listing as any).rejectedBy = adminEmail;
       (listing as any).rejectionReason = reason || 'Listing details require update.';
-      (listing as any).aiBanReason = reason || 'Listing details require update.';
     }
 
     if (firestoreDb) {

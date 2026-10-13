@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AlertCircle, Shield } from 'lucide-react';
 import { 
   UserRole, 
@@ -186,6 +186,8 @@ export default function App() {
     }
   };
 
+  const [adminVerifyTrigger, setAdminVerifyTrigger] = useState(0);
+
   useEffect(() => {
     if (activeView !== 'admin-dash') return;
 
@@ -207,11 +209,13 @@ export default function App() {
         return;
       }
 
+      const expectedAdminEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'buildsafe247@gmail.com').trim().toLowerCase();
       const result = await checkAdminSession();
+      console.log('[ADMIN] verifyAdmin check-session result:', result);
       if (!isMounted || generation !== verificationGeneration) return;
-      if (result.authenticated && result.email?.trim().toLowerCase() === 'buildsafe247@gmail.com') {
+      if (result.authenticated && result.email?.trim().toLowerCase() === expectedAdminEmail) {
         setIsAdminAuthenticated(true);
-        setAdminEmail('buildsafe247@gmail.com');
+        setAdminEmail(expectedAdminEmail);
         setAdminRole('SUPER_ADMIN');
         setAdminAuthStatus('AUTHORIZED');
         setCurrentRole('admin');
@@ -220,18 +224,6 @@ export default function App() {
 
       setAdminEmail('');
       setAdminAuthStatus('UNAUTHORIZED');
-      redirectTimer = setTimeout(async () => {
-        if (!isMounted || generation !== verificationGeneration) return;
-        await Promise.all([supabase.auth.signOut(), signOut(auth)]);
-        if (!isMounted || generation !== verificationGeneration) return;
-        setIsAdminAuthenticated(false);
-        setIsLoggedIn(false);
-        setAccounts([]);
-        setActiveAccountId('');
-        setCurrentRole('student');
-        setActiveView('onboarding');
-        pushViewUrl('onboarding', true);
-      }, 1600);
     };
 
     const startVerification = () => {
@@ -265,7 +257,7 @@ export default function App() {
       if (redirectTimer) clearTimeout(redirectTimer);
       subscription.unsubscribe();
     };
-  }, [activeView]);
+  }, [activeView, adminVerifyTrigger]);
 
   const navigateView = (view: 'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities') => {
     setIs404Route(false);
@@ -397,6 +389,9 @@ export default function App() {
     setIsInfoModalOpen(true);
   };
 
+  // Track last handled auth UID to prevent repeat bounce-back on tab focus / token refresh
+  const lastHandledAuthUidRef = useRef<string | null>(null);
+
   // Firebase Auth State Listener & User Profile Sync
   useEffect(() => {
     let unsubscribeUserDoc: (() => void) | null = null;
@@ -411,6 +406,7 @@ export default function App() {
       if (unsubscribeInspDoc) { unsubscribeInspDoc(); unsubscribeInspDoc = null; }
 
       if (!fbUser) {
+        lastHandledAuthUidRef.current = null;
         setIsLoggedIn(false);
         setAccounts([]);
         setActiveAccountId('');
@@ -425,6 +421,8 @@ export default function App() {
 
       const uid = fbUser.uid;
       const email = fbUser.email?.toLowerCase() || '';
+      const isSameUserRepeat = lastHandledAuthUidRef.current === uid;
+      lastHandledAuthUidRef.current = uid;
 
       // Check 12-hour session validity for student/user
       if (!checkUserSessionValid(uid)) {
@@ -442,6 +440,19 @@ export default function App() {
         return;
       }
       setUserSessionTimestamp(uid);
+
+      // Skip student/agent profile hydration and auto-route for admin context immediately
+      const initialRoute = parseRouteFromUrl();
+      const expectedAdminEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'buildsafe247@gmail.com').trim().toLowerCase();
+      const isAdminContext = email === expectedAdminEmail || initialRoute.view === 'admin-dash' || activeView === 'admin-dash';
+
+      if (isAdminContext) {
+        console.log(`[ADMIN] session ok | email: ${email} | provider: ${fbUser.providerData[0]?.providerId || 'password'} | route: ${initialRoute.view}`);
+        setIsAuthInitializing(false);
+        setActiveView('admin-dash');
+        pushViewUrl('admin-dash');
+        return;
+      }
 
       // Load the regular user profile and application data; admin authorization is verified separately via Supabase.
       const [fetchedProfile, initialConversations, initialInspections, initialListings] = await Promise.all([
@@ -615,12 +626,12 @@ export default function App() {
       // Hydration completed
       setIsAuthInitializing(false);
 
-      // Authenticated user auto-route: ensure signed in or newly registered users go straight to their dashboard
-      const initialRoute = parseRouteFromUrl();
-      console.log(`[AUTH ROUTE DECISION] Executing Auto-Route for UID: ${uid} | Account Role: "${userAccount.role}" | Current ActiveView: "${activeView}" | Initial Route View: "${initialRoute.view}"`);
+      console.log(`[LISTENER] uid: ${uid} | role: "${userAccount.role}" | profileComplete: ${studentProfileComplete} | activeView: "${activeView}" | isSameUserRepeat: ${isSameUserRepeat}`);
+
+      const isAuthConfirmedLanding = typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/confirmed');
 
       if (userAccount.role === 'agent') {
-        if (initialRoute.view === 'landing' || initialRoute.view === 'onboarding' || initialRoute.view === 'agent-dash' || initialRoute.view === 'agent-landing' || activeView === 'landing' || activeView === 'onboarding') {
+        if (!isSameUserRepeat && (initialRoute.view === 'landing' || initialRoute.view === 'onboarding' || initialRoute.view === 'agent-dash' || initialRoute.view === 'agent-landing' || activeView === 'landing' || activeView === 'onboarding' || isAuthConfirmedLanding)) {
           if (!isVerified) {
             setActiveView('agent-landing');
             pushViewUrl('agent-landing');
@@ -634,25 +645,36 @@ export default function App() {
         }
       } else {
         // STUDENT ROLE:
+        const isCurrentViewOnboarding = activeView === 'landing' || activeView === 'onboarding' || initialRoute.view === 'landing' || initialRoute.view === 'onboarding';
+
         if (!studentProfileComplete) {
-          setActiveView('onboarding');
-          pushViewUrl('onboarding');
-          setToastNotice('Complete your profile to continue to student discovery.');
-          setTimeout(() => setToastNotice(null), 4000);
+          if (isCurrentViewOnboarding || isAuthConfirmedLanding) {
+            setActiveView('onboarding');
+            pushViewUrl('onboarding');
+            setToastNotice('Complete your profile to continue to student discovery.');
+            setTimeout(() => setToastNotice(null), 4000);
+          }
         } else {
-          setActiveView(prev => {
-            if (
-              prev === 'landing' || 
-              prev === 'onboarding' || 
-              prev === 'agent-landing' ||
-              initialRoute.view === 'landing' ||
-              initialRoute.view === 'onboarding'
-            ) {
-              pushViewUrl('search');
-              return 'search';
-            }
-            return prev;
-          });
+          if (isAuthConfirmedLanding) {
+            setToastNotice('Email confirmed! Welcome to Dormiqa.');
+            setTimeout(() => setToastNotice(null), 3000);
+          }
+          if (isCurrentViewOnboarding || isAuthConfirmedLanding || !isSameUserRepeat) {
+            setActiveView(prev => {
+              if (
+                prev === 'landing' || 
+                prev === 'onboarding' || 
+                prev === 'agent-landing' ||
+                initialRoute.view === 'landing' ||
+                initialRoute.view === 'onboarding' ||
+                isAuthConfirmedLanding
+              ) {
+                pushViewUrl('search');
+                return 'search';
+              }
+              return prev;
+            });
+          }
         }
       }
 
@@ -1351,7 +1373,10 @@ export default function App() {
                   createdAt: new Date().toISOString().split('T')[0]
                 };
 
-                saveUserToFirestore(newAccount);
+                const adminAddr = (import.meta.env.VITE_ADMIN_EMAIL || 'buildsafe247@gmail.com').toLowerCase();
+                if (newAccount.email?.toLowerCase() !== adminAddr) {
+                  saveUserToFirestore(newAccount);
+                }
 
                 setAccounts([newAccount]);
                 setActiveAccountId(newAccount.id);
@@ -1687,7 +1712,9 @@ export default function App() {
           return (
             <AdminAccessScreen
               status={adminAuthStatus}
+              currentUserEmail={adminEmail}
               onContinueWithGoogle={handleAdminGoogleSignIn}
+              onAdminSuccess={() => setAdminVerifyTrigger(t => t + 1)}
               onBackToDormiqa={() => {
                 supabase.auth.signOut().catch(() => {});
                 setIsAdminAuthenticated(false);

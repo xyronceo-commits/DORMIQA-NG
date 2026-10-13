@@ -280,7 +280,7 @@ export const EditUnitStatusAndSalesModal: React.FC<EditUnitStatusAndSalesModalPr
                 <span>Verification Rejected — Action Required</span>
               </div>
               <p className="text-[11px] text-rose-700 dark:text-rose-300 font-medium leading-relaxed">
-                <strong>Reason:</strong> {listing.rejectionReason || listing.aiBanReason || 'Listing media or details need correction before approval.'}
+                <strong>Reason:</strong> {listing.rejectionReason || 'Listing media or details need correction before approval.'}
               </p>
               <p className="text-[11px] text-rose-600 dark:text-rose-400">
                 Update the front-of-building photo, property video walkthrough, or listing details below, then click <strong>"Resubmit for Verification"</strong> to reset this listing to pending status.

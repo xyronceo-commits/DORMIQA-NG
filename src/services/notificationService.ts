@@ -212,7 +212,7 @@ export const subscribeUserNotifications = (
 };
 
 /**
- * Triggers a system notification to an agent once the AI or admin review process is complete.
+ * Triggers a system notification to an agent once the admin review process is complete.
  * Includes explicit rejection reasons if the listing is unapproved.
  */
 export const notifyAgentListingReviewComplete = async (params: {
@@ -229,7 +229,7 @@ export const notifyAgentListingReviewComplete = async (params: {
     return sendNotification({
       userId: agentId,
       title: `🎉 Listing Approved: ${listingTitle}`,
-      body: `Review Complete: Your property "${listingTitle}" has passed AI verification and is now published live for students.`,
+      body: `Review Complete: Your property "${listingTitle}" has been approved by the Dormiqa admin team and is now published live for students.`,
       type: 'system',
       universityId,
       metadata: {

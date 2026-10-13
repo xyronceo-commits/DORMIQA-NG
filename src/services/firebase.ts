@@ -154,32 +154,37 @@ export const getActionCodeSettings = () => {
   };
 };
 
-export const registerWithEmail = async (email: string, pass: string) => {
+export const registerWithEmail = async (email: string, pass: string, profileData?: Record<string, any>) => {
   try {
-    const result = await createUserWithEmailAndPassword(auth, email, pass);
+    const result = await createUserWithEmailAndPassword(auth, email, pass, profileData);
     return result.user;
   } catch (error: any) {
-    console.error("Firebase Email Sign-Up Error:", error);
+    console.error("Supabase Email Sign-Up Error:", error);
     throw error;
   }
 };
 
 export const resendVerificationEmail = async (userEmail?: string): Promise<boolean> => {
   try {
-    if (auth.currentUser) {
-      try {
-        await sendEmailVerification(auth.currentUser);
-        return true;
-      } catch (verr) {
-        console.warn("Resend email verification default failed, attempting with settings:", verr);
-        await sendEmailVerification(auth.currentUser, getActionCodeSettings());
-        return true;
+    const email = userEmail || auth.currentUser?.email;
+    if (!email) return false;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const emailRedirectTo = origin ? `${origin}/auth/confirmed` : undefined;
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo
       }
+    });
+    if (error) {
+      console.warn("Resend verification email error:", error);
+      return false;
     }
-    return false;
+    return true;
   } catch (err) {
-    console.error("Failed to resend Firebase verification email:", err);
-    throw err;
+    console.warn("Resend email error:", err);
+    return false;
   }
 };
 
@@ -471,6 +476,12 @@ export const saveUserToFirestore = async (userObj: {
   const cleanEmail = (userObj.email || user?.email || '').trim().toLowerCase();
   
   if (!uid && !cleanEmail) return;
+
+  const expectedAdminEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'buildsafe247@gmail.com').trim().toLowerCase();
+  if (cleanEmail === expectedAdminEmail) {
+    console.log('[ADMIN] Skipping user/student profile creation for admin email:', cleanEmail);
+    return;
+  }
 
   const docId = uid || cleanEmail;
   const userRef = doc(db, 'users', docId);
@@ -813,14 +824,15 @@ export const clearUserSessionTimestamp = (uid?: string) => {
 
 export const checkUserSessionValid = (uid: string): boolean => {
   try {
+    if (!uid) return false;
     const raw = localStorage.getItem(`dormiqa_user_session_${uid}`);
-    if (!raw) return true;
+    if (!raw) return false;
     const parsed = JSON.parse(raw);
-    if (!parsed || !parsed.loginTime) return true;
-    const elapsed = Date.now() - Number(parsed.loginTime);
+    if (!parsed || typeof parsed.loginTime !== 'number') return false;
+    const elapsed = Date.now() - parsed.loginTime;
     return elapsed >= 0 && elapsed < USER_SESSION_DURATION_MS;
-  } catch (e) {
-    return true;
+  } catch {
+    return false;
   }
 };
 
@@ -981,7 +993,6 @@ export const updatePropertyVerificationInFirestore = async (
     updatePayload.verifiedAt = now;
     updatePayload.verifiedBy = adminEmail || 'buildsafe247@gmail.com';
     updatePayload.rejectionReason = null;
-    updatePayload.aiBanReason = null;
   } else if (isRemoved) {
     updatePayload.removedAt = now;
     updatePayload.removedBy = adminEmail || 'buildsafe247@gmail.com';
@@ -991,7 +1002,6 @@ export const updatePropertyVerificationInFirestore = async (
     updatePayload.rejectedAt = now;
     updatePayload.rejectedBy = adminEmail || 'buildsafe247@gmail.com';
     updatePayload.rejectionReason = reason || 'Listing details require update.';
-    updatePayload.aiBanReason = reason || 'Listing details require update.';
   }
 
   try {

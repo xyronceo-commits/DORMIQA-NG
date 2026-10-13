@@ -469,9 +469,9 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                           <MapPin className="w-3 h-3 text-neutral-400" />
                           <span>{item.address || 'Campus Area'}</span>
                         </p>
-                        {(item.status === 'rejected' || item.verificationStatus === 'rejected') && (item.rejectionReason || (item as any).aiBanReason) && (
+                        {(item.status === 'rejected' || item.verificationStatus === 'rejected') && item.rejectionReason && (
                           <div className="mt-2 p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-[11px] font-medium">
-                            <strong>Rejection Reason:</strong> {item.rejectionReason || (item as any).aiBanReason}
+                            <strong>Rejection Reason:</strong> {item.rejectionReason}
                           </div>
                         )}
                       </div>
@@ -579,9 +579,9 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                         <MapPin className="w-3.5 h-3.5 text-neutral-400" />
                         <span>{item.address}</span>
                       </p>
-                      {(item.status === 'rejected' || item.verificationStatus === 'rejected') && (item.rejectionReason || (item as any).aiBanReason) && (
+                      {(item.status === 'rejected' || item.verificationStatus === 'rejected') && item.rejectionReason && (
                         <div className="mt-2 p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-[11px] font-medium">
-                          <strong>Rejection Reason:</strong> {item.rejectionReason || (item as any).aiBanReason}
+                          <strong>Rejection Reason:</strong> {item.rejectionReason}
                         </div>
                       )}
                     </div>

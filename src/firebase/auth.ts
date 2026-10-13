@@ -20,8 +20,11 @@ const normalizeUser = (user: any | null, accessToken?: string | null) => {
       return data.session?.access_token || '';
     },
     reload: async () => {
-      const { data, error } = await supabase.auth.getUser();
-      if (!error && data.user) syncAuthState(data.user, accessToken);
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session) {
+        const { data, error } = await supabase.auth.getUser();
+        if (!error && data?.user) syncAuthState(data.user, sessionData.session.access_token);
+      }
     },
   };
 };
@@ -47,12 +50,21 @@ export const signInWithEmailAndPassword = async (_auth: any, email: string, pass
   return { user: normalizeUser(data.user ?? null) };
 };
 
-export const createUserWithEmailAndPassword = async (_auth: any, email: string, password: string) => {
+export const createUserWithEmailAndPassword = async (
+  _auth: any, 
+  email: string, 
+  password: string,
+  profileData?: Record<string, any>
+) => {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const emailRedirectTo = origin ? `${origin}/auth/confirmed` : undefined;
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+      emailRedirectTo,
+      data: profileData || {},
     },
   });
 
@@ -61,7 +73,11 @@ export const createUserWithEmailAndPassword = async (_auth: any, email: string, 
   }
 
   syncAuthState(data?.user ?? null, data?.session?.access_token);
-  return { user: normalizeUser(data?.user ?? null, data?.session?.access_token) };
+  return { 
+    user: normalizeUser(data?.user ?? null, data?.session?.access_token),
+    session: data?.session,
+    data
+  };
 };
 
 export const sendEmailVerification = async (user: any, actionCodeSettings?: any) => {

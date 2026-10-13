@@ -12,9 +12,11 @@ import {
 import { sendEmailVerification, applyActionCode } from 'firebase/auth';
 import { auth, getActionCodeSettings } from '../services/firebase';
 import { supabase } from '../services/supabase';
+import { mapAuthError } from '../utils/authErrors';
 
 interface EmailVerificationCardProps {
   email: string;
+  password?: string;
   onVerified: () => void;
   onBack?: () => void;
   title?: string;
@@ -23,6 +25,7 @@ interface EmailVerificationCardProps {
 
 export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
   email,
+  password,
   onVerified,
   onBack,
   title = "Verify your email",
@@ -36,7 +39,47 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
 
   const displayEmail = email || auth.currentUser?.email || 'your registered email';
 
-  // Complete Supabase confirmation callbacks and reject unsupported legacy links.
+  // Listen to Supabase Auth state changes across tabs/windows
+  useEffect(() => {
+    let isMounted = true;
+
+    // 1. Check current session immediately
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (isMounted && session?.user?.email_confirmed_at) {
+        setIsVerified(true);
+        setNoticeMessage({
+          text: "Email verified! Redirecting to your dashboard...",
+          type: 'success'
+        });
+        setTimeout(() => {
+          if (isMounted) onVerified();
+        }, 800);
+      }
+    });
+
+    // 2. Subscribe to real-time auth events (shared across tabs in the same browser)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted || isVerified) return;
+      if (session?.user?.email_confirmed_at) {
+        console.log('[VERIFY SCREEN] onAuthStateChange event received with confirmed email:', event);
+        setIsVerified(true);
+        setNoticeMessage({
+          text: "Email verified! Redirecting to your dashboard...",
+          type: 'success'
+        });
+        setTimeout(() => {
+          if (isMounted) onVerified();
+        }, 800);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [onVerified, isVerified]);
+
+  // Complete Supabase confirmation callbacks in URL params if opened directly
   useEffect(() => {
     let isMounted = true;
 
@@ -82,7 +125,7 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
               });
               setTimeout(() => {
                 if (isMounted) onVerified();
-              }, 1200);
+              }, 1000);
             }
           } catch (codeErr: any) {
             console.error("Supabase email verification error:", codeErr);
@@ -95,11 +138,6 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
           } finally {
             if (isMounted) setIsChecking(false);
           }
-        } else if (urlParams.has('oobCode') && mode === 'verifyEmail' && isMounted) {
-          setNoticeMessage({
-            text: 'This older verification link is no longer supported. Request a fresh verification email.',
-            type: 'warning'
-          });
         }
       } catch (e) {
         console.warn("URL action code check failed:", e);
@@ -112,60 +150,6 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
       isMounted = false;
     };
   }, [onVerified]);
-
-  // Automatic verification polling while screen is open
-  useEffect(() => {
-    let isMounted = true;
-
-    const checkInitialState = async () => {
-      if (auth.currentUser) {
-        try {
-          await auth.currentUser.reload();
-          if (isMounted && auth.currentUser.emailVerified) {
-            setIsVerified(true);
-            setNoticeMessage({
-              text: "Email verified! Redirecting to your dashboard...",
-              type: 'success'
-            });
-            setTimeout(() => {
-              if (isMounted) onVerified();
-            }, 1000);
-          }
-        } catch (err) {
-          console.warn("Initial user reload notice:", err);
-        }
-      }
-    };
-
-    checkInitialState().catch(err => console.warn("Initial verification check warning:", err));
-
-    const intervalId = setInterval(async () => {
-      if (!isMounted || isVerified) return;
-      if (auth.currentUser) {
-        try {
-          await auth.currentUser.reload();
-          if (isMounted && auth.currentUser.emailVerified) {
-            clearInterval(intervalId);
-            setIsVerified(true);
-            setNoticeMessage({
-              text: "Your email address has been verified!",
-              type: 'success'
-            });
-            setTimeout(() => {
-              if (isMounted) onVerified();
-            }, 1000);
-          }
-        } catch (err) {
-          console.warn("Polling user reload notice:", err);
-        }
-      }
-    }, 3000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(intervalId);
-    };
-  }, [onVerified, isVerified]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -184,33 +168,62 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
     setNoticeMessage(null);
 
     try {
-      if (auth.currentUser) {
-        // Refresh the current Supabase-backed user before checking verification status.
-        await auth.currentUser.reload();
+      // 1. Try getSession first
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.email_confirmed_at) {
+        setIsVerified(true);
+        setNoticeMessage({
+          text: "✓ Email verified! Loading your Dormiqa account...",
+          type: 'success'
+        });
+        setTimeout(() => onVerified(), 800);
+        return;
+      }
 
-        if (auth.currentUser.emailVerified) {
+      // 2. If user typed password, attempt sign in to establish/refresh session
+      if (password && displayEmail) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: displayEmail.trim().toLowerCase(),
+          password
+        });
+        if (!error && data?.user?.email_confirmed_at) {
           setIsVerified(true);
           setNoticeMessage({
             text: "✓ Email verified! Loading your Dormiqa account...",
             type: 'success'
           });
-          setTimeout(() => {
-            onVerified();
-          }, 1000);
-        } else {
-          setNoticeMessage({
-            text: "Your email hasn't been verified yet. Please click the verification link sent to your email.",
-            type: 'warning'
-          });
+          setTimeout(() => onVerified(), 800);
+          return;
+        } else if (error) {
+          const errMsg = error.message.toLowerCase();
+          if (errMsg.includes('not confirmed')) {
+            setNoticeMessage({
+              text: "Your email hasn't been confirmed yet. Please check your inbox and click the verification link.",
+              type: 'warning'
+            });
+            return;
+          }
         }
-      } else {
-        setNoticeMessage({
-          text: "No active user session found. Please sign in to verify your account.",
-          type: 'error'
-        });
       }
+
+      // 3. Check getUser if session exists
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData?.user?.email_confirmed_at) {
+        setIsVerified(true);
+        setNoticeMessage({
+          text: "✓ Email verified! Loading your Dormiqa account...",
+          type: 'success'
+        });
+        setTimeout(() => onVerified(), 800);
+        return;
+      }
+
+      setNoticeMessage({
+        text: "Your email hasn't been verified yet. Please click the verification link sent to your inbox.",
+        type: 'warning'
+      });
     } catch (err: any) {
-      console.error("Error reloading auth user:", err);
+      console.error("Error checking verification:", err);
       setNoticeMessage({
         text: err?.message || "Failed to check verification status. Please try again.",
         type: 'error'
@@ -220,7 +233,7 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
     }
   };
 
-  // Resend Verification Link Handler (Rate limited with server cooldown)
+  // Resend Verification Link Handler
   const handleResendLink = async () => {
     if (resendCooldown > 0 || isResending) return;
 
@@ -228,37 +241,19 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
     setNoticeMessage(null);
 
     try {
-      // 1. Call server rate-limited endpoint (enforces 60-second cooldown on server)
-      const res = await fetch('/api/auth/resend-confirmation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: displayEmail }),
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const emailRedirectTo = `${origin}/auth/confirmed`;
+
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: displayEmail.trim().toLowerCase(),
+        options: {
+          emailRedirectTo
+        }
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (res.status === 429) {
-          const waitTime = data.retryAfterSeconds || 60;
-          setResendCooldown(waitTime);
-          setNoticeMessage({
-            text: data.message || `Please wait ${waitTime} seconds before requesting another verification email.`,
-            type: 'error'
-          });
-          return;
-        }
-        throw new Error(data.message || data.error || 'Could not resend verification email.');
-      }
-
-      // Also call Supabase auth resend from client if email is present
-      if (displayEmail && displayEmail.includes('@')) {
-        await supabase.auth.resend({
-          type: 'signup',
-          email: displayEmail,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/confirmed`
-          }
-        }).catch((sbErr) => console.warn('Supabase client resend note:', sbErr));
+      if (error) {
+        throw error;
       }
 
       setResendCooldown(60); // 60s cooldown
@@ -269,7 +264,7 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
     } catch (err: any) {
       console.error("Resend verification email error:", err);
       setNoticeMessage({
-        text: err?.message || "Could not resend verification email. Please try again.",
+        text: mapAuthError(err),
         type: 'error'
       });
     } finally {

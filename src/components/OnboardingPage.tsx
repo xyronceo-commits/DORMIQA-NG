@@ -24,6 +24,7 @@ import { EmailVerificationCard } from './EmailVerificationCard';
 import { UniversitySelector } from './UniversitySelector';
 import { PasswordResetModal, PasswordResetStep } from './PasswordResetModal';
 import { supabase } from '../services/supabase';
+import { mapAuthError } from '../utils/authErrors';
 import { 
   auth,
   signInWithGoogle, 
@@ -128,6 +129,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   // Email Verification Step State
   const [showEmailVerificationScreen, setShowEmailVerificationScreen] = useState(false);
   const [pendingUserOnboardingData, setPendingUserOnboardingData] = useState<any>(null);
+  const [pendingPassword, setPendingPassword] = useState<string>('');
   const [resendStatusMessage, setResendStatusMessage] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
 
@@ -409,37 +411,20 @@ if (error) {
           return;
         }
 
-        // Create the Supabase Auth account with email confirmation redirect.
-        const emailRedirectTo = `${window.location.origin}/auth/confirmed`;
-        await supabase.auth.signUp({
-          email: trimmedEmail,
-          password: studentPassword,
-          options: {
-            emailRedirectTo,
-            data: {
-              role: 'student',
-              full_name: trimmedName,
-              phone: phoneCheck.normalized,
-              university_id: selectedUniObj.id,
-              university_name: selectedUniObj.name
-            }
-          }
-        }).catch((sbErr) => console.warn('Supabase signUp secondary notice:', sbErr));
+        // Store password in component state for instant verification
+        setPendingPassword(studentPassword);
 
-        await registerWithEmail(trimmedEmail, studentPassword);
-
-        // Refresh the Supabase-backed compatibility user.
-        if (auth.currentUser) {
-          await auth.currentUser.reload();
-        }
-
-        const fbUser = auth.currentUser;
-        if (!fbUser) throw new Error("Supabase account creation failed.");
-
-        const isVerified = fbUser.emailVerified === true;
+        // 1. Single sign-up call passing profile metadata to Supabase Auth
+        await registerWithEmail(trimmedEmail, studentPassword, {
+          role: 'student',
+          full_name: trimmedName,
+          phone: phoneCheck.normalized,
+          university_id: selectedUniObj.id,
+          university_name: selectedUniObj.name
+        });
 
         const studentData = {
-          id: fbUser.uid,
+          id: auth.currentUser?.uid || `stu_${Date.now()}`,
           role: 'student' as UserRole,
           name: trimmedName,
           email: trimmedEmail,
@@ -447,19 +432,15 @@ if (error) {
           universityId: selectedUniObj.id,
           universityName: selectedUniObj.name,
           isSignup: true,
-          isEmailVerified: isVerified
+          isEmailVerified: false
         };
 
-        savePendingSignupProfile(studentData);
-        // Save the profile through the Supabase-backed document adapter.
-        await saveUserToFirestore(studentData);
-
-        // 4. Send to verification screen & block access until verified
+        // 2. Go straight to the Check your email screen (profile row created by DB trigger)
         setPendingUserOnboardingData(studentData);
         setShowEmailVerificationScreen(true);
       } else {
         // SIGN IN
-        // 1. Authenticate with Firebase Auth
+        setPendingPassword(studentPassword);
         await loginWithEmail(studentEmail.trim().toLowerCase(), studentPassword);
 
         if (auth.currentUser) {
@@ -471,7 +452,6 @@ if (error) {
 
         const isVerified = fbUser.emailVerified === true;
 
-        // 2. Fetch profile from Firestore
         const existingProfile = await fetchUserProfileFromFirestore(fbUser.uid) || await fetchUserProfileFromFirestore(fbUser.email || studentEmail.trim().toLowerCase());
         if (existingProfile?.role === 'agent') {
           setAuthError('This account is registered as an agent. Use the Agent Portal to sign in.');
@@ -491,16 +471,7 @@ if (error) {
           isEmailVerified: isVerified
         };
 
-        // Update verification status in Firestore
-        await saveUserToFirestore({
-          id: fbUser.uid,
-          name: studentData.name,
-          email: studentData.email,
-          role: studentData.role,
-          isEmailVerified: isVerified
-        });
-
-        // 3. If email is not verified, show verification screen
+        // If email is not verified, show verification screen
         if (!isVerified) {
           setPendingUserOnboardingData(studentData);
           setShowEmailVerificationScreen(true);
@@ -525,28 +496,25 @@ if (error) {
         }
       }
     } catch (err: any) {
-      console.error("Student Auth Error:", err);
-      let errorMsg = err?.message || "Authentication failed. Please check your credentials and try again.";
-      if (err?.code === 'auth/network-request-failed') {
-        errorMsg = "Network connection failed during authentication. Please check your internet connection or use Google Sign-In below.";
-      } else if (err?.code === 'auth/operation-not-allowed') {
-        errorMsg = 'Email/password sign-up is disabled for this Supabase project. Enable the Email provider in Supabase Authentication settings.';
-      } else if (err?.code === 'auth/unauthorized-domain') {
-        errorMsg = 'This domain is not in the Supabase Auth redirect URL allow list.';
-      } else if (err?.code === 'auth/user-not-found') {
-        errorMsg = "Account not found. Please sign up first.";
-      } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
-        errorMsg = "Incorrect email or password.";
-      } else if (err?.code === 'auth/user-disabled') {
-        errorMsg = "This account has been disabled. Please contact support.";
-      } else if (err?.code === 'auth/email-already-in-use') {
-        errorMsg = "An account with this email address already exists. Please click 'Sign In' or use a different email.";
-      } else if (err?.code === 'auth/invalid-email') {
-        errorMsg = "Invalid email address format. Please check your email.";
-      } else if (err?.code === 'auth/weak-password') {
-        errorMsg = "Password is too weak. Please use at least 6 characters.";
+      console.error("[STUDENT AUTH] Error:", err);
+      const code = String(err?.code || err?.error_code || '').toLowerCase();
+      const msg = String(err?.message || '').toLowerCase();
+      if (code === 'email_not_confirmed' || msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+        setPendingUserOnboardingData({
+          id: '',
+          role: 'student' as UserRole,
+          name: studentEmail.split('@')[0] || 'Student',
+          email: studentEmail.trim().toLowerCase(),
+          phone: '',
+          universityId: 'uniosun',
+          universityName: 'Osun State University (UNIOSUN)',
+          isSignup: false,
+          isEmailVerified: false
+        });
+        setShowEmailVerificationScreen(true);
+        return;
       }
-      setAuthError(errorMsg);
+      setAuthError(mapAuthError(err));
     } finally {
       setIsLoading(false);
     }
@@ -559,37 +527,20 @@ if (error) {
 
     try {
       if (authMode === 'signup') {
-        // Create the Supabase Auth account with email confirmation redirect.
-        const emailRedirectTo = `${window.location.origin}/auth/confirmed`;
-        await supabase.auth.signUp({
-          email: agentEmail.trim().toLowerCase(),
-          password: agentPassword,
-          options: {
-            emailRedirectTo,
-            data: {
-              role: 'agent',
-              full_name: agentName || agentEmail.split('@')[0],
-              agency_name: agencyName || `${agentName || 'Agent'} Housing`,
-              phone: agentPhoneWA,
-              university_id: agentUniId,
-              university_name: agentUni
-            }
-          }
-        }).catch((sbErr) => console.warn('Supabase agent signUp notice:', sbErr));
+        setPendingPassword(agentPassword);
 
-        await registerWithEmail(agentEmail.trim().toLowerCase(), agentPassword);
-
-        if (auth.currentUser) {
-          await auth.currentUser.reload();
-        }
-
-        const fbUser = auth.currentUser;
-        if (!fbUser) throw new Error("Supabase account creation failed.");
-
-        const isVerified = fbUser.emailVerified === true;
+        // 1. Single sign-up call passing agent metadata to Supabase Auth
+        await registerWithEmail(agentEmail.trim().toLowerCase(), agentPassword, {
+          role: 'agent',
+          full_name: agentName || agentEmail.split('@')[0],
+          agency_name: agencyName || `${agentName || 'Agent'} Housing`,
+          phone: agentPhoneWA,
+          university_id: agentUniId,
+          university_name: agentUni
+        });
 
         const agentData = {
-          id: fbUser.uid,
+          id: auth.currentUser?.uid || `agt_${Date.now()}`,
           role: 'agent' as UserRole,
           name: agentName || agentEmail.split('@')[0],
           email: agentEmail.trim().toLowerCase(),
@@ -597,18 +548,15 @@ if (error) {
           phone: agentPhoneWA,
           universityName: agentUni,
           isSignup: true,
-          isEmailVerified: isVerified
+          isEmailVerified: false
         };
 
-        savePendingSignupProfile(agentData);
-        // Save the profile through the Supabase-backed document adapter.
-        await saveUserToFirestore(agentData);
-
-        // 3. Send to verification screen & block access until verified
+        // 2. Go straight to the Check your email screen (profile row created by DB trigger)
         setPendingUserOnboardingData(agentData);
         setShowEmailVerificationScreen(true);
       } else {
         // SIGN IN
+        setPendingPassword(agentPassword);
         await loginWithEmail(agentEmail.trim().toLowerCase(), agentPassword);
 
         if (auth.currentUser) {
@@ -637,13 +585,6 @@ if (error) {
           isEmailVerified: isVerified
         };
 
-        await saveUserToFirestore({
-          id: fbUser.uid,
-          name: agentData.name,
-          email: agentData.email,
-          isEmailVerified: isVerified
-        });
-
         if (!isVerified) {
           setPendingUserOnboardingData(agentData);
           setShowEmailVerificationScreen(true);
@@ -652,28 +593,25 @@ if (error) {
         }
       }
     } catch (err: any) {
-      console.error("Agent Auth Error:", err);
-      let errorMsg = err?.message || "Authentication failed. Please check your credentials and try again.";
-      if (err?.code === 'auth/network-request-failed') {
-        errorMsg = "Network connection failed during authentication. Please check your internet connection or use Google Sign-In below.";
-      } else if (err?.code === 'auth/operation-not-allowed') {
-        errorMsg = 'Email/password sign-up is disabled for this Supabase project. Enable the Email provider in Supabase Authentication settings.';
-      } else if (err?.code === 'auth/unauthorized-domain') {
-        errorMsg = 'This domain is not in the Supabase Auth redirect URL allow list.';
-      } else if (err?.code === 'auth/user-not-found') {
-        errorMsg = "Account not found. Please sign up first.";
-      } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
-        errorMsg = "Incorrect email or password.";
-      } else if (err?.code === 'auth/user-disabled') {
-        errorMsg = "This account has been disabled. Please contact support.";
-      } else if (err?.code === 'auth/email-already-in-use') {
-        errorMsg = "An account with this email address already exists. Please click 'Sign In' or use a different email.";
-      } else if (err?.code === 'auth/invalid-email') {
-        errorMsg = "Invalid email address format. Please check your email.";
-      } else if (err?.code === 'auth/weak-password') {
-        errorMsg = "Password is too weak. Please use at least 6 characters.";
+      console.error("[AGENT AUTH] Error:", err);
+      const code = String(err?.code || err?.error_code || '').toLowerCase();
+      const msg = String(err?.message || '').toLowerCase();
+      if (code === 'email_not_confirmed' || msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+        setPendingUserOnboardingData({
+          id: '',
+          role: 'agent' as UserRole,
+          name: agentName || agentEmail.split('@')[0] || 'Agent',
+          email: agentEmail.trim().toLowerCase(),
+          agencyName: agencyName,
+          phone: agentPhoneWA,
+          universityName: agentUni,
+          isSignup: false,
+          isEmailVerified: false
+        });
+        setShowEmailVerificationScreen(true);
+        return;
       }
-      setAuthError(errorMsg);
+      setAuthError(mapAuthError(err));
     } finally {
       setIsLoading(false);
     }
@@ -684,19 +622,27 @@ if (error) {
       <div className="min-h-[calc(100vh-4rem)] bg-neutral-50 dark:bg-neutral-950 py-12 px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center gap-4">
         <EmailVerificationCard
           email={pendingUserOnboardingData?.email || studentEmail || agentEmail || auth.currentUser?.email || ''}
+          password={pendingPassword}
           onBack={() => setShowEmailVerificationScreen(false)}
           onVerified={async () => {
-            if (auth.currentUser) {
-              await auth.currentUser.reload();
-            }
-            const isVerified = auth.currentUser?.emailVerified === true;
-            if (!isVerified) return;
-
+            const { data: { session } } = await supabase.auth.getSession();
+            const user = session?.user || auth.currentUser;
             const verifiedData = {
               ...pendingUserOnboardingData,
+              id: user?.id || pendingUserOnboardingData?.id,
               isEmailVerified: true
             };
-            await saveUserToFirestore(verifiedData);
+            if (verifiedData.role === 'student' && (!verifiedData.name || !verifiedData.phone || !verifiedData.universityId)) {
+              setGoogleAuthData({
+                uid: user?.id || '',
+                displayName: verifiedData.name || '',
+                email: verifiedData.email,
+                photoURL: verifiedData.avatarUrl || '',
+                provider: 'email'
+              });
+              setShowEmailVerificationScreen(false);
+              return;
+            }
             onCompleteOnboarding(verifiedData);
           }}
         />

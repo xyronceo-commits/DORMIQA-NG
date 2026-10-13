@@ -168,8 +168,6 @@ export interface Listing {
   isVerified: boolean;
   status: 'published' | 'pending' | 'approved' | 'changes_requested' | 'rejected' | 'banned' | 'flagged' | 'removed' | 'draft' | 'uploading' | 'upload_failed' | 'incomplete';
   verificationStatus?: 'published' | 'pending' | 'approved' | 'changes_requested' | 'rejected' | 'banned' | 'flagged' | 'removed' | 'draft' | 'uploading' | 'upload_failed' | 'incomplete';
-  aiBanReason?: string;
-  isAiBanned?: boolean;
   rejectionReason?: string;
   verificationProofUrl?: string;
   verificationProofName?: string;
@@ -265,10 +263,7 @@ export interface Report {
   reason: 'fake_listing' | 'misleading_photos' | 'scam_attempt' | 'incorrect_price' | 'other';
   details: string;
   status: 'open' | 'investigating' | 'resolved' | 'dismissed';
-  aiActionTaken?: 'listing_banned' | 'listing_flagged' | 'under_review' | 'none';
-  aiReason?: string;
-  isFakeOrDuplicate?: boolean;
-  duplicateWithAgent?: string;
+  adminNotes?: string;
   createdAt: string;
 }
 

@@ -266,7 +266,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                 </button>
               </div>
               <p className="text-[11px] text-rose-700 dark:text-rose-300 font-medium leading-relaxed">
-                <strong>Rejection Reason:</strong> {listing.rejectionReason || listing.aiBanReason || 'Listing media or details need correction before approval.'}
+                <strong>Rejection Reason:</strong> {listing.rejectionReason || 'Listing media or details need correction before approval.'}
               </p>
             </div>
           )}

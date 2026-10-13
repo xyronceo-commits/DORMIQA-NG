@@ -37,9 +37,7 @@ All 183 upcoming institutions feature an integrated **Priority Campus Waitlist M
 ### 🎓 For University Students
 - **"Preferred School" Selector:** Clean, intuitive searchable dropdown highlighting Osun State University (UNIOSUN) under **"Available Now (Active Campus)"** with distinct green status badges. Upcoming schools are grouped under **"Coming Soon"** with instant waitlist prompts.
 - **Campus Gate Walking Radius Search:** Filter student hostels and self-contain units by walking minutes (e.g. within 5, 8, or 10 minutes to campus gates).
-- **100% Free Physical Inspection Scheduling:** Pick preferred dates and times to view lodges in-person with verified caretakers without paying advance viewing fees.
-- **In-App Verified Messaging & Chat:** Communicate directly with hosts and schedule viewings securely.
-- **AI Housing Assistant (Gemini-Powered):** Ask natural language queries for room recommendations and amenities.
+- **Verified Property Directory:** Browse authenticated hostel lodges with detailed room specifications, upfront rates, and verified caretakers.
 - **Roommate Matching Engine:** Connect with verified fellow students searching for roommates to share accommodation costs safely.
 - **Saved Favorites & Listing Comparison:** Benchmark price breakdowns, caution fees, and amenities across multiple lodges.
 
@@ -108,7 +106,7 @@ VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-supabase-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-server-only-service-role-key
-GEMINI_API_KEY=your_gemini_api_key_here
+ADMIN_EMAIL=buildsafe247@gmail.com
 ```
 
 ### 2. Run the Development Server
