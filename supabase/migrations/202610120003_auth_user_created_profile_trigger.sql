@@ -51,9 +51,9 @@ begin
     'updatedAt', to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
   );
 
-  insert into public.app_documents (collection, doc_id, data)
+  insert into public.app_documents (collection, id, data)
   values ('users', new.id::text, doc_user)
-  on conflict (collection, doc_id) do nothing;
+  on conflict (collection, id) do nothing;
 
   -- 2. Insert into role-specific collection (students or agents)
   if user_role = 'student' then
@@ -69,9 +69,9 @@ begin
       'updatedAt', to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
     );
 
-    insert into public.app_documents (collection, doc_id, data)
+    insert into public.app_documents (collection, id, data)
     values ('students', new.id::text, doc_role)
-    on conflict (collection, doc_id) do nothing;
+    on conflict (collection, id) do nothing;
   elsif user_role = 'agent' then
     doc_role := jsonb_build_object(
       'id', new.id::text,
@@ -88,9 +88,9 @@ begin
       'updatedAt', to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
     );
 
-    insert into public.app_documents (collection, doc_id, data)
+    insert into public.app_documents (collection, id, data)
     values ('agents', new.id::text, doc_role)
-    on conflict (collection, doc_id) do nothing;
+    on conflict (collection, id) do nothing;
   end if;
 
   return new;

@@ -99,28 +99,57 @@ const passwordChangedRateLimitStore = new Map<string, { count: number; resetTime
 const recentPasswordNoticeSent = new Set<string>();
 
 function getAllowedRedirectUrl(targetPath: string, req: express.Request): string {
+  const isProduction = process.env.NODE_ENV === 'production';
   const appBaseUrl = process.env.APP_BASE_URL?.trim();
-  const originHeader = req.get('origin') || req.get('referer');
-  const allowedOrigins = [
+  const rawAllowedOrigins = process.env.ALLOWED_REDIRECT_ORIGINS?.trim();
+
+  // Allowed base origins: localhost for development, canonical production, and previews
+  const allowedOrigins = new Set<string>([
     'http://localhost:3000',
+    'http://127.0.0.1:3000',
     'https://dormiqa.com',
     'https://ais-pre-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app',
     'https://ais-dev-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app'
-  ];
+  ]);
+
   if (appBaseUrl) {
     try {
-      allowedOrigins.push(new URL(appBaseUrl).origin);
+      allowedOrigins.add(new URL(appBaseUrl).origin);
     } catch (_) {}
   }
+
+  if (rawAllowedOrigins) {
+    rawAllowedOrigins.split(',').forEach((orig) => {
+      const trimmed = orig.trim();
+      if (trimmed) {
+        try {
+          allowedOrigins.add(new URL(trimmed).origin);
+        } catch (_) {
+          allowedOrigins.add(trimmed.replace(/\/+$/, ''));
+        }
+      }
+    });
+  }
+
+  if (isProduction && !appBaseUrl) {
+    console.error('[Auth Redirect] ERROR: APP_BASE_URL environment variable is missing in production! Please set APP_BASE_URL to your canonical domain.');
+  }
+
+  // Base priority:
+  // 1. Matched request Origin / Referer header if in allowedOrigins
+  // 2. APP_BASE_URL if set
+  // 3. Documented canonical fallback: https://dormiqa.com
   let base = appBaseUrl || 'https://dormiqa.com';
+  const originHeader = req.get('origin') || req.get('referer');
   if (originHeader) {
     try {
       const parsedOrigin = new URL(originHeader).origin;
-      if (allowedOrigins.includes(parsedOrigin)) {
+      if (allowedOrigins.has(parsedOrigin)) {
         base = parsedOrigin;
       }
     } catch (_) {}
   }
+
   const cleanBase = base.replace(/\/+$/, '');
   const cleanPath = targetPath.startsWith('/') ? targetPath : '/' + targetPath;
   return `${cleanBase}${cleanPath}`;

@@ -26,6 +26,7 @@ const fromName = process.env.EMAIL_FROM_NAME?.trim() || 'Dormiqa';
 const fromAddress = process.env.EMAIL_FROM_ADDRESS?.trim();
 const appBaseUrl = process.env.APP_BASE_URL?.trim() || 'https://dormiqa.com';
 
+const rawAllowedOrigins = process.env.ALLOWED_REDIRECT_ORIGINS?.trim();
 const TEMPLATES_DIR = path.resolve(process.cwd(), 'supabase', 'templates');
 
 function readTemplate(filename: string): string {
@@ -58,24 +59,58 @@ async function main() {
   const resetHtml = readTemplate('reset-password.html');
   console.log('✓ Loaded confirm-signup.html and reset-password.html templates.');
 
-  // 3. Prepare Redirect Allowlist
-  const redirectUrls = Array.from(new Set([
+  // 3. Prepare Base Origins and Redirect Allowlist
+  const baseOrigins = new Set<string>([
     'http://localhost:3000',
-    'http://localhost:3000/auth/confirmed',
-    'http://localhost:3000/auth/reset-password',
+    'http://127.0.0.1:3000',
     'https://dormiqa.com',
-    'https://dormiqa.com/auth/confirmed',
-    'https://dormiqa.com/auth/reset-password',
-    appBaseUrl,
-    `${appBaseUrl}/auth/confirmed`,
-    `${appBaseUrl}/auth/reset-password`,
     'https://ais-pre-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app',
-    'https://ais-pre-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app/auth/confirmed',
-    'https://ais-pre-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app/auth/reset-password'
-  ])).filter(Boolean);
+    'https://ais-dev-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app'
+  ]);
+
+  if (appBaseUrl) {
+    try {
+      baseOrigins.add(new URL(appBaseUrl).origin);
+    } catch (_) {
+      baseOrigins.add(appBaseUrl.replace(/\/+$/, ''));
+    }
+  }
+
+  if (rawAllowedOrigins) {
+    rawAllowedOrigins.split(',').forEach((orig) => {
+      const trimmed = orig.trim();
+      if (trimmed) {
+        try {
+          baseOrigins.add(new URL(trimmed).origin);
+        } catch (_) {
+          baseOrigins.add(trimmed.replace(/\/+$/, ''));
+        }
+      }
+    });
+  }
+
+  // For each allowed origin, include <origin>/**, <origin>/auth/reset-password, <origin>/auth/confirmed, and <origin>
+  const redirectUrlsSet = new Set<string>();
+  // Explicitly ensure development wildcard
+  redirectUrlsSet.add('http://localhost:3000/**');
+  redirectUrlsSet.add('http://localhost:3000');
+  redirectUrlsSet.add('http://localhost:3000/auth/reset-password');
+  redirectUrlsSet.add('http://localhost:3000/auth/confirmed');
+
+  baseOrigins.forEach((orig) => {
+    const cleanOrig = orig.replace(/\/+$/, '');
+    redirectUrlsSet.add(`${cleanOrig}/**`);
+    redirectUrlsSet.add(`${cleanOrig}/auth/reset-password`);
+    redirectUrlsSet.add(`${cleanOrig}/auth/confirmed`);
+    redirectUrlsSet.add(cleanOrig);
+  });
+
+  const redirectUrls = Array.from(redirectUrlsSet).filter(Boolean);
 
   // 4. Construct Payload
+  // Supabase Management API: site_url sets project Site URL, uri_allow_list sets Redirect URLs
   const configPayload: Record<string, any> = {
+    site_url: appBaseUrl,
     mailer_autoconfirm: false, // Ensure email confirmation is REQUIRED
     mailer_otp_exp: 3600,      // 1 hour link expiry
     mailer_subjects_confirmation: 'Confirm your Dormiqa email address',
@@ -96,16 +131,17 @@ async function main() {
     console.log(`✓ Custom SMTP Settings configured: ${fromName} <${fromAddress}> via ${smtpHost}:${smtpPort}`);
   } else {
     console.warn('⚠️ Notice: SMTP_HOST or EMAIL_FROM_ADDRESS is not provided in environment.');
-    console.warn('The script will update templates and allowlist. Custom SMTP can be set later.\n');
+    console.warn('The script will update templates, Site URL, and allowlist. Custom SMTP can be set later.\n');
   }
 
   console.log('\n--- Configuration Summary to be Applied ---');
   console.log(`- Project Ref: ${projectRef}`);
+  console.log(`- Site URL (site_url): ${appBaseUrl}`);
   console.log(`- Email Confirmation: Enabled (autoconfirm = false)`);
   console.log(`- OTP / Token Expiry: 3600s (1 hour)`);
   console.log(`- Confirmation Subject: "Confirm your Dormiqa email address"`);
   console.log(`- Password Reset Subject: "Reset your Dormiqa password"`);
-  console.log(`- Allowed Redirect URLs: ${redirectUrls.length} domains allowlisted`);
+  console.log(`- Allowed Redirect URLs: ${redirectUrls.length} entries allowlisted (including /** wildcards)`);
   if (smtpHost) {
     console.log(`- SMTP Host: ${smtpHost}:${smtpPort}`);
     console.log(`- Sender: ${fromName} <${fromAddress}>`);

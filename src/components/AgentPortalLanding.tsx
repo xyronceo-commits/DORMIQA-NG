@@ -24,6 +24,7 @@ import { University, User } from '../types';
 import { ThemeToggle } from './ThemeToggle';
 import { UniversitySelector } from './UniversitySelector';
 import { mapAuthError } from '../utils/authErrors';
+import { supabase } from '../services/supabase';
 import { 
   auth,
   registerWithEmail, 
@@ -91,7 +92,7 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
     setUnverifiedEmail(null);
 
     try {
-      await registerWithEmail(agentEmail.trim().toLowerCase(), agentPassword, {
+      const regUser = await registerWithEmail(agentEmail.trim().toLowerCase(), agentPassword, {
         role: 'agent',
         full_name: agentName || agentEmail.split('@')[0],
         agency_name: agencyName || `${agentName || 'Agent'} Housing`,
@@ -99,6 +100,26 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
         university_id: agentUniId || 'uniosun',
         university_name: agentUni
       });
+
+      const newAgentId = regUser?.id || auth.currentUser?.uid || `agt_${Date.now()}`;
+      const newAgentProfile: User = {
+        id: newAgentId,
+        uid: newAgentId,
+        name: agentName || agentEmail.split('@')[0],
+        email: agentEmail.trim().toLowerCase(),
+        role: 'agent',
+        phone: agentPhone,
+        agencyName: agencyName || `${agentName || 'Agent'} Housing`,
+        universityId: agentUniId || 'uniosun',
+        universityName: agentUni,
+        isVerifiedAgent: false,
+        isEmailVerified: false,
+        businessVerificationStatus: 'none',
+        avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
+        createdAt: new Date().toISOString().split('T')[0]
+      };
+
+      await saveUserToFirestore(newAgentProfile).catch(() => {});
 
       setUnverifiedEmail(agentEmail.trim().toLowerCase());
       setAuthError(null);
@@ -117,38 +138,42 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
     setUnverifiedEmail(null);
 
     try {
-      await loginWithEmail(agentEmail.trim().toLowerCase(), agentPassword);
+      const loggedInUser = await loginWithEmail(agentEmail.trim().toLowerCase(), agentPassword);
 
-      if (auth.currentUser) {
-        await auth.currentUser.reload();
+      const fbUser = loggedInUser || auth.currentUser;
+      if (!fbUser) {
+        const { data: { user: supaUser } } = await supabase.auth.getUser();
+        if (!supaUser) throw new Error("Authentication failed.");
       }
 
-      const fbUser = auth.currentUser;
-      if (!fbUser) throw new Error("Authentication failed.");
+      const activeUser = loggedInUser || auth.currentUser;
+      const uid = activeUser?.uid || activeUser?.id;
+      const isVerified = Boolean(activeUser?.emailVerified || activeUser?.email_confirmed_at);
 
-      const isVerified = fbUser.emailVerified === true;
+      // Fetch profile from database
+      const existingProfile = await fetchUserProfileFromFirestore(uid) || 
+                              await fetchUserProfileFromFirestore(agentEmail.trim().toLowerCase());
 
-      // Fetch profile from Firestore
-      const existingProfile = await fetchUserProfileFromFirestore(fbUser.uid) || await fetchUserProfileFromFirestore(fbUser.email || agentEmail.trim().toLowerCase());
-
+      const meta = activeUser?.user_metadata || {};
       const agentData: User = {
-        id: fbUser.uid,
-        name: existingProfile?.name || fbUser.displayName || agentEmail.split('@')[0],
-        email: fbUser.email || agentEmail.trim().toLowerCase(),
+        id: uid,
+        name: existingProfile?.name || meta.full_name || meta.name || activeUser?.displayName || agentEmail.split('@')[0],
+        email: activeUser?.email || agentEmail.trim().toLowerCase(),
         role: 'agent',
-        phone: existingProfile?.phone || agentPhone,
-        agencyName: existingProfile?.agencyName || agencyName || `${existingProfile?.name || 'Agent'} Housing`,
-        universityName: existingProfile?.universityName || agentUni,
-        isVerifiedAgent: existingProfile?.isVerifiedAgent || false,
+        phone: existingProfile?.phone || meta.phone || agentPhone,
+        agencyName: existingProfile?.agencyName || meta.agency_name || agencyName || `${existingProfile?.name || 'Agent'} Housing`,
+        universityId: existingProfile?.universityId || meta.university_id || agentUniId || 'uniosun',
+        universityName: existingProfile?.universityName || meta.university_name || agentUni,
+        isVerifiedAgent: existingProfile?.businessVerificationStatus === 'approved' || existingProfile?.isVerifiedAgent || false,
         isEmailVerified: isVerified,
         businessVerificationStatus: existingProfile?.businessVerificationStatus || 'none',
         businessVerificationDetails: existingProfile?.businessVerificationDetails,
-        avatarUrl: existingProfile?.avatarUrl || fbUser.photoURL || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
+        avatarUrl: existingProfile?.avatarUrl || activeUser?.photoURL || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
         createdAt: existingProfile?.createdAt || new Date().toISOString().split('T')[0]
       };
 
       if (!isVerified) {
-        // Block dashboard access, redirect to email verification notice
+        // Block dashboard access, show email verification notice
         setUnverifiedEmail(agentData.email);
       } else {
         onAgentAuthenticated(agentData);
@@ -160,6 +185,19 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
       if (code === 'email_not_confirmed' || msg.includes('email not confirmed') || msg.includes('not confirmed')) {
         setUnverifiedEmail(agentEmail.trim().toLowerCase());
         setAuthError(null);
+        return;
+      }
+      if (
+        code === 'invalid_credentials' ||
+        code === 'auth/invalid-credential' ||
+        code === 'auth/user-not-found' ||
+        msg.includes('invalid login credentials') ||
+        msg.includes('invalid credentials') ||
+        msg.includes('user not found')
+      ) {
+        // Direct straight to sign up tab if credentials not found in database
+        setAuthMode('signup');
+        setAuthError('No account found with these credentials. Please sign up below to create your caretaker account.');
         return;
       }
       setAuthError(mapAuthError(err));
@@ -365,9 +403,52 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
             <div className="space-y-2 pt-2">
               <button
                 type="button"
+                onClick={async () => {
+                  setIsLoading(true);
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const { data: { user } } = await supabase.auth.getUser();
+                    const isNowVerified = Boolean(user?.email_confirmed_at || session?.user?.email_confirmed_at);
+                    if (isNowVerified && user) {
+                      const profile = await fetchUserProfileFromFirestore(user.id) || await fetchUserProfileFromFirestore(user.email || '');
+                      const agentData: User = {
+                        id: user.id,
+                        name: profile?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Agent',
+                        email: user.email || '',
+                        role: 'agent',
+                        phone: profile?.phone || user.user_metadata?.phone || agentPhone,
+                        agencyName: profile?.agencyName || user.user_metadata?.agency_name || agencyName,
+                        universityName: profile?.universityName || agentUni,
+                        isVerifiedAgent: profile?.businessVerificationStatus === 'approved' || profile?.isVerifiedAgent || false,
+                        isEmailVerified: true,
+                        businessVerificationStatus: profile?.businessVerificationStatus || 'none',
+                        businessVerificationDetails: profile?.businessVerificationDetails,
+                        avatarUrl: profile?.avatarUrl || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
+                        createdAt: profile?.createdAt || new Date().toISOString().split('T')[0]
+                      };
+                      setUnverifiedEmail(null);
+                      onAgentAuthenticated(agentData);
+                    } else {
+                      setResendNotice('Your email is not verified yet. Please check your inbox and click the verification link.');
+                    }
+                  } catch (e: any) {
+                    setResendNotice('Could not verify status: ' + (e?.message || 'Please try again.'));
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+                disabled={isLoading}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
+              >
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                <span>I've verified my email — Continue</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={handleResendVerification}
                 disabled={isResending}
-                className="w-full py-3 bg-neutral-900 hover:bg-black dark:bg-white dark:text-neutral-900 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
+                className="w-full py-2.5 bg-neutral-900 hover:bg-black dark:bg-white dark:text-neutral-900 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
               >
                 {isResending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
                 <span>Resend verification email</span>
@@ -376,7 +457,7 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
               <button
                 type="button"
                 onClick={() => setUnverifiedEmail(null)}
-                className="w-full py-2.5 text-xs font-bold text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors cursor-pointer"
+                className="w-full py-2 text-xs font-bold text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors cursor-pointer"
               >
                 Sign In with another account
               </button>

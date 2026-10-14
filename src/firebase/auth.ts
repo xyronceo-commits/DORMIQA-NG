@@ -46,8 +46,10 @@ export const signInWithEmailAndPassword = async (_auth: any, email: string, pass
     throw error;
   }
 
-  syncAuthState(data.user ?? null);
-  return { user: normalizeUser(data.user ?? null) };
+  syncAuthState(data.user ?? null, data.session?.access_token);
+  const user = normalizeUser(data.user ?? null, data.session?.access_token);
+  auth.currentUser = user;
+  return { user, session: data.session, data };
 };
 
 export const createUserWithEmailAndPassword = async (

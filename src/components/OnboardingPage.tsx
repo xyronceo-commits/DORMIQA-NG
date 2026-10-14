@@ -23,6 +23,13 @@ import { UserRole, University } from '../types';
 import { EmailVerificationCard } from './EmailVerificationCard';
 import { UniversitySelector } from './UniversitySelector';
 import { PasswordResetModal, PasswordResetStep } from './PasswordResetModal';
+import { 
+  detectRecoveryUrl, 
+  detectAuthLinkError, 
+  isRecoveryFlowActive, 
+  markRecoveryFlowIfPresent, 
+  clearRecoveryFlow 
+} from '../utils/routing';
 import { supabase } from '../services/supabase';
 import { mapAuthError } from '../utils/authErrors';
 import { 
@@ -133,14 +140,26 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   const [resendStatusMessage, setResendStatusMessage] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
 
-  // Password Reset Modal State (Section 2.2)
-  const isResetUrl = typeof window !== 'undefined' && (
-    window.location.pathname === '/auth/reset-password' ||
+  // Password Reset Modal State
+  const hasAuthError = detectAuthLinkError();
+  const hasRecovery = detectRecoveryUrl() || isRecoveryFlowActive();
+  const isDirectResetVisit = typeof window !== 'undefined' && window.location.pathname === '/auth/reset-password';
+  const hasTokensInUrl = typeof window !== 'undefined' && (
+    window.location.hash.includes('access_token') ||
+    window.location.search.includes('token_hash') ||
+    window.location.search.includes('code') ||
     window.location.hash.includes('type=recovery') ||
     window.location.search.includes('type=recovery')
   );
-  const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(isResetUrl);
-  const [passwordResetStep, setPasswordResetStep] = useState<PasswordResetStep>(isResetUrl ? 'reset' : 'forgot');
+
+  const shouldOpenResetModal = hasAuthError || hasRecovery || isDirectResetVisit;
+  const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(shouldOpenResetModal);
+  const [passwordResetStep, setPasswordResetStep] = useState<PasswordResetStep>(() => {
+    if (hasAuthError) return 'invalid_link';
+    if (isDirectResetVisit && !hasTokensInUrl && !isRecoveryFlowActive()) return 'invalid_link';
+    if (hasRecovery) return 'reset';
+    return 'forgot';
+  });
 
   useEffect(() => {
     if (googleAuthData && !studentName.trim() && googleAuthData.displayName) {
@@ -415,7 +434,7 @@ if (error) {
         setPendingPassword(studentPassword);
 
         // 1. Single sign-up call passing profile metadata to Supabase Auth
-        await registerWithEmail(trimmedEmail, studentPassword, {
+        const regUser = await registerWithEmail(trimmedEmail, studentPassword, {
           role: 'student',
           full_name: trimmedName,
           phone: phoneCheck.normalized,
@@ -423,76 +442,101 @@ if (error) {
           university_name: selectedUniObj.name
         });
 
+        const studentUid = regUser?.id || auth.currentUser?.uid || `stu_${Date.now()}`;
         const studentData = {
-          id: auth.currentUser?.uid || `stu_${Date.now()}`,
+          id: studentUid,
+          uid: studentUid,
           role: 'student' as UserRole,
           name: trimmedName,
           email: trimmedEmail,
           phone: phoneCheck.normalized,
+          phoneNumber: phoneCheck.normalized,
           universityId: selectedUniObj.id,
           universityName: selectedUniObj.name,
+          profileCompleted: true,
           isSignup: true,
           isEmailVerified: false
         };
 
-        // 2. Go straight to the Check your email screen (profile row created by DB trigger)
+        // Immediately persist to app_documents / database so it is never lost!
+        await saveUserToFirestore(studentData).catch(err => console.warn("saveUser err:", err));
+        await saveStudentProfileToFirestore(studentData).catch(err => console.warn("saveStudent err:", err));
+
+        // 2. Go straight to Check your email screen
         setPendingUserOnboardingData(studentData);
         setShowEmailVerificationScreen(true);
       } else {
         // SIGN IN
         setPendingPassword(studentPassword);
-        await loginWithEmail(studentEmail.trim().toLowerCase(), studentPassword);
+        const loggedInUser = await loginWithEmail(studentEmail.trim().toLowerCase(), studentPassword);
 
-        if (auth.currentUser) {
-          await auth.currentUser.reload();
+        const fbUser = loggedInUser || auth.currentUser;
+        if (!fbUser) {
+          const { data: { user: supaUser } } = await supabase.auth.getUser();
+          if (!supaUser) throw new Error("Authentication failed.");
         }
 
-        const fbUser = auth.currentUser;
-        if (!fbUser) throw new Error("Authentication failed.");
+        const activeUser = loggedInUser || auth.currentUser;
+        const uid = activeUser?.uid || activeUser?.id;
+        const isVerified = Boolean(activeUser?.emailVerified || activeUser?.email_confirmed_at);
 
-        const isVerified = fbUser.emailVerified === true;
+        // Fetch existing profile from app_documents / database
+        const existingProfile = await fetchUserProfileFromFirestore(uid) || 
+                                await fetchUserProfileFromFirestore(studentEmail.trim().toLowerCase());
 
-        const existingProfile = await fetchUserProfileFromFirestore(fbUser.uid) || await fetchUserProfileFromFirestore(fbUser.email || studentEmail.trim().toLowerCase());
         if (existingProfile?.role === 'agent') {
           setAuthError('This account is registered as an agent. Use the Agent Portal to sign in.');
           return;
         }
 
+        const meta = activeUser?.user_metadata || {};
+        const resolvedName = (existingProfile?.name || meta.full_name || meta.name || activeUser?.displayName || studentEmail.split('@')[0] || '').trim();
+        const resolvedPhone = (existingProfile?.phone || existingProfile?.phoneNumber || meta.phone || '').trim();
+        const resolvedUniId = existingProfile?.universityId || meta.university_id || meta.universityId || 'uniosun';
+        const activeUniversity = universities.find(u => u.id === resolvedUniId) || {
+          id: 'uniosun',
+          name: 'Osun State University (UNIOSUN)',
+          status: 'active' as const,
+          isActive: true
+        };
+        const resolvedUniName = existingProfile?.universityName || meta.university_name || activeUniversity.name;
+
+        const isInfoValid = Boolean(resolvedName && resolvedPhone);
+
         const studentData = {
-          id: fbUser.uid,
+          id: uid,
           role: 'student' as UserRole,
-          name: existingProfile?.name || fbUser.displayName || studentEmail.split('@')[0],
-          email: fbUser.email || studentEmail.trim().toLowerCase(),
-          phone: existingProfile?.phone || '',
-          universityId: existingProfile?.universityId || '',
-          universityName: existingProfile?.universityName || studentUni,
-          avatarUrl: existingProfile?.avatarUrl || fbUser.photoURL,
+          name: resolvedName || 'Student',
+          email: activeUser?.email || studentEmail.trim().toLowerCase(),
+          phone: resolvedPhone,
+          universityId: resolvedUniId,
+          universityName: resolvedUniName,
+          avatarUrl: existingProfile?.avatarUrl || activeUser?.photoURL,
           isSignup: false,
           isEmailVerified: isVerified
         };
 
-        // If email is not verified, show verification screen
         if (!isVerified) {
           setPendingUserOnboardingData(studentData);
           setShowEmailVerificationScreen(true);
+        } else if (isInfoValid) {
+          // Both credentials and information are valid -> Go directly to the student discovery page!
+          saveUserToFirestore(studentData).catch(() => {});
+          onCompleteOnboarding(studentData);
         } else {
-          const activeUniversity = universities.find(university => university.id === studentData.universityId && (university.id === 'uniosun' || university.status === 'active' || university.isActive === true));
-          if (studentData.name.trim() && studentData.phone.trim() && activeUniversity) {
-            onCompleteOnboarding({ ...studentData, universityName: activeUniversity.name });
-          } else {
-            setStudentName(studentData.name);
-            setStudentEmail(studentData.email);
-            setStudentPhone(studentData.phone);
-            setStudentUniId(activeUniversity?.id || '');
-            setStudentUni(activeUniversity?.name || '');
-            setGoogleAuthData({
-              uid: fbUser.uid,
-              displayName: studentData.name,
-              email: studentData.email,
-              photoURL: studentData.avatarUrl,
-              provider: 'email'
-            });
-          }
+          // Information is incomplete/not valid yet -> Go to fill directory of information form
+          setStudentName(resolvedName);
+          setStudentEmail(studentData.email);
+          setStudentPhone(resolvedPhone);
+          setStudentUniId(resolvedUniId);
+          setStudentUni(resolvedUniName);
+          setGoogleAuthData({
+            uid: uid,
+            displayName: resolvedName,
+            email: studentData.email,
+            photoURL: studentData.avatarUrl,
+            provider: 'email'
+          });
         }
       }
     } catch (err: any) {
@@ -514,6 +558,19 @@ if (error) {
         setShowEmailVerificationScreen(true);
         return;
       }
+      if (
+        code === 'invalid_credentials' ||
+        code === 'auth/invalid-credential' ||
+        code === 'auth/user-not-found' ||
+        msg.includes('invalid login credentials') ||
+        msg.includes('invalid credentials') ||
+        msg.includes('user not found')
+      ) {
+        // If credentials are not in database, take directly to sign up page
+        setAuthMode('signup');
+        setAuthError('No account found with these credentials. Please fill in your details below to sign up.');
+        return;
+      }
       setAuthError(mapAuthError(err));
     } finally {
       setIsLoading(false);
@@ -530,7 +587,7 @@ if (error) {
         setPendingPassword(agentPassword);
 
         // 1. Single sign-up call passing agent metadata to Supabase Auth
-        await registerWithEmail(agentEmail.trim().toLowerCase(), agentPassword, {
+        const regUser = await registerWithEmail(agentEmail.trim().toLowerCase(), agentPassword, {
           role: 'agent',
           full_name: agentName || agentEmail.split('@')[0],
           agency_name: agencyName || `${agentName || 'Agent'} Housing`,
@@ -539,48 +596,61 @@ if (error) {
           university_name: agentUni
         });
 
+        const agentUid = regUser?.id || auth.currentUser?.uid || `agt_${Date.now()}`;
         const agentData = {
-          id: auth.currentUser?.uid || `agt_${Date.now()}`,
+          id: agentUid,
+          uid: agentUid,
           role: 'agent' as UserRole,
           name: agentName || agentEmail.split('@')[0],
           email: agentEmail.trim().toLowerCase(),
           agencyName: agencyName || `${agentName || 'Agent'} Housing`,
           phone: agentPhoneWA,
+          universityId: agentUniId || 'uniosun',
           universityName: agentUni,
+          businessVerificationStatus: 'none',
+          isVerifiedAgent: false,
           isSignup: true,
           isEmailVerified: false
         };
 
-        // 2. Go straight to the Check your email screen (profile row created by DB trigger)
+        // Persist to database immediately
+        await saveUserToFirestore(agentData).catch(err => console.warn("saveUser agent err:", err));
+
+        // 2. Go straight to Check your email screen
         setPendingUserOnboardingData(agentData);
         setShowEmailVerificationScreen(true);
       } else {
         // SIGN IN
         setPendingPassword(agentPassword);
-        await loginWithEmail(agentEmail.trim().toLowerCase(), agentPassword);
+        const loggedInUser = await loginWithEmail(agentEmail.trim().toLowerCase(), agentPassword);
 
-        if (auth.currentUser) {
-          await auth.currentUser.reload();
+        const fbUser = loggedInUser || auth.currentUser;
+        if (!fbUser) {
+          const { data: { user: supaUser } } = await supabase.auth.getUser();
+          if (!supaUser) throw new Error("Authentication failed.");
         }
 
-        const fbUser = auth.currentUser;
-        if (!fbUser) throw new Error("Authentication failed.");
+        const activeUser = loggedInUser || auth.currentUser;
+        const uid = activeUser?.uid || activeUser?.id;
+        const isVerified = Boolean(activeUser?.emailVerified || activeUser?.email_confirmed_at);
 
-        const isVerified = fbUser.emailVerified === true;
+        const existingProfile = await fetchUserProfileFromFirestore(uid) || 
+                                await fetchUserProfileFromFirestore(agentEmail.trim().toLowerCase());
 
-        const existingProfile = await fetchUserProfileFromFirestore(fbUser.uid) || await fetchUserProfileFromFirestore(fbUser.email || agentEmail.trim().toLowerCase());
-
+        const meta = activeUser?.user_metadata || {};
         const agentData = {
-          id: fbUser.uid,
-          role: (existingProfile?.role || selectedRole || 'agent') as UserRole,
-          name: existingProfile?.name || fbUser.displayName || agentEmail.split('@')[0],
-          email: fbUser.email || agentEmail.trim().toLowerCase(),
-          agencyName: existingProfile?.agencyName || agencyName,
-          phone: existingProfile?.phone || agentPhoneWA,
-          universityName: existingProfile?.universityName || agentUni,
-          avatarUrl: existingProfile?.avatarUrl || fbUser.photoURL,
+          id: uid,
+          role: (existingProfile?.role || 'agent') as UserRole,
+          name: existingProfile?.name || meta.full_name || meta.name || activeUser?.displayName || agentEmail.split('@')[0],
+          email: activeUser?.email || agentEmail.trim().toLowerCase(),
+          agencyName: existingProfile?.agencyName || meta.agency_name || agencyName,
+          phone: existingProfile?.phone || meta.phone || agentPhoneWA,
+          universityId: existingProfile?.universityId || meta.university_id || agentUniId || 'uniosun',
+          universityName: existingProfile?.universityName || meta.university_name || agentUni,
+          avatarUrl: existingProfile?.avatarUrl || activeUser?.photoURL,
           businessVerificationStatus: existingProfile?.businessVerificationStatus || 'none',
-          isVerifiedAgent: existingProfile?.isVerifiedAgent || false,
+          businessVerificationDetails: existingProfile?.businessVerificationDetails,
+          isVerifiedAgent: existingProfile?.businessVerificationStatus === 'approved' || existingProfile?.isVerifiedAgent || false,
           isSignup: false,
           isEmailVerified: isVerified
         };
@@ -611,6 +681,19 @@ if (error) {
         setShowEmailVerificationScreen(true);
         return;
       }
+      if (
+        code === 'invalid_credentials' ||
+        code === 'auth/invalid-credential' ||
+        code === 'auth/user-not-found' ||
+        msg.includes('invalid login credentials') ||
+        msg.includes('invalid credentials') ||
+        msg.includes('user not found')
+      ) {
+        // Switch to sign up
+        setAuthMode('signup');
+        setAuthError('No account found with these credentials. Please fill in your details below to sign up.');
+        return;
+      }
       setAuthError(mapAuthError(err));
     } finally {
       setIsLoading(false);
@@ -632,16 +715,20 @@ if (error) {
               id: user?.id || pendingUserOnboardingData?.id,
               isEmailVerified: true
             };
-            if (verifiedData.role === 'student' && (!verifiedData.name || !verifiedData.phone || !verifiedData.universityId)) {
-              setGoogleAuthData({
-                uid: user?.id || '',
-                displayName: verifiedData.name || '',
-                email: verifiedData.email,
-                photoURL: verifiedData.avatarUrl || '',
-                provider: 'email'
-              });
-              setShowEmailVerificationScreen(false);
-              return;
+            if (verifiedData.role === 'student') {
+              const name = verifiedData.name?.trim();
+              const phone = verifiedData.phone?.trim();
+              if (!name || !phone) {
+                setGoogleAuthData({
+                  uid: user?.id || '',
+                  displayName: name || '',
+                  email: verifiedData.email,
+                  photoURL: verifiedData.avatarUrl || '',
+                  provider: 'email'
+                });
+                setShowEmailVerificationScreen(false);
+                return;
+              }
             }
             onCompleteOnboarding(verifiedData);
           }}
@@ -1395,8 +1482,12 @@ if (error) {
         isOpen={isPasswordResetOpen}
         initialStep={passwordResetStep}
         initialEmail={selectedRole === 'student' ? studentEmail : agentEmail}
-        onClose={() => setIsPasswordResetOpen(false)}
+        onClose={() => {
+          clearRecoveryFlow();
+          setIsPasswordResetOpen(false);
+        }}
         onSwitchToSignIn={(emailParam) => {
+          clearRecoveryFlow();
           setIsPasswordResetOpen(false);
           setAuthMode('signin');
           if (emailParam) {

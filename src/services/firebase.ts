@@ -696,6 +696,44 @@ export const fetchUserProfileFromFirestore = async (uidOrEmail: string): Promise
       }
     }
 
+    // Fallback: Check Supabase auth session user metadata
+    try {
+      const { data: supaAuthData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+      const supaUser = supaAuthData?.user;
+      if (supaUser && (supaUser.id === uidOrEmail || supaUser.email?.toLowerCase() === cleanInput)) {
+        const meta = supaUser.user_metadata || {};
+        const metaRole = (meta.role === 'agent' ? 'agent' : 'student') as 'agent' | 'student';
+        const metaName = meta.full_name || meta.name || supaUser.email?.split('@')[0] || 'User';
+        const metaPhone = meta.phone || '';
+        const metaUniId = meta.university_id || meta.universityId || 'uniosun';
+        const metaUniName = meta.university_name || meta.universityName || 'Osun State University (UNIOSUN)';
+        const metaAgency = meta.agency_name || meta.agencyName || '';
+
+        const synthesizedProfile = {
+          id: supaUser.id,
+          uid: supaUser.id,
+          email: supaUser.email?.toLowerCase() || cleanInput,
+          name: metaName,
+          role: metaRole,
+          phone: metaPhone,
+          universityId: metaUniId,
+          universityName: metaUniName,
+          agencyName: metaAgency,
+          isEmailVerified: Boolean(supaUser.email_confirmed_at || supaUser.confirmed_at),
+          businessVerificationStatus: 'none',
+          isVerifiedAgent: false,
+          avatarUrl: meta.avatar_url || meta.picture || '',
+          createdAt: supaUser.created_at || new Date().toISOString()
+        };
+
+        // Cache it asynchronously into users collection so subsequent fetches hit app_documents
+        saveUserToFirestore(synthesizedProfile).catch(() => {});
+        return synthesizedProfile;
+      }
+    } catch (e) {
+      console.warn("Supabase auth user metadata fallback check error:", e);
+    }
+
     return null;
   } catch (err) {
     console.warn("Failed to fetch user profile from Firestore:", err);

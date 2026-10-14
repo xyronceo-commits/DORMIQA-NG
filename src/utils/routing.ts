@@ -44,6 +44,127 @@ const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
   '/forgot-password': 'onboarding',
 };
 
+export const RECOVERY_FLOW_STORAGE_KEY = 'dormiqa_recovery_flow_active';
+export const AUTH_LINK_ERROR_STORAGE_KEY = 'dormiqa_auth_link_error';
+
+/**
+ * Checks whether current URL is an auth link error (e.g. expired otp or access denied)
+ */
+export function detectAuthLinkError(): boolean {
+  if (typeof window === 'undefined') return false;
+  const hash = window.location.hash || '';
+  const search = window.location.search || '';
+  const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+  const searchParams = new URLSearchParams(search);
+
+  const errorCode = hashParams.get('error_code') || searchParams.get('error_code');
+  const error = hashParams.get('error') || searchParams.get('error');
+  const errorDesc = hashParams.get('error_description') || searchParams.get('error_description');
+
+  if (errorCode || error || errorDesc) {
+    return true;
+  }
+  try {
+    if (sessionStorage.getItem(AUTH_LINK_ERROR_STORAGE_KEY) === 'true') {
+      return true;
+    }
+  } catch (_) {}
+
+  return false;
+}
+
+/**
+ * Checks whether current URL indicates a password recovery action.
+ * Handles:
+ * 1. Path: /auth/reset-password, /reset-password, /forgot-password
+ * 2. Hash params: type=recovery (e.g. #access_token=...&type=recovery)
+ * 3. Search query params: type=recovery (e.g. ?token_hash=...&type=recovery)
+ * 4. PKCE code callback on /auth/reset-password or when accompanied by type=recovery
+ * Note: A ?code= without recovery context on other routes (e.g. /) is NOT treated as recovery.
+ */
+export function detectRecoveryUrl(): boolean {
+  if (typeof window === 'undefined') return false;
+  const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
+  const hash = window.location.hash || '';
+  const search = window.location.search || '';
+  const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+  const searchParams = new URLSearchParams(search);
+
+  const hashType = hashParams.get('type');
+  const searchType = searchParams.get('type');
+  const tokenHash = searchParams.get('token_hash');
+  const code = searchParams.get('code');
+
+  // Explicit type=recovery anywhere (hash or query)
+  if (hashType === 'recovery' || searchType === 'recovery') {
+    return true;
+  }
+
+  // Path is dedicated reset route
+  if (pathname === '/auth/reset-password' || pathname === '/reset-password' || pathname === '/forgot-password') {
+    return true;
+  }
+
+  // Token hash with recovery
+  if (tokenHash && searchType === 'recovery') {
+    return true;
+  }
+
+  // PKCE code only if on reset path or explicitly recovery
+  if (code && (pathname === '/auth/reset-password' || searchType === 'recovery')) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Checks whether the recovery flow is currently marked as active in session state.
+ */
+export function isRecoveryFlowActive(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(RECOVERY_FLOW_STORAGE_KEY) === 'true';
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * Marks recovery flow as active in session storage and cleans tokens from URL/history
+ * so sensitive tokens don't remain in browser address bar, while preserving the reset screen.
+ */
+export function markRecoveryFlowIfPresent(): void {
+  if (typeof window === 'undefined') return;
+
+  const hasAuthError = detectAuthLinkError();
+  const hasRecovery = detectRecoveryUrl();
+
+  if (hasAuthError) {
+    try {
+      sessionStorage.setItem(AUTH_LINK_ERROR_STORAGE_KEY, 'true');
+    } catch (_) {}
+    return;
+  }
+
+  if (hasRecovery) {
+    try {
+      sessionStorage.setItem(RECOVERY_FLOW_STORAGE_KEY, 'true');
+    } catch (_) {}
+  }
+}
+
+/**
+ * Clears the recovery flow state from session storage.
+ */
+export function clearRecoveryFlow(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(RECOVERY_FLOW_STORAGE_KEY);
+    sessionStorage.removeItem(AUTH_LINK_ERROR_STORAGE_KEY);
+  } catch (_) {}
+}
+
 /**
  * Parses current window.location into a structured route object.
  */

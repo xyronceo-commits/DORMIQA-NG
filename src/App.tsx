@@ -28,7 +28,12 @@ import {
   parseRouteFromUrl, 
   pushPropertyUrl, 
   pushViewUrl, 
-  ParsedRoute 
+  ParsedRoute,
+  detectRecoveryUrl,
+  detectAuthLinkError,
+  isRecoveryFlowActive,
+  markRecoveryFlowIfPresent,
+  clearRecoveryFlow
 } from './utils/routing';
 import { NotFoundPage } from './components/NotFoundPage';
 import { 
@@ -93,14 +98,23 @@ import { supabase } from './services/supabase';
 
 export default function App() {
   const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities'>(() => {
-    const route = parseRouteFromUrl();
-    if (route.type === 'view' && route.view) return route.view;
+    // 1. Password reset and auth link errors MUST be checked FIRST
+    // (wins over parseRouteFromUrl which maps '/' to 'landing')
+    if (detectRecoveryUrl() || detectAuthLinkError() || isRecoveryFlowActive()) {
+      markRecoveryFlowIfPresent();
+      return 'onboarding';
+    }
+
     if (typeof window !== 'undefined') {
       const p = window.location.pathname;
       if (p.startsWith('/auth/') || p.includes('reset-password')) return 'onboarding';
       const hash = window.location.hash;
       if (hash.includes('type=recovery') || hash.includes('type=signup')) return 'onboarding';
     }
+
+    const route = parseRouteFromUrl();
+    if (route.type === 'view' && route.view) return route.view;
+
     return 'landing';
   });
   const [selectedComingSoonUniId, setSelectedComingSoonUniId] = useState<string>('unilag');
@@ -441,6 +455,14 @@ export default function App() {
       }
       setUserSessionTimestamp(uid);
 
+      // NEVER AUTO-ROUTE A RECOVERY SESSION:
+      // While recovery flow is active, do not navigate away to dashboard or landing.
+      if (isRecoveryFlowActive() || detectRecoveryUrl() || detectAuthLinkError()) {
+        console.log('[LISTENER] Recovery flow active — suppressing auto-route to preserve reset password screen.');
+        setIsAuthInitializing(false);
+        return;
+      }
+
       // Skip student/agent profile hydration and auto-route for admin context immediately
       const initialRoute = parseRouteFromUrl();
       const expectedAdminEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'buildsafe247@gmail.com').trim().toLowerCase();
@@ -628,14 +650,29 @@ export default function App() {
 
       console.log(`[LISTENER] uid: ${uid} | role: "${userAccount.role}" | profileComplete: ${studentProfileComplete} | activeView: "${activeView}" | isSameUserRepeat: ${isSameUserRepeat}`);
 
+      if (isRecoveryFlowActive() || detectRecoveryUrl() || detectAuthLinkError()) {
+        console.log('[LISTENER] Recovery flow active — suppressing user auto-route.');
+        return;
+      }
+
       const isAuthConfirmedLanding = typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/confirmed');
 
       if (userAccount.role === 'agent') {
-        if (!isSameUserRepeat && (initialRoute.view === 'landing' || initialRoute.view === 'onboarding' || initialRoute.view === 'agent-dash' || initialRoute.view === 'agent-landing' || activeView === 'landing' || activeView === 'onboarding' || isAuthConfirmedLanding)) {
+        const isAgentBusinessApproved = userAccount.businessVerificationStatus === 'approved' || userAccount.isVerifiedAgent;
+        const shouldRouteAgent = isAuthConfirmedLanding || !isSameUserRepeat || (
+          activeView === 'landing' || 
+          activeView === 'onboarding' || 
+          activeView === 'agent-landing' ||
+          initialRoute.view === 'landing' || 
+          initialRoute.view === 'onboarding' || 
+          initialRoute.view === 'agent-landing'
+        );
+
+        if (shouldRouteAgent) {
           if (!isVerified) {
             setActiveView('agent-landing');
             pushViewUrl('agent-landing');
-          } else if (userAccount.businessVerificationStatus !== 'approved' && !userAccount.isVerifiedAgent) {
+          } else if (!isAgentBusinessApproved) {
             setActiveView('business-verification');
             pushViewUrl('business-verification');
           } else {
@@ -645,7 +682,7 @@ export default function App() {
         }
       } else {
         // STUDENT ROLE:
-        const isCurrentViewOnboarding = activeView === 'landing' || activeView === 'onboarding' || initialRoute.view === 'landing' || initialRoute.view === 'onboarding';
+        const isCurrentViewOnboarding = activeView === 'landing' || activeView === 'onboarding' || activeView === 'agent-landing' || initialRoute.view === 'landing' || initialRoute.view === 'onboarding';
 
         if (!studentProfileComplete) {
           if (isCurrentViewOnboarding || isAuthConfirmedLanding) {
@@ -660,20 +697,8 @@ export default function App() {
             setTimeout(() => setToastNotice(null), 3000);
           }
           if (isCurrentViewOnboarding || isAuthConfirmedLanding || !isSameUserRepeat) {
-            setActiveView(prev => {
-              if (
-                prev === 'landing' || 
-                prev === 'onboarding' || 
-                prev === 'agent-landing' ||
-                initialRoute.view === 'landing' ||
-                initialRoute.view === 'onboarding' ||
-                isAuthConfirmedLanding
-              ) {
-                pushViewUrl('search');
-                return 'search';
-              }
-              return prev;
-            });
+            setActiveView('search');
+            pushViewUrl('search');
           }
         }
       }
@@ -883,7 +908,7 @@ export default function App() {
     if (profile.role !== 'student') return true;
     const name = String(profile.name || '').trim();
     const phone = String(profile.phone || profile.phoneNumber || '').trim();
-    const universityId = String(profile.universityId || '').trim();
+    const universityId = String(profile.universityId || 'uniosun').trim();
     const selectedUniversity = universities.find(university => university.id === universityId);
     const universityIsActive = universityId === 'uniosun' || selectedUniversity?.status === 'active' || selectedUniversity?.isActive === true;
     return Boolean(name && phone && universityId && universityIsActive);
@@ -931,6 +956,7 @@ export default function App() {
     } catch (err) {
       console.warn("Signout error:", err);
     }
+    lastHandledAuthUidRef.current = null;
     const currentAcc = accounts.find(a => a.id === activeAccountId);
     setIsLoggedIn(false);
     setSavedIds([]);
@@ -1341,12 +1367,11 @@ export default function App() {
                 if (userData.role === 'student' && (
                   !String(userData.name || '').trim()
                   || !String(userData.phone || '').trim()
-                  || userData.universityId !== 'uniosun'
                 )) {
                   setIsLoggedIn(false);
                   setActiveView('onboarding');
                   pushViewUrl('onboarding', true);
-                  setToastNotice('Complete your name, phone number, and preferred university before continuing.');
+                  setToastNotice('Complete your name and phone number before continuing.');
                   return;
                 }
 
@@ -1365,11 +1390,12 @@ export default function App() {
                   role: userData.role,
                   avatarUrl: userData.avatarUrl || auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
                   phone: userData.phone,
-                  universityId: userData.universityId || '',
-                  universityName: userData.universityName,
+                  universityId: userData.universityId || 'uniosun',
+                  universityName: userData.universityName || 'Osun State University (UNIOSUN)',
                   agencyName: userData.agencyName,
-                  isVerifiedAgent: false,
+                  isVerifiedAgent: (userData as any).isVerifiedAgent === true || (userData as any).businessVerificationStatus === 'approved',
                   isEmailVerified: isVerified,
+                  businessVerificationStatus: (userData as any).businessVerificationStatus || 'none',
                   createdAt: new Date().toISOString().split('T')[0]
                 };
 
@@ -1386,18 +1412,17 @@ export default function App() {
                 if (userData.role === 'agent') {
                   setCurrentRole('agent');
                   setShowOnboardingShowcase(false);
-                  if (!isSignup) {
-                    // RETURNING AGENT SIGN IN -> Directly to Agent Caretaker Dashboard
+                  const isApproved = newAccount.businessVerificationStatus === 'approved' || newAccount.isVerifiedAgent;
+                  if (isApproved) {
                     setActiveView('agent-dash');
                     pushViewUrl('agent-dash');
                     setToastNotice(`Welcome back to your Caretaker Dashboard, ${newAccount.name}!`);
                     setTimeout(() => setToastNotice(null), 4000);
                   } else {
-                    // NEW AGENT SIGNUP -> Directly to Business Verification or Caretaker Dashboard
                     setPendingAgentRegistration(newAccount);
                     setActiveView('business-verification');
                     pushViewUrl('business-verification');
-                    setToastNotice(`Agent account registered! Redirecting to business verification...`);
+                    setToastNotice('Please complete your business verification to activate your caretaker account.');
                     setTimeout(() => setToastNotice(null), 4000);
                   }
                 } else if (!isSignup) {
@@ -1594,6 +1619,16 @@ export default function App() {
                   setIsLoggedIn(true);
                   setCurrentRole('agent');
                   setPendingAgentRegistration(agentUser);
+                  const isBusinessApproved = agentUser.businessVerificationStatus === 'approved' || agentUser.isVerifiedAgent;
+                  if (!agentUser.isEmailVerified) {
+                    setActiveView('agent-landing');
+                  } else if (!isBusinessApproved) {
+                    setActiveView('business-verification');
+                    pushViewUrl('business-verification');
+                  } else {
+                    setActiveView('agent-dash');
+                    pushViewUrl('agent-dash');
+                  }
                 }}
                 onOpenAdminAccess={() => navigateView('admin-dash')}
                 onGoToStudentView={() => setActiveView('landing')}

@@ -15,6 +15,13 @@ import {
   ExternalLink 
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
+import { 
+  detectAuthLinkError, 
+  detectRecoveryUrl, 
+  isRecoveryFlowActive, 
+  markRecoveryFlowIfPresent, 
+  clearRecoveryFlow 
+} from '../utils/routing';
 
 export type PasswordResetStep = 'forgot' | 'check_email' | 'reset' | 'success' | 'invalid_link';
 
@@ -70,37 +77,100 @@ export const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
       try {
         const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
         const urlParams = new URLSearchParams(window.location.search);
+
+        const errorCode = hashParams.get('error_code') || urlParams.get('error_code');
+        const error = hashParams.get('error') || urlParams.get('error');
+
+        // 1. Error links (e.g. error_code=otp_expired, error=access_denied) always show the "Invalid or expired link" screen
+        if (detectAuthLinkError() || errorCode || error) {
+          if (isMounted) setStep('invalid_link');
+          if (window.location.hash || window.location.search) {
+            window.history.replaceState({ type: 'view', view: 'onboarding' }, '', '/auth/reset-password');
+          }
+          return;
+        }
+
         const type = hashParams.get('type') || urlParams.get('type');
         const tokenHash = urlParams.get('token_hash');
         const code = urlParams.get('code');
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
+        const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
+        const isResetPath = pathname === '/auth/reset-password' || pathname === '/reset-password';
 
-        if (type === 'recovery' || hashParams.has('type') || window.location.pathname === '/auth/reset-password') {
-          if (tokenHash && type === 'recovery') {
-            const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
-            if (error) {
-              console.error('Password recovery token error:', error);
-              if (isMounted) setStep('invalid_link');
-              return;
+        // Only treat as reset when type=recovery OR on dedicated reset path
+        // (Sign-up confirmation type=signup or Google sign-in code on other routes must NOT open reset screen)
+        if (!isResetPath && type !== 'recovery') {
+          return;
+        }
+
+        // Case A: token_hash with type=recovery (or on /auth/reset-password)
+        if (tokenHash && (type === 'recovery' || isResetPath)) {
+          const { error: verifyErr } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
+          if (verifyErr) {
+            console.error('Password recovery token error:', verifyErr);
+            if (isMounted) setStep('invalid_link');
+            if (window.location.hash || window.location.search) {
+              window.history.replaceState({ type: 'view', view: 'onboarding' }, '', '/auth/reset-password');
             }
-            if (isMounted) setStep('reset');
-          } else if (code) {
-            const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
-            if (error) {
-              console.error('Exchange code error:', error);
-              if (isMounted) setStep('invalid_link');
-              return;
+            return;
+          }
+          markRecoveryFlowIfPresent();
+          if (isMounted) setStep('reset');
+          if (window.location.hash || window.location.search) {
+            window.history.replaceState({ type: 'view', view: 'onboarding' }, '', '/auth/reset-password');
+          }
+          return;
+        }
+
+        // Case B: PKCE code (only on /auth/reset-password or if type=recovery)
+        if (code && (isResetPath || type === 'recovery')) {
+          const { error: codeErr } = await supabase.auth.exchangeCodeForSession(window.location.href);
+          if (codeErr) {
+            console.error('Exchange code error:', codeErr);
+            if (isMounted) setStep('invalid_link');
+            if (window.location.hash || window.location.search) {
+              window.history.replaceState({ type: 'view', view: 'onboarding' }, '', '/auth/reset-password');
             }
-            if (isMounted) setStep('reset');
-          } else if (accessToken && refreshToken) {
-            const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-            if (error) {
-              console.error('Session set error:', error);
-              if (isMounted) setStep('invalid_link');
-              return;
+            return;
+          }
+          markRecoveryFlowIfPresent();
+          if (isMounted) setStep('reset');
+          if (window.location.hash || window.location.search) {
+            window.history.replaceState({ type: 'view', view: 'onboarding' }, '', '/auth/reset-password');
+          }
+          return;
+        }
+
+        // Case C: Hash tokens (access_token & refresh_token with type=recovery or on /auth/reset-password)
+        if (accessToken && refreshToken && (type === 'recovery' || isResetPath)) {
+          const { error: sessionErr } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          if (sessionErr) {
+            console.error('Session set error:', sessionErr);
+            if (isMounted) setStep('invalid_link');
+            if (window.location.hash || window.location.search) {
+              window.history.replaceState({ type: 'view', view: 'onboarding' }, '', '/auth/reset-password');
             }
+            return;
+          }
+          markRecoveryFlowIfPresent();
+          if (isMounted) setStep('reset');
+          if (window.location.hash || window.location.search) {
+            window.history.replaceState({ type: 'view', view: 'onboarding' }, '', '/auth/reset-password');
+          }
+          return;
+        }
+
+        // Case D: Direct visit to /auth/reset-password without tokens and without an active recovery session
+        if (isResetPath) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session && !isRecoveryFlowActive()) {
+            if (isMounted) setStep('invalid_link');
+            return;
+          }
+          if (session || isRecoveryFlowActive()) {
             if (isMounted) setStep('reset');
+            return;
           }
         }
       } catch (err) {
@@ -114,6 +184,7 @@ export const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (!isMounted) return;
       if (event === 'PASSWORD_RECOVERY') {
+        markRecoveryFlowIfPresent();
         setStep('reset');
         setErrorMessage(null);
       }

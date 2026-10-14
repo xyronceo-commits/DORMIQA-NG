@@ -80,13 +80,26 @@ The script configures:
 
 ---
 
-## Step 5: Verify in Supabase Dashboard
+## Step 5: Verify & Configure in Supabase Dashboard
+
+If you run the automated script (`scripts/push-auth-email-config.ts`), these settings are automatically provisioned. If configuring manually or verifying:
+
 1. Visit [Supabase Dashboard](https://supabase.com/dashboard) -> Select your Project.
-2. Go to **Authentication** -> **Email Templates**:
+2. Go to **Authentication** -> **URL Configuration**:
+   - **Site URL:** Set to your canonical domain (e.g. `https://dormiqa.com` or `APP_BASE_URL`).
+   - **Redirect URLs:** Add the following entries (Supabase supports wildcard matching):
+     - `http://localhost:3000/**`
+     - `http://localhost:3000/auth/reset-password`
+     - `http://localhost:3000/auth/confirmed`
+     - `<YOUR_PRODUCTION_DOMAIN>/**`
+     - `<YOUR_PRODUCTION_DOMAIN>/auth/reset-password`
+     - `<YOUR_PRODUCTION_DOMAIN>/auth/confirmed`
+     - Any preview URL origins (e.g. `https://ais-pre-*.run.app/**`)
+   - Click **Save**.
+   - *Important:* If you previously generated a reset email, the old email keeps the old redirect target that was active when it was sent. **Always request a NEW reset email** after updating your URL configuration.
+3. Go to **Authentication** -> **Email Templates**:
    - Check that **Confirm signup** displays the Dormiqa branded template.
    - Check that **Reset password** displays the Dormiqa branded template.
-3. Go to **Authentication** -> **URL Configuration**:
-   - Verify that your production and development domains are in the **Redirect URLs** list.
 4. Go to **Project Settings** -> **Authentication** -> **SMTP Settings**:
    - Confirm that **Enable Custom SMTP** is turned ON and credentials match.
 
