@@ -48,12 +48,12 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
       if (isMounted && session?.user?.email_confirmed_at) {
         setIsVerified(true);
         setNoticeMessage({
-          text: "Email verified! Redirecting to your dashboard...",
+          text: "Email verified! Taking you to Dormiqa...",
           type: 'success'
         });
         setTimeout(() => {
           if (isMounted) onVerified();
-        }, 800);
+        }, 250);
       }
     });
 
@@ -63,12 +63,12 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
       if (session?.user?.email_confirmed_at) {
         setIsVerified(true);
         setNoticeMessage({
-          text: "Email verified! Redirecting to your dashboard...",
+          text: "Email verified! Taking you to Dormiqa...",
           type: 'success'
         });
         setTimeout(() => {
           if (isMounted) onVerified();
-        }, 800);
+        }, 250);
       }
     });
 
@@ -119,12 +119,12 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
             if (isMounted) {
               setIsVerified(true);
               setNoticeMessage({
-                text: "Your email address has been successfully verified!",
+                text: "Your email address has been successfully verified! Taking you to Dormiqa...",
                 type: 'success'
               });
               setTimeout(() => {
                 if (isMounted) onVerified();
-              }, 1000);
+              }, 250);
             }
           } catch (codeErr: any) {
             console.error("Supabase email verification error:", codeErr);

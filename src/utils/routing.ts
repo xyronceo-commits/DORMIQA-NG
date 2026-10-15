@@ -256,7 +256,8 @@ export function pushViewUrl(view: string, replace = false, subTab?: string) {
     'agent-dash': '/agent-dashboard',
     'admin-dash': '/admin',
     'coming-soon': '/coming-soon',
-    'universities': '/universities'
+    'universities': '/universities',
+    'auth-confirmed': '/auth/confirmed'
   };
 
   let targetPath = pathMap[view] || '/';

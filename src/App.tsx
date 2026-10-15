@@ -413,6 +413,7 @@ export default function App() {
 
   // Track last handled auth UID to prevent repeat bounce-back on tab focus / token refresh
   const lastHandledAuthUidRef = useRef<string | null>(null);
+  const hasRoutedInitialAuthRef = useRef<boolean>(false);
 
   // Firebase Auth State Listener & User Profile Sync
   useEffect(() => {
@@ -429,6 +430,7 @@ export default function App() {
 
       if (!fbUser) {
         lastHandledAuthUidRef.current = null;
+        hasRoutedInitialAuthRef.current = false;
         setIsLoggedIn(false);
         setAccounts([]);
         setActiveAccountId('');
@@ -520,20 +522,19 @@ export default function App() {
 
       const isVerified = fbUser.emailVerified || fbUser.providerData.some(p => p.providerId === 'google.com');
 
-      // Strict role resolution from DB profile (never fallback to student if DB specifies a role)
-      const resolvedRole: UserRole = profile?.role || 'student';
-      const studentProfileComplete = resolvedRole === 'student' ? hasCompleteStudentProfile(profile) : true;
-      console.log(`[AUTH ROUTE PRE-CHECK] User UID: ${uid} (${email}) | Resolved Role from DB: "${resolvedRole}" | Student Profile Complete: ${studentProfileComplete}`);
+      // Strict role resolution from DB profile or signup user_metadata
+      const userMeta = fbUser.user_metadata || {};
+      const resolvedRole: UserRole = profile?.role || userMeta.role || 'student';
 
       const userAccount: User = {
         id: uid,
-        name: profile?.name || fbUser.displayName || email.split('@')[0] || 'User',
+        name: profile?.name || userMeta.full_name || userMeta.name || fbUser.displayName || email.split('@')[0] || 'User',
         email: email,
         role: resolvedRole,
-        phone: profile?.phone || '',
-        universityId: profile?.universityId || '',
-        universityName: profile?.universityName || '',
-        agencyName: profile?.agencyName || '',
+        phone: profile?.phone || userMeta.phone || '',
+        universityId: profile?.universityId || userMeta.university_id || 'uniosun',
+        universityName: profile?.universityName || userMeta.university_name || 'Osun State University (UNIOSUN)',
+        agencyName: profile?.agencyName || userMeta.agency_name || '',
         isVerifiedAgent: profile?.businessVerificationStatus === 'approved' || profile?.isVerifiedAgent || false,
         isEmailVerified: isVerified,
         businessVerificationStatus: profile?.businessVerificationStatus || (profile?.isVerifiedAgent ? 'approved' : 'none'),
@@ -542,6 +543,14 @@ export default function App() {
         avatarUrl: profile?.avatarUrl || fbUser.photoURL || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
         createdAt: profile?.createdAt || new Date().toISOString().split('T')[0]
       };
+
+      const studentProfileComplete = resolvedRole === 'student' ? hasCompleteStudentProfile(userAccount) : true;
+      console.log(`[AUTH ROUTE PRE-CHECK] User UID: ${uid} (${email}) | Resolved Role: "${resolvedRole}" | Student Profile Complete: ${studentProfileComplete}`);
+
+      // Sync user account if DB was missing fields present in signup metadata
+      if (!profile || !profile.phone || !profile.name) {
+        saveUserToFirestore(userAccount).catch(() => {});
+      }
 
       if (profile?.savedListingIds && Array.isArray(profile.savedListingIds)) {
         setSavedIds(profile.savedListingIds);
@@ -665,48 +674,58 @@ export default function App() {
 
       const isAuthConfirmedLanding = typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/confirmed');
 
-      if (userAccount.role === 'agent') {
-        const isAgentBusinessApproved = userAccount.businessVerificationStatus === 'approved' || userAccount.isVerifiedAgent;
-        const shouldRouteAgent = isAuthConfirmedLanding || !isSameUserRepeat || (
-          activeView === 'landing' || 
-          activeView === 'onboarding' || 
-          activeView === 'agent-landing' ||
-          initialRoute.view === 'landing' || 
-          initialRoute.view === 'onboarding' || 
-          initialRoute.view === 'agent-landing'
-        );
-
-        if (shouldRouteAgent) {
-          if (!isVerified) {
-            setActiveView('agent-landing');
-            pushViewUrl('agent-landing');
-          } else if (!isAgentBusinessApproved) {
-            setActiveView('business-verification');
-            pushViewUrl('business-verification');
-          } else {
+      if (isAuthConfirmedLanding) {
+        hasRoutedInitialAuthRef.current = true;
+        if (userAccount.role === 'agent') {
+          const isAgentBusinessApproved = userAccount.businessVerificationStatus === 'approved' || userAccount.isVerifiedAgent;
+          if (isAgentBusinessApproved) {
             setActiveView('agent-dash');
-            pushViewUrl('agent-dash');
-          }
-        }
-      } else {
-        // STUDENT ROLE:
-        const isCurrentViewOnboarding = activeView === 'landing' || activeView === 'onboarding' || activeView === 'agent-landing' || initialRoute.view === 'landing' || initialRoute.view === 'onboarding';
-
-        if (!studentProfileComplete) {
-          if (isCurrentViewOnboarding || isAuthConfirmedLanding) {
-            setActiveView('onboarding');
-            pushViewUrl('onboarding');
-            setToastNotice('Complete your profile to continue to student discovery.');
-            setTimeout(() => setToastNotice(null), 4000);
+            pushViewUrl('agent-dash', true);
+            setToastNotice(`Welcome back to your Caretaker Dashboard, ${userAccount.name}!`);
+          } else {
+            setPendingAgentRegistration(userAccount);
+            setActiveView('business-verification');
+            pushViewUrl('business-verification', true);
+            setToastNotice('Email confirmed! Please complete your business verification.');
           }
         } else {
-          if (isAuthConfirmedLanding) {
-            setToastNotice('Email confirmed! Welcome to Dormiqa.');
-            setTimeout(() => setToastNotice(null), 3000);
+          setActiveView('search');
+          pushViewUrl('search', true);
+          setToastNotice('Email confirmed! Welcome to Dormiqa.');
+        }
+        setTimeout(() => setToastNotice(null), 4000);
+        return;
+      }
+
+      // Initial route resolution for new sign-in or initial app load on unauthenticated entry views
+      const isUnauthEntryView = activeView === 'landing' || activeView === 'onboarding' || activeView === 'agent-landing' || activeView === 'auth-confirmed';
+      const shouldRunInitialRoute = !hasRoutedInitialAuthRef.current || !isSameUserRepeat;
+
+      if (shouldRunInitialRoute && isUnauthEntryView) {
+        hasRoutedInitialAuthRef.current = true;
+        if (userAccount.role === 'agent') {
+          const isAgentBusinessApproved = userAccount.businessVerificationStatus === 'approved' || userAccount.isVerifiedAgent;
+          if (!isVerified) {
+            setActiveView('agent-landing');
+            pushViewUrl('agent-landing', true);
+          } else if (!isAgentBusinessApproved) {
+            setPendingAgentRegistration(userAccount);
+            setActiveView('business-verification');
+            pushViewUrl('business-verification', true);
+          } else {
+            setActiveView('agent-dash');
+            pushViewUrl('agent-dash', true);
           }
-          if (isCurrentViewOnboarding || isAuthConfirmedLanding || !isSameUserRepeat) {
+        } else {
+          // STUDENT ROLE:
+          if (!studentProfileComplete) {
+            setActiveView('onboarding');
+            pushViewUrl('onboarding', true);
+            setToastNotice('Complete your profile to continue to student discovery.');
+            setTimeout(() => setToastNotice(null), 4000);
+          } else {
             setActiveView('search');
-            pushViewUrl('search');
+            pushViewUrl('search', true);
           }
         }
       }
@@ -751,13 +770,16 @@ export default function App() {
   const [routePropertyUnavailableReason, setRoutePropertyUnavailableReason] = useState<string | null>(null);
   const [is404Route, setIs404Route] = useState<boolean>(false);
 
-  // Sync route state on popstate (browser navigation buttons)
+  // Guard: Agent should never land on search view
   useEffect(() => {
     if (currentRole === 'agent' && activeView === 'search') {
-      setActiveView('agent-dash');
-      pushViewUrl('agent-dash');
+      const currentAccount = accounts.find(a => a.id === activeAccountId) || accounts[0];
+      const isAgentApproved = currentAccount?.businessVerificationStatus === 'approved' || currentAccount?.isVerifiedAgent;
+      const targetView = isAgentApproved ? 'agent-dash' : 'business-verification';
+      setActiveView(targetView);
+      pushViewUrl(targetView, true);
     }
-  }, [currentRole, activeView]);
+  }, [currentRole, activeView, accounts, activeAccountId]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -965,6 +987,7 @@ export default function App() {
       console.warn("Signout error:", err);
     }
     lastHandledAuthUidRef.current = null;
+    hasRoutedInitialAuthRef.current = false;
     const currentAcc = accounts.find(a => a.id === activeAccountId);
     setIsLoggedIn(false);
     setSavedIds([]);
@@ -1345,31 +1368,63 @@ export default function App() {
             {activeView === 'auth-confirmed' && (
               <ErrorBoundary sectionName="Auth Confirmed">
                 <AuthConfirmedPage
-                  onContinue={() => {
-                    supabase.auth.getSession().then(({ data: { session } }) => {
-                      if (session) {
-                        const currentAccount = accounts.find(a => a.id === session.user.id) || accounts[0];
-                        if (currentAccount?.role === 'agent') {
-                          if (currentAccount.businessVerificationStatus === 'approved') {
-                            setActiveView('agent-dash');
-                            pushViewUrl('agent-dash');
-                          } else {
-                            setActiveView('business-verification');
-                            pushViewUrl('business-verification');
-                          }
+                  onContinue={async () => {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session?.user) {
+                      const user = session.user;
+                      const userMeta = user.user_metadata || {};
+                      const dbProfile = await fetchUserProfileFromFirestore(user.id).catch(() => null);
+                      const role: UserRole = dbProfile?.role || userMeta.role || 'student';
+                      const isApproved = dbProfile?.businessVerificationStatus === 'approved' || dbProfile?.isVerifiedAgent === true;
+
+                      const userAccount: User = {
+                        id: user.id,
+                        name: dbProfile?.name || userMeta.full_name || userMeta.name || user.email?.split('@')[0] || 'User',
+                        email: user.email || '',
+                        role: role,
+                        phone: dbProfile?.phone || userMeta.phone || '',
+                        universityId: dbProfile?.universityId || userMeta.university_id || 'uniosun',
+                        universityName: dbProfile?.universityName || userMeta.university_name || 'Osun State University (UNIOSUN)',
+                        agencyName: dbProfile?.agencyName || userMeta.agency_name || '',
+                        isVerifiedAgent: isApproved,
+                        isEmailVerified: true,
+                        businessVerificationStatus: dbProfile?.businessVerificationStatus || (isApproved ? 'approved' : 'none'),
+                        avatarUrl: dbProfile?.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
+                        createdAt: dbProfile?.createdAt || new Date().toISOString().split('T')[0]
+                      };
+
+                      setAccounts([userAccount]);
+                      setActiveAccountId(userAccount.id);
+                      setCurrentRole(role);
+                      setIsLoggedIn(true);
+                      localStorage.setItem('dormiqa_is_logged_in', 'true');
+                      hasRoutedInitialAuthRef.current = true;
+
+                      if (role === 'agent') {
+                        if (isApproved) {
+                          setActiveView('agent-dash');
+                          pushViewUrl('agent-dash', true);
+                          setToastNotice(`Welcome back to your Caretaker Dashboard, ${userAccount.name}!`);
                         } else {
-                          setActiveView('search');
-                          pushViewUrl('search');
+                          setPendingAgentRegistration(userAccount);
+                          setActiveView('business-verification');
+                          pushViewUrl('business-verification', true);
+                          setToastNotice('Email confirmed! Please complete your business verification.');
                         }
                       } else {
-                        setActiveView('onboarding');
-                        pushViewUrl('onboarding');
+                        setActiveView('search');
+                        pushViewUrl('search', true);
+                        setToastNotice('Email confirmed! Welcome to Dormiqa.');
                       }
-                    });
+                      setTimeout(() => setToastNotice(null), 4000);
+                    } else {
+                      setActiveView('onboarding');
+                      pushViewUrl('onboarding', true);
+                    }
                   }}
-                  onSwitchToSignIn={(emailParam) => {
+                  onSwitchToSignIn={() => {
                     setActiveView('onboarding');
-                    window.history.pushState({ type: 'view', view: 'onboarding' }, '', '/onboarding');
+                    pushViewUrl('onboarding', true);
                   }}
                 />
               </ErrorBoundary>
@@ -1469,19 +1524,21 @@ export default function App() {
 
                 const isSignup = Boolean(userData.isSignup);
 
+                hasRoutedInitialAuthRef.current = true;
+                setShowOnboardingShowcase(false);
+
                 if (userData.role === 'agent') {
                   setCurrentRole('agent');
-                  setShowOnboardingShowcase(false);
                   const isApproved = newAccount.businessVerificationStatus === 'approved' || newAccount.isVerifiedAgent;
                   if (isApproved) {
                     setActiveView('agent-dash');
-                    pushViewUrl('agent-dash');
+                    pushViewUrl('agent-dash', true);
                     setToastNotice(`Welcome back to your Caretaker Dashboard, ${newAccount.name}!`);
                     setTimeout(() => setToastNotice(null), 4000);
                   } else {
                     setPendingAgentRegistration(newAccount);
                     setActiveView('business-verification');
-                    pushViewUrl('business-verification');
+                    pushViewUrl('business-verification', true);
                     setToastNotice('Please complete your business verification to activate your caretaker account.');
                     setTimeout(() => setToastNotice(null), 4000);
                   }
@@ -1489,15 +1546,14 @@ export default function App() {
                   // RETURNING STUDENT SIGN IN -> Directly to Student Discover (search) page
                   setCurrentRole('student');
                   setActiveView('search');
-                  pushViewUrl('search');
+                  pushViewUrl('search', true);
                   setToastNotice(`Welcome back, ${newAccount.name}!`);
                   setTimeout(() => setToastNotice(null), 4000);
                 } else {
-                  // NEW STUDENT SIGNUP -> Directly to Student Discover page with showcase modal
+                  // NEW STUDENT SIGNUP -> Directly to Student Discover page
                   setCurrentRole('student');
                   setActiveView('search');
-                  pushViewUrl('search');
-                  setShowOnboardingShowcase(true);
+                  pushViewUrl('search', true);
                   setToastNotice(`Welcome to Dormiqa, ${newAccount.name}!`);
                   setTimeout(() => setToastNotice(null), 4000);
                 }
@@ -1518,15 +1574,17 @@ export default function App() {
                 setIsLoggedIn(true);
                 setCurrentRole('agent');
                 setPendingAgentRegistration(agentUser);
+                hasRoutedInitialAuthRef.current = true;
 
+                const isBusinessApproved = agentUser.businessVerificationStatus === 'approved' || agentUser.isVerifiedAgent;
                 if (!agentUser.isEmailVerified) {
                   setActiveView('agent-landing');
-                } else if (agentUser.businessVerificationStatus !== 'approved') {
+                } else if (!isBusinessApproved) {
                   setActiveView('business-verification');
-                  pushViewUrl('business-verification');
+                  pushViewUrl('business-verification', true);
                 } else {
                   setActiveView('agent-dash');
-                  pushViewUrl('agent-dash');
+                  pushViewUrl('agent-dash', true);
                 }
               }}
               onOpenAdminAccess={() => navigateView('admin-dash')}
@@ -1679,15 +1737,16 @@ export default function App() {
                   setIsLoggedIn(true);
                   setCurrentRole('agent');
                   setPendingAgentRegistration(agentUser);
+                  hasRoutedInitialAuthRef.current = true;
                   const isBusinessApproved = agentUser.businessVerificationStatus === 'approved' || agentUser.isVerifiedAgent;
                   if (!agentUser.isEmailVerified) {
                     setActiveView('agent-landing');
                   } else if (!isBusinessApproved) {
                     setActiveView('business-verification');
-                    pushViewUrl('business-verification');
+                    pushViewUrl('business-verification', true);
                   } else {
                     setActiveView('agent-dash');
-                    pushViewUrl('agent-dash');
+                    pushViewUrl('agent-dash', true);
                   }
                 }}
                 onOpenAdminAccess={() => navigateView('admin-dash')}

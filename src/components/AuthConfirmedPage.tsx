@@ -86,7 +86,10 @@ export const AuthConfirmedPage: React.FC<AuthConfirmedPageProps> = ({
           if (window.location.hash || window.location.search) {
             window.history.replaceState({ type: 'view', view: 'auth-confirmed' }, '', '/auth/confirmed');
           }
-          if (isMounted) setState('confirmed');
+          if (isMounted) {
+            setState('confirmed');
+            onContinue();
+          }
           return;
         }
 
@@ -104,7 +107,10 @@ export const AuthConfirmedPage: React.FC<AuthConfirmedPageProps> = ({
           if (window.location.hash || window.location.search) {
             window.history.replaceState({ type: 'view', view: 'auth-confirmed' }, '', '/auth/confirmed');
           }
-          if (isMounted) setState('confirmed');
+          if (isMounted) {
+            setState('confirmed');
+            onContinue();
+          }
           return;
         }
 
@@ -122,14 +128,20 @@ export const AuthConfirmedPage: React.FC<AuthConfirmedPageProps> = ({
           if (window.location.hash || window.location.search) {
             window.history.replaceState({ type: 'view', view: 'auth-confirmed' }, '', '/auth/confirmed');
           }
-          if (isMounted) setState('confirmed');
+          if (isMounted) {
+            setState('confirmed');
+            onContinue();
+          }
           return;
         }
 
         // Case D: Direct visit to /auth/confirmed without tokens
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user?.email_confirmed_at) {
-          if (isMounted) setState('confirmed');
+          if (isMounted) {
+            setState('confirmed');
+            onContinue();
+          }
         } else {
           if (isMounted) setState('invalid');
         }
@@ -214,29 +226,22 @@ export const AuthConfirmedPage: React.FC<AuthConfirmedPageProps> = ({
 
         {/* STATE 2: CONFIRMED */}
         {state === 'confirmed' && (
-          <div className="text-center space-y-5 py-2">
+          <div className="text-center space-y-4 py-4">
             <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
               <CheckCircle2 className="w-8 h-8" />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <h2 className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">
                 Email confirmed
               </h2>
               <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed max-w-xs mx-auto">
-                Your account is active and ready to use.
+                Redirecting you to your page...
               </p>
             </div>
 
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={onContinue}
-                className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 min-h-[44px]"
-              >
-                <span>Continue</span>
-                <ArrowLeft className="w-4 h-4 rotate-180" />
-              </button>
+            <div className="flex items-center justify-center pt-2">
+              <Loader2 className="w-5 h-5 text-emerald-600 animate-spin" />
             </div>
           </div>
         )}

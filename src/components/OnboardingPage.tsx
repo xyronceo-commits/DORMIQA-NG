@@ -694,26 +694,46 @@ if (error) {
           onVerified={async () => {
             const { data: { session } } = await supabase.auth.getSession();
             const user = session?.user || auth.currentUser;
+            const userMeta = user?.user_metadata || {};
+            const dbProfile = user?.id ? await fetchUserProfileFromFirestore(user.id).catch(() => null) : null;
+
+            const role: UserRole = dbProfile?.role || userMeta.role || pendingUserOnboardingData?.role || (selectedRole === 'agent' ? 'agent' : 'student');
+            const name = (dbProfile?.name || userMeta.full_name || userMeta.name || pendingUserOnboardingData?.name || studentName || agentName || '').trim();
+            const phone = (dbProfile?.phone || userMeta.phone || pendingUserOnboardingData?.phone || studentPhone || agentPhoneWA || '').trim();
+            const uniId = dbProfile?.universityId || userMeta.university_id || pendingUserOnboardingData?.universityId || studentUniId || agentUniId || 'uniosun';
+            const uniName = dbProfile?.universityName || userMeta.university_name || pendingUserOnboardingData?.universityName || studentUni || agentUni || 'Osun State University (UNIOSUN)';
+
+            const isApproved = dbProfile?.businessVerificationStatus === 'approved' || dbProfile?.isVerifiedAgent === true;
+
             const verifiedData = {
               ...pendingUserOnboardingData,
               id: user?.id || pendingUserOnboardingData?.id,
+              role,
+              name: name || user?.email?.split('@')[0] || 'User',
+              email: user?.email || pendingUserOnboardingData?.email || studentEmail || agentEmail,
+              phone,
+              universityId: uniId,
+              universityName: uniName,
+              agencyName: dbProfile?.agencyName || userMeta.agency_name || pendingUserOnboardingData?.agencyName || agencyName || '',
+              businessVerificationStatus: dbProfile?.businessVerificationStatus || pendingUserOnboardingData?.businessVerificationStatus || (isApproved ? 'approved' : 'none'),
+              isVerifiedAgent: isApproved,
               isEmailVerified: true
             };
-            if (verifiedData.role === 'student') {
-              const name = verifiedData.name?.trim();
-              const phone = verifiedData.phone?.trim();
-              if (!name || !phone) {
-                setGoogleAuthData({
-                  uid: user?.id || '',
-                  displayName: name || '',
-                  email: verifiedData.email,
-                  photoURL: verifiedData.avatarUrl || '',
-                  provider: 'email'
-                });
-                setShowEmailVerificationScreen(false);
-                return;
-              }
+
+            // Only prompt if a student is genuinely missing name AND phone (e.g. uncompleted OAuth)
+            if (verifiedData.role === 'student' && (!name || !phone)) {
+              setGoogleAuthData({
+                uid: user?.id || '',
+                displayName: name || '',
+                email: verifiedData.email,
+                photoURL: verifiedData.avatarUrl || '',
+                provider: 'email'
+              });
+              setShowEmailVerificationScreen(false);
+              return;
             }
+
+            setShowEmailVerificationScreen(false);
             onCompleteOnboarding(verifiedData);
           }}
         />
