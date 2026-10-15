@@ -39,7 +39,7 @@ const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
   '/universities': 'universities',
   '/auth/confirmed': 'auth-confirmed',
   '/auth/reset-password': 'reset-password',
-  '/auth/verify': 'onboarding',
+  '/auth/verify': 'auth-confirmed',
   '/reset-password': 'reset-password',
   '/forgot-password': 'onboarding',
 };

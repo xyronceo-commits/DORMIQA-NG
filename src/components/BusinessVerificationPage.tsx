@@ -45,6 +45,29 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
   const currentStatus: BusinessVerificationStatus = agentData?.businessVerificationStatus || (agentData?.isVerifiedAgent ? 'approved' : 'none');
   const existingDetails = agentData?.businessVerificationDetails;
 
+  // Session Authentication Check
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (isMounted) {
+        setIsAuthenticated(Boolean(session?.user));
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (isMounted) {
+        setIsAuthenticated(Boolean(session?.user));
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   // Real-time listener for status changes (e.g. when approved by Admin)
   useEffect(() => {
     const uid = agentData?.id || auth.currentUser?.uid;
@@ -122,8 +145,8 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
         e.target.value = '';
         return;
       }
-      if (file.size > 20 * 1024 * 1024) {
-        setErrorMessage('Verification documents must be 20 MB or smaller.');
+      if (file.size > 10 * 1024 * 1024) {
+        setErrorMessage('Verification documents must be 10 MB or smaller.');
         e.target.value = '';
         return;
       }
@@ -159,11 +182,23 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
 
     setIsSubmitting(true);
     try {
-      const uid = agentData?.id || auth.currentUser?.uid;
-      if (!uid) throw new Error('Sign in again before submitting verification documents.');
+      // User ID MUST come strictly from the real active Supabase session
+      const { data: sessionData } = await supabase.auth.getSession();
+      const sessionUser = sessionData?.session?.user;
+      const uid = sessionUser?.id;
+      if (!uid) {
+        setErrorMessage('Your session has ended. Please sign in again, then resubmit your verification.');
+        setIsSubmitting(false);
+        return;
+      }
 
       let documentUrl = existingDetails?.documentUrl;
       if (uploadedDocument) {
+        if (uploadedDocument.size > 10 * 1024 * 1024) {
+          setErrorMessage('Verification documents must be 10 MB or smaller.');
+          setIsSubmitting(false);
+          return;
+        }
         const safeFileName = uploadedDocument.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         const documentPath = `${uid}/${Date.now()}_${safeFileName}`;
         const { error: uploadError } = await supabase.storage
@@ -195,26 +230,42 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
         submittedAt: new Date().toISOString()
       };
 
-      // 1. Persist state as PENDING and save full verification details into Firestore
-      await saveUserToFirestore({
+      const updatedAgentDoc = {
         id: uid,
+        uid: uid,
         name: agentFullName.trim(),
-        email: agentData?.email || auth.currentUser?.email || '',
-        role: 'agent',
+        email: sessionUser.email || agentData?.email || auth.currentUser?.email || '',
+        role: 'agent' as const,
         agencyName: businessName.trim(),
         phone: phone.trim(),
         avatarUrl: storedPortraitUrl,
         isEmailVerified: true,
-        businessVerificationStatus: 'pending',
+        businessVerificationStatus: 'pending' as const,
         businessVerificationDetails: verificationObj,
         isVerifiedAgent: false,
         licenseNumber
-      });
+      };
 
-      // 2. Set submission success state which displays the dedicated Verification Status page
+      // 1. Persist state as PENDING and save full verification details into database
+      await saveUserToFirestore(updatedAgentDoc);
+
+      // 2. Direct write to Supabase app_documents collection 'users' to ensure state is synchronized
+      try {
+        await supabase
+          .from('app_documents')
+          .update({
+            data: updatedAgentDoc
+          })
+          .eq('collection', 'users')
+          .eq('id', uid);
+      } catch (directUpdateErr) {
+        console.warn('Direct Supabase app_documents update non-fatal note:', directUpdateErr);
+      }
+
+      // 3. Set submission success state which displays the dedicated Verification Status page
       setSubmissionSuccess(true);
 
-      // 3. Notify parent app state of updated pending status
+      // 4. Notify parent app state of updated pending status
       onCompleteVerification({
         licenseNumber,
         isVerifiedAgent: false, // Remains false until admin approves
@@ -224,11 +275,57 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
 
     } catch (err: any) {
       console.error('Business Verification submit error:', err);
-      setErrorMessage(err.message || 'Verification submission failed. Please try again.');
+      const msg = String(err?.message || '').toLowerCase();
+      const status = err?.status || err?.statusCode;
+      if (
+        msg.includes('row-level security') ||
+        msg.includes('violates row-level security policy') ||
+        msg.includes('permission denied') ||
+        status === 401 ||
+        status === 403
+      ) {
+        setErrorMessage('We could not save your verification. Please sign in again and retry.');
+      } else {
+        setErrorMessage(err.message || 'Verification submission failed. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Signed-out guard: asks to sign in and never uploads
+  if (isAuthenticated === false && !auth.currentUser) {
+    return (
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 sm:p-8 shadow-md text-center space-y-5">
+          <div className="w-14 h-14 bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-center justify-center mx-auto">
+            <Lock className="w-7 h-7" />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="text-xl font-black text-neutral-900 dark:text-white">
+              Sign In Required
+            </h2>
+            <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed font-medium">
+              Please sign in to your verified caretaker account to complete or review your business verification.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (onSignOut) {
+                onSignOut();
+              } else {
+                window.location.href = '/agent-portal';
+              }
+            }}
+            className="w-full py-3 bg-neutral-900 hover:bg-black dark:bg-white dark:text-neutral-900 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+          >
+            Sign In to Continue
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // 1. PENDING STATUS SCREEN
   if (currentStatus === 'pending' || submissionSuccess) {
@@ -581,7 +678,7 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
                     <span className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
                       Click to upload selected document ({proofType.toUpperCase()})
                     </span>
-                    <span className="text-[10px] text-neutral-400">JPG, PNG, WEBP, or PDF up to 10MB</span>
+                    <span className="text-[10px] text-neutral-400">PDF, JPG, PNG, or WebP up to 10 MB</span>
                     <input 
                       type="file" 
                       accept=".jpg,.jpeg,.png,.webp,.pdf"

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building2, 
   Shield, 
@@ -66,6 +66,53 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
   const [agentUni, setAgentUni] = useState(universities[0]?.name || 'Osun State University (UNIOSUN)');
   const [agentPassword, setAgentPassword] = useState('');
 
+  // Auto-advance when email is verified across tabs in the same browser
+  useEffect(() => {
+    if (!unverifiedEmail) return;
+    let isMounted = true;
+
+    const checkConfirmedSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        if (isMounted && user?.email_confirmed_at) {
+          const profile = await fetchUserProfileFromFirestore(user.id) || await fetchUserProfileFromFirestore(user.email || '');
+          const isApproved = profile?.businessVerificationStatus === 'approved' || profile?.isVerifiedAgent === true;
+          const agentData: User = {
+            id: user.id,
+            name: profile?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Agent',
+            email: user.email || unverifiedEmail,
+            role: 'agent',
+            phone: profile?.phone || user.user_metadata?.phone || agentPhone,
+            agencyName: profile?.agencyName || user.user_metadata?.agency_name || agencyName,
+            universityName: profile?.universityName || agentUni,
+            isVerifiedAgent: isApproved,
+            isEmailVerified: true,
+            businessVerificationStatus: profile?.businessVerificationStatus || (isApproved ? 'approved' : 'none'),
+            businessVerificationDetails: profile?.businessVerificationDetails,
+            avatarUrl: profile?.avatarUrl || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
+            createdAt: profile?.createdAt || new Date().toISOString().split('T')[0]
+          };
+          setUnverifiedEmail(null);
+          onAgentAuthenticated(agentData);
+        }
+      } catch (_) {}
+    };
+
+    checkConfirmedSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (isMounted && session?.user?.email_confirmed_at) {
+        checkConfirmedSession();
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [unverifiedEmail, onAgentAuthenticated, agentPhone, agencyName, agentUni]);
+
   // Top Drawer Navigation State
   const [isNavDrawerOpen, setIsNavDrawerOpen] = useState(false);
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('light');
@@ -101,25 +148,27 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
         university_name: agentUni
       });
 
-      const newAgentId = regUser?.id || auth.currentUser?.uid || `agt_${Date.now()}`;
-      const newAgentProfile: User = {
-        id: newAgentId,
-        uid: newAgentId,
-        name: agentName || agentEmail.split('@')[0],
-        email: agentEmail.trim().toLowerCase(),
-        role: 'agent',
-        phone: agentPhone,
-        agencyName: agencyName || `${agentName || 'Agent'} Housing`,
-        universityId: agentUniId || 'uniosun',
-        universityName: agentUni,
-        isVerifiedAgent: false,
-        isEmailVerified: false,
-        businessVerificationStatus: 'none',
-        avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
-        createdAt: new Date().toISOString().split('T')[0]
-      };
+      const newAgentId = regUser?.id || (regUser as any)?.uid || auth.currentUser?.uid;
+      if (newAgentId) {
+        const newAgentProfile: User = {
+          id: newAgentId,
+          uid: newAgentId,
+          name: agentName || agentEmail.split('@')[0],
+          email: agentEmail.trim().toLowerCase(),
+          role: 'agent',
+          phone: agentPhone,
+          agencyName: agencyName || `${agentName || 'Agent'} Housing`,
+          universityId: agentUniId || 'uniosun',
+          universityName: agentUni,
+          isVerifiedAgent: false,
+          isEmailVerified: false,
+          businessVerificationStatus: 'none',
+          avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
+          createdAt: new Date().toISOString().split('T')[0]
+        };
 
-      await saveUserToFirestore(newAgentProfile).catch(() => {});
+        await saveUserToFirestore(newAgentProfile).catch(() => {});
+      }
 
       setUnverifiedEmail(agentEmail.trim().toLowerCase());
       setAuthError(null);

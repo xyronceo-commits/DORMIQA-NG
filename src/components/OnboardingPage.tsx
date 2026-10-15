@@ -426,7 +426,7 @@ if (error) {
           university_name: selectedUniObj.name
         });
 
-        const studentUid = regUser?.id || auth.currentUser?.uid || `stu_${Date.now()}`;
+        const studentUid = regUser?.id || (regUser as any)?.uid || auth.currentUser?.uid || '';
         const studentData = {
           id: studentUid,
           uid: studentUid,
@@ -443,8 +443,10 @@ if (error) {
         };
 
         // Immediately persist to app_documents / database so it is never lost!
-        await saveUserToFirestore(studentData).catch(err => console.warn("saveUser err:", err));
-        await saveStudentProfileToFirestore(studentData).catch(err => console.warn("saveStudent err:", err));
+        if (studentUid) {
+          saveUserToFirestore(studentData).catch(err => console.warn("saveUser err:", err));
+          saveStudentProfileToFirestore(studentData).catch(err => console.warn("saveStudent err:", err));
+        }
 
         // 2. Go straight to Check your email screen
         setPendingUserOnboardingData(studentData);
@@ -503,24 +505,10 @@ if (error) {
         if (!isVerified) {
           setPendingUserOnboardingData(studentData);
           setShowEmailVerificationScreen(true);
-        } else if (isInfoValid) {
-          // Both credentials and information are valid -> Go directly to the student discovery page!
+        } else {
+          // Both credentials and email are verified -> Go directly to the student discovery page!
           saveUserToFirestore(studentData).catch(() => {});
           onCompleteOnboarding(studentData);
-        } else {
-          // Information is incomplete/not valid yet -> Go to fill directory of information form
-          setStudentName(resolvedName);
-          setStudentEmail(studentData.email);
-          setStudentPhone(resolvedPhone);
-          setStudentUniId(resolvedUniId);
-          setStudentUni(resolvedUniName);
-          setGoogleAuthData({
-            uid: uid,
-            displayName: resolvedName,
-            email: studentData.email,
-            photoURL: studentData.avatarUrl,
-            provider: 'email'
-          });
         }
       }
     } catch (err: any) {
@@ -580,7 +568,7 @@ if (error) {
           university_name: agentUni
         });
 
-        const agentUid = regUser?.id || auth.currentUser?.uid || `agt_${Date.now()}`;
+        const agentUid = regUser?.id || (regUser as any)?.uid || auth.currentUser?.uid || '';
         const agentData = {
           id: agentUid,
           uid: agentUid,
@@ -598,7 +586,9 @@ if (error) {
         };
 
         // Persist to database immediately
-        await saveUserToFirestore(agentData).catch(err => console.warn("saveUser agent err:", err));
+        if (agentUid) {
+          await saveUserToFirestore(agentData).catch(err => console.warn("saveUser agent err:", err));
+        }
 
         // 2. Go straight to Check your email screen
         setPendingUserOnboardingData(agentData);
@@ -719,19 +709,6 @@ if (error) {
               isVerifiedAgent: isApproved,
               isEmailVerified: true
             };
-
-            // Only prompt if a student is genuinely missing name AND phone (e.g. uncompleted OAuth)
-            if (verifiedData.role === 'student' && (!name || !phone)) {
-              setGoogleAuthData({
-                uid: user?.id || '',
-                displayName: name || '',
-                email: verifiedData.email,
-                photoURL: verifiedData.avatarUrl || '',
-                provider: 'email'
-              });
-              setShowEmailVerificationScreen(false);
-              return;
-            }
 
             setShowEmailVerificationScreen(false);
             onCompleteOnboarding(verifiedData);

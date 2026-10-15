@@ -98,6 +98,135 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { supabase } from './services/supabase';
 
+/**
+ * Reads user's role and verification status from Supabase users table / app_documents
+ */
+async function fetchUserRoleAndStatusFromSupabase(uid: string, email?: string) {
+  let role: UserRole = 'student';
+  let businessVerificationStatus: 'none' | 'pending' | 'approved' | 'rejected' = 'none';
+  let isVerifiedAgent = false;
+  let name = '';
+  let phone = '';
+  let agencyName = '';
+  let universityId = 'uniosun';
+  let universityName = 'Osun State University (UNIOSUN)';
+
+  // 1. Direct query from Supabase users table (if table/view exists)
+  try {
+    const { data: userRow } = await (supabase as any)
+      .from('users')
+      .select('*')
+      .eq('id', uid)
+      .maybeSingle();
+
+    if (userRow) {
+      if (userRow.role === 'agent' || userRow.role === 'student' || userRow.role === 'admin') {
+        role = userRow.role;
+      }
+      if (userRow.business_verification_status || userRow.businessVerificationStatus) {
+        businessVerificationStatus = userRow.business_verification_status || userRow.businessVerificationStatus;
+      }
+      if (userRow.is_verified_agent || userRow.isVerifiedAgent || businessVerificationStatus === 'approved') {
+        isVerifiedAgent = true;
+      }
+      if (userRow.name || userRow.full_name) name = userRow.name || userRow.full_name;
+      if (userRow.phone) phone = userRow.phone;
+      if (userRow.agency_name || userRow.agencyName) agencyName = userRow.agency_name || userRow.agencyName;
+      if (userRow.university_id || userRow.universityId) universityId = userRow.university_id || userRow.universityId;
+      if (userRow.university_name || userRow.universityName) universityName = userRow.university_name || userRow.universityName;
+    }
+  } catch (_) {}
+
+  // 2. Query from Supabase app_documents collection 'users'
+  try {
+    const { data: docRow } = await supabase
+      .from('app_documents')
+      .select('data')
+      .eq('collection', 'users')
+      .eq('id', uid)
+      .maybeSingle();
+
+    if (docRow?.data) {
+      const d = docRow.data;
+      if (d.role === 'agent' || d.role === 'student' || d.role === 'admin') {
+        role = d.role;
+      }
+      if (d.businessVerificationStatus) businessVerificationStatus = d.businessVerificationStatus;
+      if (d.isVerifiedAgent || businessVerificationStatus === 'approved') isVerifiedAgent = true;
+      if (d.name) name = name || d.name;
+      if (d.phone) phone = phone || d.phone;
+      if (d.agencyName) agencyName = agencyName || d.agencyName;
+      if (d.universityId) universityId = universityId || d.universityId;
+      if (d.universityName) universityName = universityName || d.universityName;
+    }
+  } catch (_) {}
+
+  // 3. Query from Supabase app_documents collection 'agents'
+  try {
+    const { data: agentDoc } = await supabase
+      .from('app_documents')
+      .select('data')
+      .eq('collection', 'agents')
+      .eq('id', uid)
+      .maybeSingle();
+
+    if (agentDoc?.data) {
+      role = 'agent';
+      const d = agentDoc.data;
+      if (d.businessVerificationStatus) businessVerificationStatus = d.businessVerificationStatus;
+      if (d.isVerifiedAgent || businessVerificationStatus === 'approved') isVerifiedAgent = true;
+      if (d.name) name = name || d.name;
+      if (d.phone) phone = phone || d.phone;
+      if (d.agencyName) agencyName = agencyName || d.agencyName;
+    }
+  } catch (_) {}
+
+  // 4. Query from Supabase auth session user metadata
+  try {
+    const { data: supaAuth } = await supabase.auth.getUser();
+    const supaUser = supaAuth?.user;
+    if (supaUser && (supaUser.id === uid || supaUser.email?.toLowerCase() === email?.toLowerCase())) {
+      const meta = supaUser.user_metadata || {};
+      if (meta.role === 'agent' || meta.role === 'student') {
+        role = meta.role;
+      }
+      if (meta.full_name || meta.name) name = name || meta.full_name || meta.name;
+      if (meta.phone) phone = phone || meta.phone;
+      if (meta.agency_name) agencyName = agencyName || meta.agency_name;
+      if (meta.university_id) universityId = universityId || meta.university_id;
+      if (meta.university_name) universityName = universityName || meta.university_name;
+    }
+  } catch (_) {}
+
+  // 5. Query from Firestore profile
+  try {
+    const fsProfile = await fetchUserProfileFromFirestore(uid).catch(() => null);
+    if (fsProfile) {
+      if (fsProfile.role === 'agent' || fsProfile.role === 'student' || fsProfile.role === 'admin') {
+        role = fsProfile.role;
+      }
+      if (fsProfile.businessVerificationStatus) businessVerificationStatus = fsProfile.businessVerificationStatus;
+      if (fsProfile.isVerifiedAgent || businessVerificationStatus === 'approved') isVerifiedAgent = true;
+      if (fsProfile.name) name = name || fsProfile.name;
+      if (fsProfile.phone) phone = phone || fsProfile.phone;
+      if (fsProfile.agencyName) agencyName = agencyName || fsProfile.agencyName;
+      if (fsProfile.universityId) universityId = universityId || fsProfile.universityId;
+      if (fsProfile.universityName) universityName = universityName || fsProfile.universityName;
+    }
+  } catch (_) {}
+
+  return {
+    role,
+    businessVerificationStatus,
+    isVerifiedAgent,
+    name: name || email?.split('@')[0] || (role === 'agent' ? 'Agent' : 'Student'),
+    phone,
+    agencyName,
+    universityId,
+    universityName
+  };
+}
+
 export default function App() {
   const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities' | 'reset-password' | 'auth-confirmed'>(() => {
     // 1. Password reset and auth link errors MUST be checked FIRST
@@ -672,26 +801,38 @@ export default function App() {
         return;
       }
 
-      const isAuthConfirmedLanding = typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/confirmed');
+      const isAuthConfirmedLanding = typeof window !== 'undefined' && (
+        window.location.pathname.startsWith('/auth/confirmed') ||
+        window.location.pathname.startsWith('/auth/verify')
+      );
 
       if (isAuthConfirmedLanding) {
         hasRoutedInitialAuthRef.current = true;
-        if (userAccount.role === 'agent') {
-          const isAgentBusinessApproved = userAccount.businessVerificationStatus === 'approved' || userAccount.isVerifiedAgent;
+        const profileInfo = await fetchUserRoleAndStatusFromSupabase(uid, email);
+        const effectiveRole = profileInfo.role || userAccount.role;
+        const effectiveStatus = profileInfo.businessVerificationStatus || userAccount.businessVerificationStatus;
+        const isAgentBusinessApproved = effectiveStatus === 'approved' || profileInfo.isVerifiedAgent || userAccount.isVerifiedAgent;
+
+        if (effectiveRole === 'agent') {
           if (isAgentBusinessApproved) {
             setActiveView('agent-dash');
             pushViewUrl('agent-dash', true);
-            setToastNotice(`Welcome back to your Caretaker Dashboard, ${userAccount.name}!`);
+            setToastNotice(`Welcome back to your Caretaker Dashboard, ${profileInfo.name || userAccount.name}!`);
           } else {
-            setPendingAgentRegistration(userAccount);
+            setPendingAgentRegistration({
+              ...userAccount,
+              role: 'agent',
+              businessVerificationStatus: effectiveStatus,
+              isVerifiedAgent: false
+            });
             setActiveView('business-verification');
             pushViewUrl('business-verification', true);
-            setToastNotice('Email confirmed! Please complete your business verification.');
+            setToastNotice('Email verified. Complete your business verification to start listing properties');
           }
         } else {
           setActiveView('search');
           pushViewUrl('search', true);
-          setToastNotice('Email confirmed! Welcome to Dormiqa.');
+          setToastNotice('Email verified. Welcome to Dormiqa!');
         }
         setTimeout(() => setToastNotice(null), 4000);
         return;
@@ -712,20 +853,21 @@ export default function App() {
             setPendingAgentRegistration(userAccount);
             setActiveView('business-verification');
             pushViewUrl('business-verification', true);
+            setToastNotice('Email verified. Complete your business verification to start listing properties');
+            setTimeout(() => setToastNotice(null), 4000);
           } else {
             setActiveView('agent-dash');
             pushViewUrl('agent-dash', true);
+            setToastNotice(`Welcome back to your Caretaker Dashboard, ${userAccount.name}!`);
+            setTimeout(() => setToastNotice(null), 4000);
           }
         } else {
-          // STUDENT ROLE:
-          if (!studentProfileComplete) {
-            setActiveView('onboarding');
-            pushViewUrl('onboarding', true);
-            setToastNotice('Complete your profile to continue to student discovery.');
+          // STUDENT ROLE: Take directly to student discovery (search view)
+          setActiveView('search');
+          pushViewUrl('search', true);
+          if (isVerified) {
+            setToastNotice(`Welcome back, ${userAccount.name}!`);
             setTimeout(() => setToastNotice(null), 4000);
-          } else {
-            setActiveView('search');
-            pushViewUrl('search', true);
           }
         }
       }
@@ -1370,27 +1512,27 @@ export default function App() {
                 <AuthConfirmedPage
                   onContinue={async () => {
                     const { data: { session } } = await supabase.auth.getSession();
-                    if (session?.user) {
-                      const user = session.user;
+                    const user = session?.user || (await supabase.auth.getUser()).data?.user;
+                    if (user) {
                       const userMeta = user.user_metadata || {};
-                      const dbProfile = await fetchUserProfileFromFirestore(user.id).catch(() => null);
-                      const role: UserRole = dbProfile?.role || userMeta.role || 'student';
-                      const isApproved = dbProfile?.businessVerificationStatus === 'approved' || dbProfile?.isVerifiedAgent === true;
+                      const profileInfo = await fetchUserRoleAndStatusFromSupabase(user.id, user.email);
+                      const role: UserRole = profileInfo.role;
+                      const isApproved = profileInfo.isVerifiedAgent || profileInfo.businessVerificationStatus === 'approved';
 
                       const userAccount: User = {
                         id: user.id,
-                        name: dbProfile?.name || userMeta.full_name || userMeta.name || user.email?.split('@')[0] || 'User',
+                        name: profileInfo.name || userMeta.full_name || userMeta.name || user.email?.split('@')[0] || (role === 'agent' ? 'Agent' : 'Student'),
                         email: user.email || '',
                         role: role,
-                        phone: dbProfile?.phone || userMeta.phone || '',
-                        universityId: dbProfile?.universityId || userMeta.university_id || 'uniosun',
-                        universityName: dbProfile?.universityName || userMeta.university_name || 'Osun State University (UNIOSUN)',
-                        agencyName: dbProfile?.agencyName || userMeta.agency_name || '',
+                        phone: profileInfo.phone || userMeta.phone || '',
+                        universityId: profileInfo.universityId || userMeta.university_id || 'uniosun',
+                        universityName: profileInfo.universityName || userMeta.university_name || 'Osun State University (UNIOSUN)',
+                        agencyName: profileInfo.agencyName || userMeta.agency_name || '',
                         isVerifiedAgent: isApproved,
                         isEmailVerified: true,
-                        businessVerificationStatus: dbProfile?.businessVerificationStatus || (isApproved ? 'approved' : 'none'),
-                        avatarUrl: dbProfile?.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
-                        createdAt: dbProfile?.createdAt || new Date().toISOString().split('T')[0]
+                        businessVerificationStatus: profileInfo.businessVerificationStatus,
+                        avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
+                        createdAt: new Date().toISOString().split('T')[0]
                       };
 
                       setAccounts([userAccount]);
@@ -1409,17 +1551,17 @@ export default function App() {
                           setPendingAgentRegistration(userAccount);
                           setActiveView('business-verification');
                           pushViewUrl('business-verification', true);
-                          setToastNotice('Email confirmed! Please complete your business verification.');
+                          setToastNotice('Email verified. Complete your business verification to start listing properties');
                         }
                       } else {
                         setActiveView('search');
                         pushViewUrl('search', true);
-                        setToastNotice('Email confirmed! Welcome to Dormiqa.');
+                        setToastNotice('Email verified. Welcome to Dormiqa!');
                       }
                       setTimeout(() => setToastNotice(null), 4000);
                     } else {
-                      setActiveView('onboarding');
-                      pushViewUrl('onboarding', true);
+                      setActiveView('landing');
+                      pushViewUrl('landing', true);
                     }
                   }}
                   onSwitchToSignIn={() => {
@@ -1479,14 +1621,13 @@ export default function App() {
             <OnboardingPage
               universities={universities}
               onCompleteOnboarding={(userData) => {
-                if (userData.role === 'student' && (
-                  !String(userData.name || '').trim()
-                  || !String(userData.phone || '').trim()
-                )) {
+                const currentUid = auth.currentUser?.uid || (userData as any).id;
+                if (!currentUid) {
+                  setToastNotice('Your session has ended. Please sign in again.');
                   setIsLoggedIn(false);
                   setActiveView('onboarding');
                   pushViewUrl('onboarding', true);
-                  setToastNotice('Complete your name and phone number before continuing.');
+                  setTimeout(() => setToastNotice(null), 5000);
                   return;
                 }
 
@@ -1494,17 +1635,16 @@ export default function App() {
                 localStorage.setItem('dormiqa_is_logged_in', 'true');
                 setCurrentRole(userData.role);
 
-                const currentUid = auth.currentUser?.uid || `usr_${Date.now()}`;
                 const currentEmail = auth.currentUser?.email || userData.email || '';
                 const isVerified = auth.currentUser ? (auth.currentUser.emailVerified || auth.currentUser.providerData.some(p => p.providerId === 'google.com')) : (userData.isEmailVerified === true);
 
                 const newAccount: User = {
                   id: currentUid,
-                  name: userData.name || currentEmail.split('@')[0] || 'User',
+                  name: userData.name || currentEmail.split('@')[0] || (userData.role === 'agent' ? 'Agent' : 'Student'),
                   email: currentEmail,
                   role: userData.role,
                   avatarUrl: userData.avatarUrl || auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
-                  phone: userData.phone,
+                  phone: userData.phone || '',
                   universityId: userData.universityId || 'uniosun',
                   universityName: userData.universityName || 'Osun State University (UNIOSUN)',
                   agencyName: userData.agencyName,
@@ -1539,7 +1679,7 @@ export default function App() {
                     setPendingAgentRegistration(newAccount);
                     setActiveView('business-verification');
                     pushViewUrl('business-verification', true);
-                    setToastNotice('Please complete your business verification to activate your caretaker account.');
+                    setToastNotice('Email verified. Complete your business verification to start listing properties');
                     setTimeout(() => setToastNotice(null), 4000);
                   }
                 } else if (!isSignup) {
@@ -1554,7 +1694,7 @@ export default function App() {
                   setCurrentRole('student');
                   setActiveView('search');
                   pushViewUrl('search', true);
-                  setToastNotice(`Welcome to Dormiqa, ${newAccount.name}!`);
+                  setToastNotice('Email verified. Welcome to Dormiqa!');
                   setTimeout(() => setToastNotice(null), 4000);
                 }
               }}
