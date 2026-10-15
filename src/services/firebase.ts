@@ -45,16 +45,14 @@ import {
   isSupported, 
   Messaging 
 } from 'firebase/messaging';
-import firebaseConfig from '../../firebase-applet-config.json';
 
-// Initialize Firebase App
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+// Initialize Firebase App Shim
+const app = getApps().length === 0 ? initializeApp() : getApp();
 
-// Initialize Firestore Instance safely with database ID support and standard auto-negotiation
+// Initialize Firestore Instance safely
 function initFirestoreInstance() {
-  const dbId = (firebaseConfig as any).firestoreDatabaseId || undefined;
   try {
-    return getFirestore(app, dbId);
+    return getFirestore(app);
   } catch (e) {
     return getFirestore(app);
   }
@@ -456,7 +454,7 @@ export const clearPendingSignupProfile = (uid: string) => {
 export const saveUserToFirestore = async (userObj: {
   id?: string;
   name?: string;
-  email: string;
+  email?: string;
   role?: string;
   phone?: string;
   universityId?: string;
@@ -826,51 +824,13 @@ export const fetchUniversitiesFromFirestore = async (): Promise<University[]> =>
   });
 };
 
-export const USER_SESSION_DURATION_MS = 12 * 60 * 60 * 1000; // 12 hours
-
-export const setUserSessionTimestamp = (uid: string) => {
-  try {
-    const payload = {
-      uid,
-      loginTime: Date.now(),
-      expiresAt: Date.now() + USER_SESSION_DURATION_MS
-    };
-    localStorage.setItem(`dormiqa_user_session_${uid}`, JSON.stringify(payload));
-  } catch (e) {
-    console.warn('Error setting user session timestamp:', e);
-  }
-};
-
-export const clearUserSessionTimestamp = (uid?: string) => {
-  try {
-    if (uid) {
-      localStorage.removeItem(`dormiqa_user_session_${uid}`);
-    } else {
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('dormiqa_user_session_')) {
-          localStorage.removeItem(key);
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('Error clearing user session timestamp:', e);
-  }
-};
-
-export const checkUserSessionValid = (uid: string): boolean => {
-  try {
-    if (!uid) return false;
-    const raw = localStorage.getItem(`dormiqa_user_session_${uid}`);
-    if (!raw) return false;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed.loginTime !== 'number') return false;
-    const elapsed = Date.now() - parsed.loginTime;
-    return elapsed >= 0 && elapsed < USER_SESSION_DURATION_MS;
-  } catch {
-    return false;
-  }
-};
+export { 
+  USER_SESSION_DURATION_MS, 
+  setUserSessionTimestamp, 
+  clearUserSessionTimestamp, 
+  checkUserSessionValid, 
+  cleanupStaleSessionEntries 
+} from '../utils/session';
 
 export const sendPasswordReset = async (email: string) => {
   return sendPasswordResetEmail(auth, email);

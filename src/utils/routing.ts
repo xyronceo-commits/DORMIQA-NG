@@ -5,7 +5,7 @@
 export interface ParsedRoute {
   type: 'property' | 'view' | '404';
   propertyId?: string;
-  view?: 'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'universities' | 'reset-password' | 'auth-confirmed';
+  view?: 'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'universities' | 'reset-password' | 'auth-confirmed' | 'complete-profile';
   adminTab?: 'agents' | 'properties' | 'students' | 'analytics' | 'access';
 }
 
@@ -21,6 +21,8 @@ const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
   '/agent-portal': 'agent-landing',
   '/agent-landing': 'agent-landing',
   '/business-verification': 'business-verification',
+  '/agent/verification': 'business-verification',
+  '/agent-verification': 'business-verification',
   '/student-dashboard': 'student-dash',
   '/agent-dashboard': 'agent-dash',
   '/admin-dashboard': 'admin-dash',
@@ -41,6 +43,7 @@ const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
   '/auth/reset-password': 'reset-password',
   '/auth/verify': 'auth-confirmed',
   '/reset-password': 'reset-password',
+  '/complete-profile': 'complete-profile',
   '/forgot-password': 'onboarding',
 };
 
@@ -257,7 +260,10 @@ export function pushViewUrl(view: string, replace = false, subTab?: string) {
     'admin-dash': '/admin',
     'coming-soon': '/coming-soon',
     'universities': '/universities',
-    'auth-confirmed': '/auth/confirmed'
+    'auth-confirmed': '/auth/confirmed',
+    'reset-password': '/reset-password',
+    'agent-landing': '/agent-portal',
+    'complete-profile': '/complete-profile'
   };
 
   let targetPath = pathMap[view] || '/';

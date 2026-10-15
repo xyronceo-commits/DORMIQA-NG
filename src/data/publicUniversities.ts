@@ -30,7 +30,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ikire Campus"
     ],
     "totalListings": 10,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Multi-campus state university with campuses in Osogbo, Ejigbo, Okuku, Ikire, Ifetedo, and Ipetu-Ijesha.",
     "status": "active",
     "isActive": true,
@@ -56,7 +56,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Iwaya"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Premier federal university in Akoka, Yaba with bustling off-campus student hubs around Abule Oja and Onike.",
     "status": "coming_soon",
     "isActive": false,
@@ -82,7 +82,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Water Reservoir Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Nigeria's premier university. Dense off-campus lodges along Agbowo, Bodija, and Samonda.",
     "status": "coming_soon",
     "isActive": false,
@@ -108,7 +108,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Modakeke Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Great Ife campus. Off-campus student housing is concentrated around Mayfair, Asherifa, and Ede Road.",
     "status": "coming_soon",
     "isActive": false,
@@ -134,7 +134,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "PZ Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Premier northern federal university with main campus at Samaru and administrative campus at Kongo.",
     "status": "coming_soon",
     "isActive": false,
@@ -159,7 +159,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "UNEC Independence Layout Enugu"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "First indigenous federal university with primary campus in Nsukka and professional faculties at UNEC Enugu.",
     "status": "coming_soon",
     "isActive": false,
@@ -185,7 +185,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Isiohor"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Renowned federal institution in Ugbowo and Ekenwan with vibrant student accommodation in Ekosodin and BDPA.",
     "status": "coming_soon",
     "isActive": false,
@@ -211,7 +211,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Fate Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Better By Far campus. Off-campus student communities stretch along Tanke, Tipper Garage, and Sanrab.",
     "status": "coming_soon",
     "isActive": false,
@@ -237,7 +237,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ozuoba"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Unique Uniport multi-park campus with student lodges concentrated around Choba, Alakahia, and Aluu.",
     "status": "coming_soon",
     "isActive": false,
@@ -262,7 +262,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ring Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal university located along Bauchi Road and Naraguta with off-campus lodges around Farin Gada.",
     "status": "coming_soon",
     "isActive": false,
@@ -288,7 +288,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Satellite Town"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Malabite campus located in Calabar with student lodges lining Etta Agbor, Goldie, and Mary Slessor.",
     "status": "coming_soon",
     "isActive": false,
@@ -314,7 +314,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Dorayi"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Prominent federal university with New Campus along Gwarzo Road and Old Campus around Kabuga Gate.",
     "status": "coming_soon",
     "isActive": false,
@@ -340,7 +340,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Obanla Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Leading federal technology university in Akure with high student housing density around South Gate and Apatapiti.",
     "status": "coming_soon",
     "isActive": false,
@@ -366,7 +366,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Chanchaga"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal tech institution operating dual campuses at Gidan Kwano and historic Bosso in Minna.",
     "status": "coming_soon",
     "isActive": false,
@@ -392,7 +392,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "FUTO Park Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Premier eastern technology university with dense off-campus lodges situated in Ihiagwa, Eziobodo, and Obinze.",
     "status": "coming_soon",
     "isActive": false,
@@ -418,7 +418,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Kwali Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal capital university operating along Airport Road and Gwagwalada with vibrant student communities.",
     "status": "coming_soon",
     "isActive": false,
@@ -444,7 +444,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Oron Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal university in Uyo with multi-campus presence across Ikpa Road, Annex, and Main Campus at Nwaniba.",
     "status": "coming_soon",
     "isActive": false,
@@ -470,7 +470,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Nnewi Teaching Hospital"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Zikites federal university in Awka with dense off-campus student accommodation clustered along Ifite Awka.",
     "status": "coming_soon",
     "isActive": false,
@@ -496,7 +496,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Kware Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal institution in the seat of the Caliphate with sprawling main campus at Dundaye.",
     "status": "coming_soon",
     "isActive": false,
@@ -522,7 +522,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Wuntin Dada"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal university of technology in Bauchi operating at Yelwa and the expansive Gubi campus.",
     "status": "coming_soon",
     "isActive": false,
@@ -548,7 +548,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Gate Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Premier federal agriculture university with student lodges concentrated around Camp, Isolu, and Obantoko.",
     "status": "coming_soon",
     "isActive": false,
@@ -573,7 +573,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ebrumede"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Specialized federal energy and petroleum university situated in Ugbomro near Warri and Effurun.",
     "status": "coming_soon",
     "isActive": false,
@@ -598,7 +598,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ugbokolo Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal agricultural university in Makurdi situated on the north bank of River Benue.",
     "status": "coming_soon",
     "isActive": false,
@@ -623,7 +623,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Isieke Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal agricultural institution located in Umudike close to the capital city of Umuahia.",
     "status": "coming_soon",
     "isActive": false,
@@ -648,7 +648,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Kaduna Centre"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Nigeria's flagship open university headquarters in Abuja with study centers across all 36 states.",
     "status": "coming_soon",
     "isActive": false,
@@ -673,7 +673,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Falayi Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal university in Ekiti State with main campus in Oye-Ekiti and agriculture campus in Ikole.",
     "status": "coming_soon",
     "isActive": false,
@@ -697,7 +697,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Yenagoa Link Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal university located in Otuoke, Bayelsa with expanding off-campus student accommodation.",
     "status": "coming_soon",
     "isActive": false,
@@ -722,7 +722,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Phase 1"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Confluence federal university operating dual campuses at Adankolo and Felele in Lokoja.",
     "status": "coming_soon",
     "isActive": false,
@@ -747,7 +747,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Shabu"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal university in Nasarawa State located along Makurdi Road, Lafia.",
     "status": "coming_soon",
     "isActive": false,
@@ -771,7 +771,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Tumu"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal institution situated in Kashere, Gombe State.",
     "status": "coming_soon",
     "isActive": false,
@@ -795,7 +795,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Yam Market Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal university in Taraba State situated along the Katsina-Ala Road in Wukari.",
     "status": "coming_soon",
     "isActive": false,
@@ -820,7 +820,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "G9 Quarters"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal institution located in the state capital of Dutse, Jigawa State.",
     "status": "coming_soon",
     "isActive": false,
@@ -844,7 +844,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Town Center"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal university situated in Dutsin-Ma town, Katsina State.",
     "status": "coming_soon",
     "isActive": false,
@@ -868,7 +868,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "College Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal university in Ebonyi State situated in Ikwo near Abakaliki.",
     "status": "coming_soon",
     "isActive": false,
@@ -892,7 +892,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Gesse Phase 1"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal university located along Kalgo Road in Birnin Kebbi.",
     "status": "coming_soon",
     "isActive": false,
@@ -916,7 +916,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Tudun Wada"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal university in Zamfara State situated along the Gusau-Zaria Expressway.",
     "status": "coming_soon",
     "isActive": false,
@@ -940,7 +940,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Sabon Gari"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal institution situated in Gashua, Yobe State.",
     "status": "coming_soon",
     "isActive": false,
@@ -964,7 +964,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Rigachikun"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Nigeria's elite military university in Kaduna with accredited civilian postgraduate and undergraduate programs.",
     "status": "coming_soon",
     "isActive": false,
@@ -987,7 +987,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Kano Outreach Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal police degree-awarding academy situated in Wudil, Kano State.",
     "status": "coming_soon",
     "isActive": false,
@@ -1011,7 +1011,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ungwan Dosa"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal aerospace and technology institute located at the NAF Base in Kaduna.",
     "status": "coming_soon",
     "isActive": false,
@@ -1035,7 +1035,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "GRA Biu"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal military-civilian university located in Biu, Borno State.",
     "status": "coming_soon",
     "isActive": false,
@@ -1058,7 +1058,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Warri River Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Pioneering federal maritime university situated in Okerenkoko and Kurutie, Delta State.",
     "status": "coming_soon",
     "isActive": false,
@@ -1082,7 +1082,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ajaba Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal health sciences institution located in historic Ila-Orangun, Osun State.",
     "status": "coming_soon",
     "isActive": false,
@@ -1106,7 +1106,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Upu Community"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Specialized federal health sciences university in Otukpo, Benue State.",
     "status": "coming_soon",
     "isActive": false,
@@ -1130,7 +1130,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "GRA Azare"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal health sciences university situated in Azare, Katagum Emirate, Bauchi State.",
     "status": "coming_soon",
     "isActive": false,
@@ -1154,7 +1154,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Yauri Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal agriculture university situated in Zuru, Kebbi State.",
     "status": "coming_soon",
     "isActive": false,
@@ -1177,7 +1177,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Kazaure Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal technology university situated in Babura, Jigawa State.",
     "status": "coming_soon",
     "isActive": false,
@@ -1201,7 +1201,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Opobo Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal technology university located along the coast in Ikot Abasi, Akwa Ibom State.",
     "status": "coming_soon",
     "isActive": false,
@@ -1224,7 +1224,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ogwashi-Uku Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal navy university situated along the Asaba-Benin Expressway at Ibusa, Delta State.",
     "status": "coming_soon",
     "isActive": false,
@@ -1247,7 +1247,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Okposi Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Modern federal university of health sciences located in Uburu, Ebonyi State.",
     "status": "coming_soon",
     "isActive": false,
@@ -1271,7 +1271,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Emene"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal university dedicated to allied health sciences situated in Enugu City.",
     "status": "coming_soon",
     "isActive": false,
@@ -1296,7 +1296,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Numan Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Formerly MAUTECH, federal institution located along Mubi Road in Girei near Yola.",
     "status": "coming_soon",
     "isActive": false,
@@ -1321,7 +1321,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Fori Community"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Major federal institution in the North East situated along Bama Road in Maiduguri.",
     "status": "coming_soon",
     "isActive": false,
@@ -1347,7 +1347,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Iba Housing Estate"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Premier state university in Lagos with extensive off-campus housing in Ojo, Iyana Iba, and PPL.",
     "status": "coming_soon",
     "isActive": false,
@@ -1372,7 +1372,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Odonguyan"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Formerly LASPOTECH, state science and tech university with high lodge density in Ikorodu.",
     "status": "coming_soon",
     "isActive": false,
@@ -1397,7 +1397,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Papa Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State education university created from AOCOED and MOCPED with campuses in Ijanikin and Epe.",
     "status": "coming_soon",
     "isActive": false,
@@ -1422,7 +1422,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ibogun"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Pioneering Ogun State university operating multi-campus centres across Ago-Iwoye, Sagamu, and Ayetoro.",
     "status": "coming_soon",
     "isActive": false,
@@ -1447,7 +1447,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Imowo Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Premier university of education in Nigeria located in Ijagun near Ijebu-Ode.",
     "status": "coming_soon",
     "isActive": false,
@@ -1472,7 +1472,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Adebayo Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Prominent state university in Ado-Ekiti with dense student lodges in Iworoko community.",
     "status": "coming_soon",
     "isActive": false,
@@ -1496,7 +1496,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Afao Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Formerly College of Education Ikere, now accredited state university of education, science and tech.",
     "status": "coming_soon",
     "isActive": false,
@@ -1521,7 +1521,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ikare Link Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university in Akungba-Akoko with vast student lodge communities surrounding the campus.",
     "status": "coming_soon",
     "isActive": false,
@@ -1545,7 +1545,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Broad Street"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Southern Ondo State science and technology university situated in Okitipupa.",
     "status": "coming_soon",
     "isActive": false,
@@ -1569,7 +1569,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Odole Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "First specialized medical sciences university in West Africa located in Ondo City.",
     "status": "coming_soon",
     "isActive": false,
@@ -1595,7 +1595,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Iseyin Campus Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Leading state technology university in Ogbomoso with high student lodge concentration in Under G and Adenike.",
     "status": "coming_soon",
     "isActive": false,
@@ -1619,7 +1619,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Akesan Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Historic teacher education institution converted to a full state university of education in Oyo.",
     "status": "coming_soon",
     "isActive": false,
@@ -1643,7 +1643,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Odo-Ona Kekere"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Premier public-private state technical university situated along the Lagos-Ibadan Expressway.",
     "status": "coming_soon",
     "isActive": false,
@@ -1668,7 +1668,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Sango Ilorin"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university situated in Malete near Ilorin with dedicated student communities.",
     "status": "coming_soon",
     "isActive": false,
@@ -1693,7 +1693,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Angwa"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Kogi State university located in Anyigba with dense student housing surrounding the campus.",
     "status": "coming_soon",
     "isActive": false,
@@ -1716,7 +1716,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Itakpe Junction"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State STEM university located in Osara along the Okene-Lokoja expressway.",
     "status": "coming_soon",
     "isActive": false,
@@ -1741,7 +1741,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Total Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university in Keffi close to Abuja with dense student settlements in Angwan Lambu.",
     "status": "coming_soon",
     "isActive": false,
@@ -1765,7 +1765,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Barkin Ladi Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university in Bokkos situated in Plateau State.",
     "status": "coming_soon",
     "isActive": false,
@@ -1790,7 +1790,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Gyado Villa"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university located along Gboko Road in Makurdi with dense student housing in Gyado Villa.",
     "status": "coming_soon",
     "isActive": false,
@@ -1814,7 +1814,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Suleja Road Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university in Lapai, Niger State with off-campus lodges throughout Lapai town.",
     "status": "coming_soon",
     "isActive": false,
@@ -1839,7 +1839,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Sabon Tasha"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university situated in the heart of Kaduna City and Kafanchan in southern Kaduna.",
     "status": "coming_soon",
     "isActive": false,
@@ -1864,7 +1864,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Kano City Center"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Formerly Northwest University, state institution in Kano with central campuses at Kofar Nassarawa.",
     "status": "coming_soon",
     "isActive": false,
@@ -1888,7 +1888,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Kano Road Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Kano State science and technology university situated in Wudil.",
     "status": "coming_soon",
     "isActive": false,
@@ -1912,7 +1912,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Kofar Kaura"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Katsina State university situated along Dutsin-Ma Road in Katsina.",
     "status": "coming_soon",
     "isActive": false,
@@ -1936,7 +1936,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Auyo Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Jigawa State university situated in Kafin Hausa along the Hadejia road.",
     "status": "coming_soon",
     "isActive": false,
@@ -1960,7 +1960,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Jega Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State science and technology institution located in Aliero, Kebbi State.",
     "status": "coming_soon",
     "isActive": false,
@@ -1984,7 +1984,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Airport Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university in Sokoto situated along the Birnin Kebbi Expressway.",
     "status": "coming_soon",
     "isActive": false,
@@ -2008,7 +2008,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Federal Low Cost"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university located at Tudun Wada in Gombe City.",
     "status": "coming_soon",
     "isActive": false,
@@ -2032,7 +2032,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Azare Link Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Multi-campus state university with main site in Gadau and law campus in Misau.",
     "status": "coming_soon",
     "isActive": false,
@@ -2056,7 +2056,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "GRA Damaturu"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university in Damaturu situated along the Gujba Road.",
     "status": "coming_soon",
     "isActive": false,
@@ -2080,7 +2080,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Airport Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university in Maiduguri situated along the Kano-Maiduguri Expressway.",
     "status": "coming_soon",
     "isActive": false,
@@ -2104,7 +2104,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Kona Community"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university located in Jalingo, the capital of Taraba State.",
     "status": "coming_soon",
     "isActive": false,
@@ -2128,7 +2128,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "GRA Mubi"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university situated in the commercial border town of Mubi, Adamawa State.",
     "status": "coming_soon",
     "isActive": false,
@@ -2154,7 +2154,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Iruekpen Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Pioneering state university in Ekpoma with major off-campus student towns in Ujemen and Ujoelen.",
     "status": "coming_soon",
     "isActive": false,
@@ -2178,7 +2178,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Jattu Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Modern state university in Uzairue close to Auchi in Edo North.",
     "status": "coming_soon",
     "isActive": false,
@@ -2203,7 +2203,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "River Ethiope Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Renowned state university in Abraka along the River Ethiope with law faculty in Oleh.",
     "status": "coming_soon",
     "isActive": false,
@@ -2227,7 +2227,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Isoko Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State science and technology university in Ozoro, upgraded from the former polytechnic.",
     "status": "coming_soon",
     "isActive": false,
@@ -2251,7 +2251,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Okpanam Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university located in Anwai-Asaba on the grounds of the historic agricultural campus.",
     "status": "coming_soon",
     "isActive": false,
@@ -2275,7 +2275,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Boji-Boji Owa"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university in Agbor upgraded from the renowned College of Education.",
     "status": "coming_soon",
     "isActive": false,
@@ -2300,7 +2300,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ahoada Satellite Campus"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "First university of science and technology in Nigeria situated at Nkpolu in Port Harcourt.",
     "status": "coming_soon",
     "isActive": false,
@@ -2324,7 +2324,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ndele Campus Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Rivers State education university located at Rumuolumeni with off-campus hubs along Iwofe.",
     "status": "coming_soon",
     "isActive": false,
@@ -2349,7 +2349,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Satellite Town"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university in Calabar situated along Ekpo Abasi with multi-campus presence across Cross River.",
     "status": "coming_soon",
     "isActive": false,
@@ -2374,7 +2374,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Eket Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university with main campus at Ikot Akpaden and agricultural campus at Obio Akpa.",
     "status": "coming_soon",
     "isActive": false,
@@ -2398,7 +2398,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Main Campus Gate"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Bayelsa State university situated at Wilberforce Island in Amassoma.",
     "status": "coming_soon",
     "isActive": false,
@@ -2422,7 +2422,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Amarata"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Specialized state health sciences university located in the capital city of Yenagoa.",
     "status": "coming_soon",
     "isActive": false,
@@ -2445,7 +2445,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Riverfront Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Public-private international state university established at Toru-Orua in Sagbama, Bayelsa.",
     "status": "coming_soon",
     "isActive": false,
@@ -2470,7 +2470,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Isuikwuato"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Abia State university with main campus at Uturu and medical faculty at Umuahia.",
     "status": "coming_soon",
     "isActive": false,
@@ -2495,7 +2495,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Mile 50"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university in Abakaliki operating four functional campuses including Presco and Ishieke.",
     "status": "coming_soon",
     "isActive": false,
@@ -2520,7 +2520,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Works Layout"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Imo State university located along Okigwe Road in Owerri with student housing in Aladinma.",
     "status": "coming_soon",
     "isActive": false,
@@ -2543,7 +2543,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Orlu Road Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State university situated in Ogboko, Ideato South, Imo State.",
     "status": "coming_soon",
     "isActive": false,
@@ -2567,7 +2567,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ihiala Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Anambra State university with multi-campus centers in Uli, Igbariam, and Awka.",
     "status": "coming_soon",
     "isActive": false,
@@ -2591,7 +2591,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Independence Layout"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Pioneering state university of science and technology with main campus at Agbani near Enugu.",
     "status": "coming_soon",
     "isActive": false,
@@ -2614,7 +2614,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Obollo-Afor Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Specialized state health and applied sciences university located in Igbo-Eno, Enugu State.",
     "status": "coming_soon",
     "isActive": false,
@@ -2640,7 +2640,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Onike"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Nigeria's first higher educational institution founded in 1947, situated in vibrant Yaba, Lagos.",
     "status": "coming_soon",
     "isActive": false,
@@ -2665,7 +2665,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Asero"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Leading federal polytechnic in Osun State with large student lodges situated in Ede town.",
     "status": "coming_soon",
     "isActive": false,
@@ -2690,7 +2690,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Sayedero Market Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Premier federal polytechnic in Yewa, Ogun State with high academic reputation and student hubs.",
     "status": "coming_soon",
     "isActive": false,
@@ -2715,7 +2715,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Basiri"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal polytechnic situated along Ijan Road in the Ekiti State capital.",
     "status": "coming_soon",
     "isActive": false,
@@ -2740,7 +2740,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Atan Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal polytechnic operating two campuses in the commercial town of Offa, Kwara State.",
     "status": "coming_soon",
     "isActive": false,
@@ -2765,7 +2765,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ihiagwa Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal polytechnic in Nekede on the southern outskirts of Owerri with high student population.",
     "status": "coming_soon",
     "isActive": false,
@@ -2790,7 +2790,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ufuma"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Renowned federal polytechnic in Oko with campuses in Ufuma and Atani.",
     "status": "coming_soon",
     "isActive": false,
@@ -2815,7 +2815,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "GRA Bida"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Historic federal polytechnic situated along Doko Road in Bida, Niger State.",
     "status": "coming_soon",
     "isActive": false,
@@ -2839,7 +2839,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Anyigba Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal polytechnic located along the River Niger in Idah, Kogi State.",
     "status": "coming_soon",
     "isActive": false,
@@ -2863,7 +2863,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Birshi Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal polytechnic in Bauchi with famous student residential town Gwallameji.",
     "status": "coming_soon",
     "isActive": false,
@@ -2887,7 +2887,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Gusau Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal technical institution situated in Kaura Namoda, Zamfara State.",
     "status": "coming_soon",
     "isActive": false,
@@ -2911,7 +2911,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Laminga Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal polytechnic situated in Nasarawa town near the Federal Capital Territory.",
     "status": "coming_soon",
     "isActive": false,
@@ -2935,7 +2935,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Poly Gate"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal technical institution located in Mubi, Adamawa State.",
     "status": "coming_soon",
     "isActive": false,
@@ -2958,7 +2958,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Potiskum Road Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal polytechnic in Damaturu situated along the Maiduguri Expressway.",
     "status": "coming_soon",
     "isActive": false,
@@ -2981,7 +2981,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Takum Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal polytechnic situated in Bali, Taraba State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3004,7 +3004,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Yenagoa Liaison"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal oil and gas polytechnic located in riverine Ekowe, Southern Ijaw, Bayelsa.",
     "status": "coming_soon",
     "isActive": false,
@@ -3027,7 +3027,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Abak Link Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal technical institution situated in Ukana near Ikot Ekpene, Akwa Ibom State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3051,7 +3051,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ondo Town Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal polytechnic established in cocoa-rich Ile-Oluji, Ondo State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3075,7 +3075,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "GRA Daura"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal technical institution located in ancient Daura, Katsina State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3098,7 +3098,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Billiri Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal polytechnic situated in scenic Kaltungo, southern Gombe State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3121,7 +3121,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ilorin Road Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal polytechnic located in Ayede-Ogbomoso, Oyo State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3144,7 +3144,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Yakurr Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal polytechnic located along the Ikom-Calabar highway in Ugep, Cross River.",
     "status": "coming_soon",
     "isActive": false,
@@ -3167,7 +3167,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Yelwa Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal polytechnic situated in southern Plateau State at Shendam.",
     "status": "coming_soon",
     "isActive": false,
@@ -3190,7 +3190,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Lake Chad Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal polytechnic situated in Monguno, Borno State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3213,7 +3213,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Tarka Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal polytechnic situated in Wannune along the Makurdi-Gboko highway in Benue State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3236,7 +3236,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Opi Junction"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal technical institution situated in Ohodo near Nsukka in Enugu State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3259,7 +3259,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Abraka Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Modern federal polytechnic situated in Orogun, Ughelli North, Delta State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3285,7 +3285,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Poly Gate"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "One of West Africa’s most famous federal polytechnics situated across three major campuses in Auchi.",
     "status": "coming_soon",
     "isActive": false,
@@ -3310,7 +3310,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ungwan Sanusi"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Massive federal polytechnic institution operating four major campuses across Kaduna City.",
     "status": "coming_soon",
     "isActive": false,
@@ -3334,7 +3334,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "GRA Kazaure"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal technical polytechnic situated in historic Kazaure, Jigawa State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3359,7 +3359,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Enerhen"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Premier federal oil and gas training monotechnic situated along PTI Road in Effurun near Warri.",
     "status": "coming_soon",
     "isActive": false,
@@ -3383,7 +3383,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "PZ Zaria"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal civil aviation degree and diploma awarding institution located at Zaria Aerodrome.",
     "status": "coming_soon",
     "isActive": false,
@@ -3409,7 +3409,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Poly North Campus"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Flagship state polytechnic in Ibadan with dense student accommodation across Apete, Sango, and Ijokodo.",
     "status": "coming_soon",
     "isActive": false,
@@ -3435,7 +3435,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Aba Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Prominent Osun State polytechnic situated in Iree with vibrant off-campus student life.",
     "status": "coming_soon",
     "isActive": false,
@@ -3459,7 +3459,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ilare Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State technology polytechnic situated in picturesque Esa-Oke, Osun State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3485,7 +3485,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ibara"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Ogun State polytechnic in Abeokuta with famous student residential hubs in Onikolobo, Oluwo, and Adigbe.",
     "status": "coming_soon",
     "isActive": false,
@@ -3509,7 +3509,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ipara Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State ICT polytechnic located in Saapade along the Lagos-Ibadan Expressway in Ogun State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3533,7 +3533,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Crawford Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Ogun State polytechnic institute located in Igbesa near the Agbara industrial corridor.",
     "status": "coming_soon",
     "isActive": false,
@@ -3557,7 +3557,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Japken Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Ogun State polytechnic situated in historic Ijebu-Igbo.",
     "status": "coming_soon",
     "isActive": false,
@@ -3580,7 +3580,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ewekoro Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Ogun State ICT polytechnic located along the Lagos-Abeokuta Expressway in Itori-Ewekoro.",
     "status": "coming_soon",
     "isActive": false,
@@ -3605,7 +3605,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Owo Town Center"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Historic state polytechnic located in the ancient kingdom of Owo, Ondo State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3630,7 +3630,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Post Office Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State polytechnic located along Old Jebba Road in Ilorin, Kwara State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3654,7 +3654,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Itakpe Campus Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Kogi State polytechnic with main campus in Felele, Lokoja and engineering site in Itakpe.",
     "status": "coming_soon",
     "isActive": false,
@@ -3677,7 +3677,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Okpokwu Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State polytechnic situated in Ugbokolo, Okpokwu Local Government, Benue State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3701,7 +3701,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "College Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Formerly Nasarawa State Polytechnic, located along Jos Road in Lafia.",
     "status": "coming_soon",
     "isActive": false,
@@ -3724,7 +3724,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Maza Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State polytechnic operating main site at Barkin Ladi and city campus at Jos.",
     "status": "coming_soon",
     "isActive": false,
@@ -3747,7 +3747,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Minna Road Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State polytechnic in historic Zungeru with an annex campus in Bida.",
     "status": "coming_soon",
     "isActive": false,
@@ -3771,7 +3771,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Tudun Wada"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Kaduna State polytechnic situated along the old Kaduna-Zaria highway.",
     "status": "coming_soon",
     "isActive": false,
@@ -3795,7 +3795,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Fagge"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Large state polytechnic consortium with specialized schools across Kano City.",
     "status": "coming_soon",
     "isActive": false,
@@ -3819,7 +3819,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "GRA Katsina"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State polytechnic in Katsina situated along the Dutsin-Ma Road.",
     "status": "coming_soon",
     "isActive": false,
@@ -3842,7 +3842,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Takur Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State polytechnic located in the capital of Jigawa State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3865,7 +3865,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Gwiwa Low Cost"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Sokoto State polytechnic located along Airport Road in Sokoto City.",
     "status": "coming_soon",
     "isActive": false,
@@ -3889,7 +3889,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Bulunkutu"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State polytechnic in Maiduguri, Borno State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3912,7 +3912,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Barracks Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State polytechnic with campuses in Jimeta-Yola and Numan.",
     "status": "coming_soon",
     "isActive": false,
@@ -3935,7 +3935,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Mile Six"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State polytechnic operating campuses in Jalingo and Suntai.",
     "status": "coming_soon",
     "isActive": false,
@@ -3958,7 +3958,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Siluko Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Edo State polytechnic situated in Usen near the western boundary with Ondo State.",
     "status": "coming_soon",
     "isActive": false,
@@ -3982,7 +3982,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Agidiei Community"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Delta State polytechnic located in Ogwashi-Uku near Asaba.",
     "status": "coming_soon",
     "isActive": false,
@@ -4006,7 +4006,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Mosogar Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Delta State polytechnic located in Otefe-Oghara along the Benin-Warri corridor.",
     "status": "coming_soon",
     "isActive": false,
@@ -4030,7 +4030,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Port Harcourt Park Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State polytechnic in Bori, Ogoni in Rivers State.",
     "status": "coming_soon",
     "isActive": false,
@@ -4054,7 +4054,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ikwerre Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Rivers State polytechnic situated along Rumuola in the heart of Port Harcourt.",
     "status": "coming_soon",
     "isActive": false,
@@ -4078,7 +4078,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Aba Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Akwa Ibom State polytechnic situated at Ikot Osurua in Ikot Ekpene.",
     "status": "coming_soon",
     "isActive": false,
@@ -4102,7 +4102,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "New Haven"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Foremost eastern polytechnic institute located in Independence Layout, Enugu.",
     "status": "coming_soon",
     "isActive": false,
@@ -4125,7 +4125,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Enugu-Onitsha Expressway Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Enugu State technical polytechnic located in Iwollo, Ezeagu.",
     "status": "coming_soon",
     "isActive": false,
@@ -4149,7 +4149,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Brass Junction"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "State polytechnic located along Aba-Owerri Road in commercial Aba.",
     "status": "coming_soon",
     "isActive": false,
@@ -4172,7 +4172,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Owerri-Port Harcourt Highway"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Imo State polytechnic operating campuses across Omuma and Umuagwo.",
     "status": "coming_soon",
     "isActive": false,
@@ -4196,7 +4196,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Ajegunle Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "The premier special education institution in sub-Saharan Africa situated in Oyo Town.",
     "status": "coming_soon",
     "isActive": false,
@@ -4220,7 +4220,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Akure Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Renowned education university located in Ondo City, upgraded from Adeyemi College of Education.",
     "status": "coming_soon",
     "isActive": false,
@@ -4244,7 +4244,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Obantoko"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Premier federal college of education situated at Osiele, Abeokuta.",
     "status": "coming_soon",
     "isActive": false,
@@ -4268,7 +4268,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Onike Yaba"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal technical teacher education college situated in Akoka, Yaba, Lagos.",
     "status": "coming_soon",
     "isActive": false,
@@ -4292,7 +4292,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Oluwo Palace Area"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal college of education situated in historic Iwo, Osun State.",
     "status": "coming_soon",
     "isActive": false,
@@ -4316,7 +4316,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Samaru Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal college of education located along Gaskiya Road in Zaria.",
     "status": "coming_soon",
     "isActive": false,
@@ -4339,7 +4339,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Mangu Link"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal teacher training institution situated in Pankshin, Plateau State.",
     "status": "coming_soon",
     "isActive": false,
@@ -4363,7 +4363,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Dorayi"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal teacher education college located near Kabuga Gate in Kano City.",
     "status": "coming_soon",
     "isActive": false,
@@ -4386,7 +4386,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "GRA Katsina"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal college of education in Katsina State.",
     "status": "coming_soon",
     "isActive": false,
@@ -4410,7 +4410,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Agassa"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal college of education situated in Otite, Okene, Kogi State.",
     "status": "coming_soon",
     "isActive": false,
@@ -4433,7 +4433,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Bebi Airstrip Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal college of education situated in scenic Obudu, Cross River State.",
     "status": "coming_soon",
     "isActive": false,
@@ -4456,7 +4456,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Nkalagu Link Road"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Federal college of education located in Eha-Amufu, Isi-Uzo LGA, Enugu State.",
     "status": "coming_soon",
     "isActive": false,
@@ -4481,7 +4481,7 @@ export const PUBLIC_UNIVERSITIES: University[] = [
       "Government House Axis"
     ],
     "totalListings": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&w=1200&q=80",
+    "imageUrl": "",
     "description": "Historic teacher education college situated along Orlu Road in Owerri, Imo State.",
     "status": "coming_soon",
     "isActive": false,

@@ -222,13 +222,26 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
   const enquiriesCount = agentConversations.length;
   const inspectionsCount = agentInspections.length;
 
-  // Recent Activity Feed
-  const recentActivities = [
-    { id: '1', title: 'Hostel information updated', desc: 'Price & vacancy details modified', time: '10 mins ago', type: 'update' },
-    { id: '2', title: 'New student enquiry received', desc: 'Direct chat opened for campus accommodation', time: '1 hour ago', type: 'enquiry' },
-    { id: '3', title: 'Hostel submitted for verification', desc: 'Property details under review by coordinator', time: '3 hours ago', type: 'verification' },
-    { id: '4', title: 'Inspection booking confirmed', desc: 'Student tour confirmed for tomorrow', time: 'Yesterday', type: 'inspection' }
-  ];
+  // Recent Activity Feed derived exclusively from real caretaker activity
+  const recentActivities: Array<{ id: string; title: string; desc: string; time: string; type: string }> = [];
+  agentInspections.slice(0, 3).forEach(ins => {
+    recentActivities.push({
+      id: `ins_${ins.id}`,
+      title: 'Inspection booking',
+      desc: `${ins.studentName || 'Student'} scheduled a tour for ${ins.listingTitle || 'hostel'}`,
+      time: ins.date || 'Upcoming',
+      type: 'inspection'
+    });
+  });
+  agentListings.slice(0, 3).forEach(l => {
+    recentActivities.push({
+      id: `lst_${l.id}`,
+      title: 'Property listing',
+      desc: `${l.title || 'Hostel'} (${l.verificationStatus || l.status || 'active'})`,
+      time: l.createdAt ? new Date(l.createdAt).toLocaleDateString() : 'Listed',
+      type: 'verification'
+    });
+  });
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pb-20 md:pb-8 text-neutral-900 dark:text-neutral-100">
@@ -511,15 +524,21 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
               </h3>
 
               <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                {recentActivities.map(act => (
-                  <div key={act.id} className="py-3 flex items-center justify-between text-xs">
-                    <div className="space-y-0.5">
-                      <span className="font-extrabold text-neutral-900 dark:text-white block">{act.title}</span>
-                      <span className="text-neutral-500 block text-[11px]">{act.desc}</span>
-                    </div>
-                    <span className="text-[10px] text-neutral-400 font-bold">{act.time}</span>
+                {recentActivities.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-neutral-400 font-medium">
+                    No recent activity recorded yet.
                   </div>
-                ))}
+                ) : (
+                  recentActivities.map(act => (
+                    <div key={act.id} className="py-3 flex items-center justify-between text-xs">
+                      <div className="space-y-0.5">
+                        <span className="font-extrabold text-neutral-900 dark:text-white block">{act.title}</span>
+                        <span className="text-neutral-500 block text-[11px]">{act.desc}</span>
+                      </div>
+                      <span className="text-[10px] text-neutral-400 font-bold">{act.time}</span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 

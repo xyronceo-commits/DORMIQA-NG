@@ -101,7 +101,10 @@ export const sendEmailVerification = async (user: any, actionCodeSettings?: any)
 };
 
 export const sendPasswordResetEmail = async (_auth: any, email: string) => {
-  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: origin ? `${origin}/reset-password` : undefined,
+  });
   if (error) {
     throw error;
   }

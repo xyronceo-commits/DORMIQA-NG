@@ -34,10 +34,10 @@ configureFirestoreClient(supabaseDataClient);
 // Initial Seed Data for Dormiqa Ecosystem
 const INITIAL_USERS: User[] = [];
 
-const INITIAL_LISTINGS: Listing[] = [...MOCK_LISTINGS];
+const INITIAL_LISTINGS: Listing[] = [];
 
 // In-memory database state
-let listingsStore: Listing[] = [...INITIAL_LISTINGS];
+let listingsStore: Listing[] = [];
 let usersStore: User[] = [];
 let inspectionsStore: Inspection[] = [];
 let conversationsStore: Conversation[] = [];
@@ -48,7 +48,7 @@ const CLEAN_UNIVERSITIES = UNIVERSITIES.map(u => ({
   ...u,
   status: u.id === 'uniosun' ? ('active' as const) : ('coming_soon' as const),
   isActive: u.id === 'uniosun',
-  totalListings: u.id === 'uniosun' ? (listingsStore.filter(l => l.universityId === 'uniosun').length || 10) : 0,
+  totalListings: u.id === 'uniosun' ? listingsStore.filter(l => l.universityId === 'uniosun').length : 0,
   waitlistUrl: 'https://dormiqa-waitlist.vercel.app'
 }));
 
@@ -256,11 +256,11 @@ async function getFirestoreListings(): Promise<Listing[]> {
     snap.forEach(d => {
       realListings.push({ id: d.id, ...d.data() } as Listing);
     });
-    const result = realListings.length > 0 ? realListings : listingsStore;
+    const result = realListings;
     return setServerCache(cacheKey, result, 60 * 1000); // 60s TTL for raw Firestore queries
   } catch (err) {
     console.warn("Firestore listings query error:", err);
-    return listingsStore;
+    return [];
   }
 }
 
@@ -362,19 +362,6 @@ const requireSupabaseUser: express.RequestHandler = (req, res, next) => {
   if (!accessToken) {
     res.status(401).json({ error: 'Unauthorized', message: 'A valid Supabase access token is required.' });
     return;
-  }
-
-  // 12-hour session expiry server enforcement (fail closed)
-  const payload = parseJwtPayload(accessToken);
-  const authTimeSeconds = payload.auth_time || payload.iat;
-  if (typeof authTimeSeconds === 'number') {
-    const elapsedMs = Date.now() - (authTimeSeconds * 1000);
-    const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
-    if (elapsedMs > TWELVE_HOURS_MS) {
-      console.warn(`[AUTH] Access token session exceeds 12-hour limit (age: ${Math.round(elapsedMs / 3600000)}h)`);
-      res.status(401).json({ error: 'Session Expired', message: 'Your 12-hour session has expired. Please sign in again.' });
-      return;
-    }
   }
 
   void supabaseAuthClient.auth.getUser(accessToken).then(({ data, error }) => {

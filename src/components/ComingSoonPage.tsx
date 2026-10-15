@@ -185,7 +185,7 @@ export const ComingSoonPage: React.FC<ComingSoonPageProps> = ({
                   </button>
                 </div>
                 <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                  ⚡ We will never spam. You'll receive early access to verified off-campus lodges 48 hours before public launch.
+                  We will never spam. You'll receive early access to verified off-campus lodges 48 hours before public launch.
                 </p>
               </form>
             ) : (

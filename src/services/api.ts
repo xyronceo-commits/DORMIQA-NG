@@ -190,8 +190,7 @@ export async function fetchListings(params: Record<string, any> = {}): Promise<L
       } catch (fsErr) {
         console.warn('Firestore fallback fetch failed:', fsErr);
       }
-      const { MOCK_LISTINGS } = await import('../data/mockData');
-      return clientCache.set(cacheKey, MOCK_LISTINGS, CACHE_TTL.LISTINGS);
+      return clientCache.set(cacheKey, [], CACHE_TTL.LISTINGS);
     }
   });
 }

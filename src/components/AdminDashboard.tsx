@@ -2497,7 +2497,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {confirmRemoveModal.type === 'agent' && (
               <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-2xl text-xs font-bold text-amber-900 dark:text-amber-300">
-                ⚠️ Warning: This agent currently has {
+                Warning: This agent currently has {
                   properties.filter(p => p.agentId === confirmRemoveModal.item.id || p.agent?.name === confirmRemoveModal.item.name).length
                 } active accommodation listing(s). Revoking status will lock agent privileges.
               </div>

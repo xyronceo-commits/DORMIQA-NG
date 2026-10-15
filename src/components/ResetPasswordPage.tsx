@@ -18,7 +18,7 @@ import {
 } from '../utils/routing';
 
 interface ResetPasswordPageProps {
-  onSwitchToSignIn: () => void;
+  onSwitchToSignIn: (email?: string) => void;
   onRequestNewLinkModal: () => void;
 }
 
@@ -35,6 +35,7 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [recoveredEmail, setRecoveredEmail] = useState<string>('');
 
   useEffect(() => {
     let isMounted = true;
@@ -211,9 +212,13 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
         throw updateError;
       }
 
-      // Notify backend about password change
+      // Capture user email for autofilling sign-in screen
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
+      const userEmail = session?.user?.email || '';
+      if (userEmail) {
+        setRecoveredEmail(userEmail);
+      }
 
       if (accessToken) {
         try {
@@ -407,7 +412,7 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
             <div className="pt-2">
               <button
                 type="button"
-                onClick={onSwitchToSignIn}
+                onClick={() => onSwitchToSignIn(recoveredEmail)}
                 className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 min-h-[44px]"
               >
                 <span>Sign in</span>
@@ -444,7 +449,7 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
 
               <button
                 type="button"
-                onClick={onSwitchToSignIn}
+                onClick={() => onSwitchToSignIn()}
                 className="w-full py-2.5 text-xs font-bold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer text-center min-h-[44px] flex items-center justify-center"
               >
                 Back to sign in

@@ -60,6 +60,7 @@ import { ChatDrawer } from './components/ChatDrawer';
 import { ReportListingModal } from './components/ReportListingModal';
 import { AddListingModal } from './components/AddListingModal';
 import { OnboardingPage } from './components/OnboardingPage';
+import { CompleteProfilePage } from './components/CompleteProfilePage';
 import { ResetPasswordPage } from './components/ResetPasswordPage';
 import { AuthConfirmedPage } from './components/AuthConfirmedPage';
 import { OnboardingShowcaseModal } from './components/OnboardingShowcaseModal';
@@ -92,11 +93,13 @@ import {
   db,
   setUserSessionTimestamp,
   clearUserSessionTimestamp,
-  checkUserSessionValid
+  checkUserSessionValid,
+  cleanupStaleSessionEntries
 } from './services/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { supabase } from './services/supabase';
+import { resolveDestination, AuthRoutingState } from './utils/authRouting';
 
 /**
  * Reads user's role and verification status from Supabase users table / app_documents
@@ -228,7 +231,7 @@ async function fetchUserRoleAndStatusFromSupabase(uid: string, email?: string) {
 }
 
 export default function App() {
-  const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities' | 'reset-password' | 'auth-confirmed'>(() => {
+  const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities' | 'reset-password' | 'auth-confirmed' | 'complete-profile'>(() => {
     // 1. Password reset and auth link errors MUST be checked FIRST
     if (detectRecoveryUrl() || detectAuthLinkError() || isRecoveryFlowActive()) {
       markRecoveryFlowIfPresent();
@@ -286,36 +289,12 @@ export default function App() {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [adminEmail, setAdminEmail] = useState<string>('');
   const [adminRole, setAdminRole] = useState<AdminRole>('ADMIN');
+  const [onboardingInitialEmail, setOnboardingInitialEmail] = useState<string>('');
 
-  // Periodic user session expiration watcher
+  // Initial cleanup of stale session entries
   useEffect(() => {
-    const verifySessionExpiry = () => {
-      if (isLoggedIn && auth.currentUser) {
-        const uid = auth.currentUser.uid;
-        const valid = checkUserSessionValid(uid);
-        if (!valid) {
-          console.warn(`User 12-hour session expired for ${auth.currentUser.email}`);
-          clearUserSessionTimestamp(uid);
-          signOut(auth).catch(() => {});
-          setIsLoggedIn(false);
-          setAccounts([]);
-          setActiveAccountId('');
-          setActiveView('landing');
-          pushViewUrl('landing');
-          setToastNotice('Your 12-hour session has expired. Please sign in again.');
-          setTimeout(() => setToastNotice(null), 5000);
-        }
-      }
-    };
-
-    const interval = setInterval(verifySessionExpiry, 60000); // check every 60s
-    window.addEventListener('focus', verifySessionExpiry);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', verifySessionExpiry);
-    };
-  }, [isLoggedIn]);
+    cleanupStaleSessionEntries(auth.currentUser?.uid);
+  }, []);
 
   const handleAdminGoogleSignIn = async () => {
     setAdminAuthStatus('ADMIN_CHECKING');
@@ -362,7 +341,6 @@ export default function App() {
 
       const expectedAdminEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'buildsafe247@gmail.com').trim().toLowerCase();
       const result = await checkAdminSession();
-      console.log('[ADMIN] verifyAdmin check-session result:', result);
       if (!isMounted || generation !== verificationGeneration) return;
       if (result.authenticated && result.email?.trim().toLowerCase() === expectedAdminEmail) {
         setIsAdminAuthenticated(true);
@@ -577,22 +555,9 @@ export default function App() {
       const isSameUserRepeat = lastHandledAuthUidRef.current === uid;
       lastHandledAuthUidRef.current = uid;
 
-      // Check 12-hour session validity for student/user
-      if (!checkUserSessionValid(uid)) {
-        console.warn(`12-hour user session expired for ${email}`);
-        clearUserSessionTimestamp(uid);
-        await signOut(auth);
-        setIsLoggedIn(false);
-        setAccounts([]);
-        setActiveAccountId('');
-        setIsAdminAuthenticated(false);
-        setAdminAuthStatus('UNAUTHENTICATED');
-        setIsAuthInitializing(false);
-        setToastNotice('Your 12-hour session has expired. Please sign in again.');
-        setTimeout(() => setToastNotice(null), 5000);
-        return;
-      }
-      setUserSessionTimestamp(uid);
+      const expectedAdminEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'buildsafe247@gmail.com').trim().toLowerCase();
+      const isAdminAccount = email === expectedAdminEmail || activeView === 'admin-dash';
+      setUserSessionTimestamp(uid, fbUser);
 
       // NEVER AUTO-ROUTE A RECOVERY SESSION:
       // While recovery flow is active, do not navigate away to dashboard or landing.
@@ -604,7 +569,6 @@ export default function App() {
 
       // Skip student/agent profile hydration and auto-route for admin context immediately
       const initialRoute = parseRouteFromUrl();
-      const expectedAdminEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'buildsafe247@gmail.com').trim().toLowerCase();
       const isAdminContext = email === expectedAdminEmail || initialRoute.view === 'admin-dash' || activeView === 'admin-dash';
 
       if (isAdminContext) {
@@ -1492,8 +1456,9 @@ export default function App() {
             {activeView === 'reset-password' && (
               <ErrorBoundary sectionName="Reset Password">
                 <ResetPasswordPage
-                  onSwitchToSignIn={() => {
+                  onSwitchToSignIn={(email) => {
                     clearRecoveryFlow();
+                    if (email) setOnboardingInitialEmail(email);
                     setActiveView('onboarding');
                     window.history.pushState({ type: 'view', view: 'onboarding' }, '', '/onboarding');
                   }}
@@ -1572,6 +1537,50 @@ export default function App() {
               </ErrorBoundary>
             )}
 
+            {/* Complete Profile Page for Students needing essential setup */}
+            {activeView === 'complete-profile' && (
+              <ErrorBoundary sectionName="Complete Profile">
+                <CompleteProfilePage
+                  user={accounts.find(a => a.id === activeAccountId) || {
+                    id: auth.currentUser?.uid || '',
+                    email: auth.currentUser?.email || '',
+                    name: auth.currentUser?.displayName || '',
+                    role: 'student',
+                    avatarUrl: ''
+                  }}
+                  universities={universities}
+                  onProfileCompleted={(updatedUser) => {
+                    const currentId = activeAccountId || auth.currentUser?.uid || (updatedUser as any).id;
+                    if (currentId) {
+                      setAccounts(prev => {
+                        const exists = prev.some(a => a.id === currentId);
+                        if (exists) {
+                          return prev.map(a => a.id === currentId ? { ...a, ...updatedUser } : a);
+                        }
+                        return [...prev, {
+                          id: currentId,
+                          name: updatedUser.name || 'Student',
+                          email: updatedUser.email || auth.currentUser?.email || '',
+                          role: 'student',
+                          phone: updatedUser.phone || '',
+                          universityId: updatedUser.universityId || 'uniosun',
+                          universityName: updatedUser.universityName || 'Osun State University (UNIOSUN)',
+                          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+                          isEmailVerified: true,
+                          createdAt: new Date().toISOString()
+                        }];
+                      });
+                    }
+                    setActiveView('search');
+                    pushViewUrl('search', true);
+                    setToastNotice('Profile completed! Welcome to Dormiqa.');
+                    setTimeout(() => setToastNotice(null), 4000);
+                  }}
+                  onSignOut={handleSignOut}
+                />
+              </ErrorBoundary>
+            )}
+
             {/* 1. Landing Page */}
             {activeView === 'landing' && (
               <LandingPage
@@ -1620,6 +1629,7 @@ export default function App() {
           <ErrorBoundary sectionName="Auth Gateway">
             <OnboardingPage
               universities={universities}
+              initialEmail={onboardingInitialEmail}
               onCompleteOnboarding={(userData) => {
                 const currentUid = auth.currentUser?.uid || (userData as any).id;
                 if (!currentUid) {
@@ -1739,16 +1749,17 @@ export default function App() {
             <BusinessVerificationPage
               agentData={accounts.find(a => a.id === activeAccountId) || pendingAgentRegistration}
               universities={universities}
-              onCompleteVerification={({ licenseNumber, avatarUrl }) => {
+              onCompleteVerification={({ licenseNumber, avatarUrl, isVerifiedAgent }) => {
                 const currentId = activeAccountId || pendingAgentRegistration?.id;
+                const isApprovedNow = Boolean(isVerifiedAgent);
                 if (currentId) {
                   setAccounts(prev => prev.map(a => 
                     a.id === currentId
                       ? { 
                           ...a, 
                           licenseNumber, 
-                          isVerifiedAgent: false,
-                          businessVerificationStatus: 'pending',
+                          isVerifiedAgent: isApprovedNow,
+                          businessVerificationStatus: isApprovedNow ? 'approved' : 'pending',
                           avatarUrl: avatarUrl || a.avatarUrl,
                           isAvatarLocked: true,
                           verificationPhotoUrl: avatarUrl || a.avatarUrl
@@ -1756,7 +1767,13 @@ export default function App() {
                       : a
                   ));
                 }
-                setToastNotice('Business verification details submitted! Verification is now in progress.');
+                if (isApprovedNow) {
+                  setActiveView('agent-dash');
+                  pushViewUrl('agent-dash', true);
+                  setToastNotice('Business verified! Welcome to your Caretaker Dashboard.');
+                } else {
+                  setToastNotice('Business verification details submitted! Verification is now in progress.');
+                }
                 setTimeout(() => setToastNotice(null), 4000);
               }}
               onSignOut={handleSignOut}
@@ -1851,7 +1868,7 @@ export default function App() {
 
         {/* Mobile Bottom Navigation Bar for Student Portal */}
         {currentRole === 'student' && 
-         ['search', 'saved', 'messages', 'inspections', 'student-dash'].includes(activeView) && (
+         ['landing', 'search', 'saved', 'messages', 'inspections', 'student-dash'].includes(activeView) && (
           <BottomNav
             activeView={activeView}
             onNavigate={(view) => navigateView(view)}
@@ -1913,6 +1930,10 @@ export default function App() {
                           : a
                       ));
                     }
+                    setActiveView('agent-dash');
+                    pushViewUrl('agent-dash', true);
+                    setToastNotice('Business verified! Welcome to your Caretaker Dashboard.');
+                    setTimeout(() => setToastNotice(null), 4000);
                   }}
                 />
               );
@@ -1922,16 +1943,17 @@ export default function App() {
               <BusinessVerificationPage
                 agentData={currentAccount || pendingAgentRegistration}
                 universities={universities}
-                onCompleteVerification={({ licenseNumber, avatarUrl }) => {
+                onCompleteVerification={({ licenseNumber, avatarUrl, isVerifiedAgent }) => {
                   const currentId = activeAccountId || pendingAgentRegistration?.id;
+                  const isApprovedNow = Boolean(isVerifiedAgent);
                   if (currentId) {
                     setAccounts(prev => prev.map(a => 
                       a.id === currentId
                         ? { 
                             ...a, 
                             licenseNumber, 
-                            isVerifiedAgent: false,
-                            businessVerificationStatus: 'pending',
+                            isVerifiedAgent: isApprovedNow,
+                            businessVerificationStatus: isApprovedNow ? 'approved' : 'pending',
                             avatarUrl: avatarUrl || a.avatarUrl,
                             isAvatarLocked: true,
                             verificationPhotoUrl: avatarUrl || a.avatarUrl
@@ -1939,7 +1961,13 @@ export default function App() {
                         : a
                     ));
                   }
-                  setToastNotice('Business verification details submitted! Verification is now in progress.');
+                  if (isApprovedNow) {
+                    setActiveView('agent-dash');
+                    pushViewUrl('agent-dash', true);
+                    setToastNotice('Business verified! Welcome to your Caretaker Dashboard.');
+                  } else {
+                    setToastNotice('Business verification details submitted! Verification is now in progress.');
+                  }
                   setTimeout(() => setToastNotice(null), 4000);
                 }}
                 onSignOut={handleSignOut}

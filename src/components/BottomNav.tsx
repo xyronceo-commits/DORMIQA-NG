@@ -1,9 +1,9 @@
 import React from 'react';
-import { Compass, Heart, MessageSquare, User } from 'lucide-react';
+import { Home, Compass, Heart, MessageSquare, User } from 'lucide-react';
 
 interface BottomNavProps {
   activeView: string;
-  onNavigate: (view: 'search' | 'saved' | 'messages' | 'student-dash') => void;
+  onNavigate: (view: 'landing' | 'search' | 'saved' | 'messages' | 'student-dash') => void;
   savedCount?: number;
   unreadCount?: number;
 }
@@ -16,25 +16,31 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 }) => {
   const navItems = [
     {
-      id: 'search',
-      label: 'Discover',
+      id: 'landing' as const,
+      label: 'Home',
+      icon: Home,
+      badge: 0
+    },
+    {
+      id: 'search' as const,
+      label: 'Explore',
       icon: Compass,
       badge: 0
     },
     {
-      id: 'saved',
+      id: 'saved' as const,
       label: 'Saved',
       icon: Heart,
       badge: savedCount
     },
     {
-      id: 'messages',
-      label: 'Chats',
+      id: 'messages' as const,
+      label: 'Messages',
       icon: MessageSquare,
       badge: unreadCount
     },
     {
-      id: 'student-dash',
+      id: 'student-dash' as const,
       label: 'Profile',
       icon: User,
       badge: 0

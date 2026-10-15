@@ -71,6 +71,7 @@ const GoogleIcon = () => (
 
 interface OnboardingPageProps {
   universities: University[];
+  initialEmail?: string;
   onCompleteOnboarding: (userData: {
     role: UserRole;
     name: string;
@@ -89,18 +90,19 @@ interface OnboardingPageProps {
 
 export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   universities,
+  initialEmail,
   onCompleteOnboarding,
   onBackToLanding
 }) => {
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
-  const [authMode, setAuthMode] = useState<'signup' | 'signin'>('signup');
-  const [authMethod, setAuthMethod] = useState<'google' | 'email'>('google');
+  const [authMode, setAuthMode] = useState<'signup' | 'signin'>(initialEmail ? 'signin' : 'signup');
+  const [authMethod, setAuthMethod] = useState<'google' | 'email'>(initialEmail ? 'email' : 'google');
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Student Form State
   const [studentName, setStudentName] = useState('');
-  const [studentEmail, setStudentEmail] = useState('');
+  const [studentEmail, setStudentEmail] = useState(initialEmail || '');
   const [studentPhone, setStudentPhone] = useState('');
   const [studentUniId, setStudentUniId] = useState('uniosun');
   const [studentUni, setStudentUni] = useState(
@@ -110,9 +112,19 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
   // Agent Form State
   const [agentName, setAgentName] = useState('');
-  const [agentEmail, setAgentEmail] = useState('');
+  const [agentEmail, setAgentEmail] = useState(initialEmail || '');
   const [agencyName, setAgencyName] = useState('');
   const [verificationType, setVerificationType] = useState<'cac' | 'id_card'>('cac');
+
+  useEffect(() => {
+    if (initialEmail && initialEmail.trim()) {
+      const clean = initialEmail.trim();
+      setStudentEmail(clean);
+      setAgentEmail(clean);
+      setAuthMode('signin');
+      setAuthMethod('email');
+    }
+  }, [initialEmail]);
   const [verificationDocNum, setVerificationDocNum] = useState('');
   const [agentUniId, setAgentUniId] = useState('uniosun');
   const [agentUni, setAgentUni] = useState(universities[0]?.name || 'Osun State University (UNIOSUN)');
