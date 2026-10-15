@@ -1,0 +1,6 @@
+{
+  "summary": "Implementation plan for unifying Dormiqa authentication and navigation flow into a single deterministic resolveDestination function without repeated pages.",
+  "updatedAt": "2026-10-15T04:36:52.594566496Z",
+  "requestFeedback": true,
+  "userFacing": true
+}

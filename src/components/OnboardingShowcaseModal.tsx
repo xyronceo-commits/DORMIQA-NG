@@ -36,26 +36,26 @@ export const OnboardingShowcaseModal: React.FC<OnboardingShowcaseModalProps> = (
   const slides = [
     {
       id: 'welcome',
-      title: `Welcome to Dormiqa, ${userName}! 🎉`,
-      subtitle: "Nigeria's #1 Verified Campus Accommodation Platform",
+      title: `Welcome to Dormiqa, ${userName}`,
+      subtitle: "Verified student accommodation platform",
       badge: "Getting Started",
       badgeColor: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300",
       icon: (
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 animate-bounce-subtle">
+        <div className="w-16 h-16 rounded-2xl bg-neutral-900 flex items-center justify-center text-white">
           <GraduationCap className="w-8 h-8" />
         </div>
       ),
-      description: "Finding safe, student-tested self-contains, studio apartments, and student lodges near your university campus is now effortless and 100% scam-free.",
+      description: "Find verified self-contains, studio apartments, and student lodges near your university campus.",
       highlights: [
         "Direct verified caretaker contact",
-        "Zero upfront viewing or illegal agent fees",
-        "100% inspected campus accommodation listings"
+        "No hidden or illegal agent fees",
+        "Inspected campus accommodation listings"
       ]
     },
     {
       id: 'feature1',
       title: "Real Walking Distance to Campus Gate",
-      subtitle: "Never fall for fake '5-minute walk' claims again",
+      subtitle: "Verified walking times to university gates",
       badge: "Feature 1 of 4",
       badgeColor: "bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200",
       icon: (
@@ -63,17 +63,17 @@ export const OnboardingShowcaseModal: React.FC<OnboardingShowcaseModalProps> = (
           <Footprints className="w-8 h-8" />
         </div>
       ),
-      description: "Every lodge listing displays exact, verified pedestrian walking times to your university main gate or faculty quad — verified on the ground by campus reps.",
+      description: "Every lodge listing shows pedestrian walking times to the main gate or faculty quad, verified by campus representatives.",
       highlights: [
-        "Filter lodges by < 3, 5, 10, or 15 minutes walk",
-        "Interactive campus gate distance calculator",
-        "Exact neighborhood breakdown (e.g. Abule Oja, Agbowo)"
+        "Filter lodges by walking duration",
+        "Interactive distance calculator",
+        "Neighborhood and street breakdown"
       ]
     },
     {
       id: 'feature2',
       title: "Transparent Power & Water Specs",
-      subtitle: "Know power & borehole status before paying",
+      subtitle: "Utility details before making payment",
       badge: "Feature 2 of 4",
       badgeColor: "bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200",
       icon: (
@@ -81,17 +81,17 @@ export const OnboardingShowcaseModal: React.FC<OnboardingShowcaseModalProps> = (
           <Zap className="w-8 h-8" />
         </div>
       ),
-      description: "Examine detailed utility specs for every apartment: solar inverter availability, PHCN prepaid meter setup, and borehole water tap schedules.",
+      description: "Review utility specifications for every apartment including solar inverter availability, prepaid meters, and water supply schedules.",
       highlights: [
-        "24/7 Solar & Inverter light badges",
-        "Prepaid electricity meter verification",
-        "Running water tap & pumping schedule details"
+        "Solar and inverter availability",
+        "Prepaid electricity meter status",
+        "Water pumping and tap schedules"
       ]
     },
     {
       id: 'feature3',
       title: "Verified Caretakers & Direct Contact",
-      subtitle: "Connect directly with verified lodge managers",
+      subtitle: "Connect with verified agents and landlords",
       badge: "Feature 3 of 4",
       badgeColor: "bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200",
       icon: (
@@ -99,17 +99,17 @@ export const OnboardingShowcaseModal: React.FC<OnboardingShowcaseModalProps> = (
           <UserCheck className="w-8 h-8" />
         </div>
       ),
-      description: "Only government ID & CAC-verified agents and landlords can list accommodation. Call or chat directly via official WhatsApp with confidence.",
+      description: "All agents and landlords are verified. Contact property managers directly via phone or WhatsApp.",
       highlights: [
-        "Verified Agent verification badges",
-        "Instant WhatsApp & direct phone dialing",
-        "Report suspicious agents in 1 click"
+        "Verified agent badges",
+        "Direct phone and WhatsApp chat",
+        "Report unverified listings"
       ]
     },
     {
       id: 'feature4',
-      title: "Instant Tour & Inspection Scheduling",
-      subtitle: "Book physical or 360° video walkthroughs",
+      title: "Inspection Scheduling",
+      subtitle: "Book physical or video walkthroughs",
       badge: "Feature 4 of 4",
       badgeColor: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300",
       icon: (

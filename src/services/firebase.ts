@@ -119,7 +119,6 @@ export const listenToFCMMessages = async (onMessageReceived: (payload: any) => v
     const messaging = await getFCMMessaging();
     if (messaging) {
       return onMessage(messaging, (payload) => {
-        console.log("FCM Foreground Notification Received:", payload);
         onMessageReceived(payload);
       });
     }
@@ -479,7 +478,6 @@ export const saveUserToFirestore = async (userObj: {
 
   const expectedAdminEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'buildsafe247@gmail.com').trim().toLowerCase();
   if (cleanEmail === expectedAdminEmail) {
-    console.log('[ADMIN] Skipping user/student profile creation for admin email:', cleanEmail);
     return;
   }
 

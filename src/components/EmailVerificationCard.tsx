@@ -61,7 +61,6 @@ export const EmailVerificationCard: React.FC<EmailVerificationCardProps> = ({
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted || isVerified) return;
       if (session?.user?.email_confirmed_at) {
-        console.log('[VERIFY SCREEN] onAuthStateChange event received with confirmed email:', event);
         setIsVerified(true);
         setNoticeMessage({
           text: "Email verified! Redirecting to your dashboard...",

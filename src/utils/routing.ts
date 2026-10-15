@@ -5,7 +5,7 @@
 export interface ParsedRoute {
   type: 'property' | 'view' | '404';
   propertyId?: string;
-  view?: 'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'universities';
+  view?: 'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'universities' | 'reset-password' | 'auth-confirmed';
   adminTab?: 'agents' | 'properties' | 'students' | 'analytics' | 'access';
 }
 
@@ -37,10 +37,10 @@ const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
   '/admin/access': 'admin-dash',
   '/coming-soon': 'coming-soon',
   '/universities': 'universities',
-  '/auth/confirmed': 'onboarding',
-  '/auth/reset-password': 'onboarding',
+  '/auth/confirmed': 'auth-confirmed',
+  '/auth/reset-password': 'reset-password',
   '/auth/verify': 'onboarding',
-  '/reset-password': 'onboarding',
+  '/reset-password': 'reset-password',
   '/forgot-password': 'onboarding',
 };
 

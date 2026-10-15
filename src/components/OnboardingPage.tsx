@@ -142,24 +142,8 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
   // Password Reset Modal State
   const hasAuthError = detectAuthLinkError();
-  const hasRecovery = detectRecoveryUrl() || isRecoveryFlowActive();
-  const isDirectResetVisit = typeof window !== 'undefined' && window.location.pathname === '/auth/reset-password';
-  const hasTokensInUrl = typeof window !== 'undefined' && (
-    window.location.hash.includes('access_token') ||
-    window.location.search.includes('token_hash') ||
-    window.location.search.includes('code') ||
-    window.location.hash.includes('type=recovery') ||
-    window.location.search.includes('type=recovery')
-  );
-
-  const shouldOpenResetModal = hasAuthError || hasRecovery || isDirectResetVisit;
-  const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(shouldOpenResetModal);
-  const [passwordResetStep, setPasswordResetStep] = useState<PasswordResetStep>(() => {
-    if (hasAuthError) return 'invalid_link';
-    if (isDirectResetVisit && !hasTokensInUrl && !isRecoveryFlowActive()) return 'invalid_link';
-    if (hasRecovery) return 'reset';
-    return 'forgot';
-  });
+  const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
+  const [passwordResetStep, setPasswordResetStep] = useState<PasswordResetStep>('forgot');
 
   useEffect(() => {
     if (googleAuthData && !studentName.trim() && googleAuthData.displayName) {

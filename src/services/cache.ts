@@ -23,10 +23,7 @@ class ClientCacheEngine {
   }
 
   private log(type: 'HIT' | 'MISS' | 'FETCH' | 'INVALIDATE' | 'DEDUPE', key: string, detail?: string) {
-    if (this.isDev()) {
-      const timestamp = new Date().toLocaleTimeString();
-      console.log(`[CACHE ${type}] ${key}${detail ? ` (${detail})` : ''} - ${timestamp}`);
-    }
+    // no-op
   }
 
   /**

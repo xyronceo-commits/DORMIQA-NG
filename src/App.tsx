@@ -60,6 +60,8 @@ import { ChatDrawer } from './components/ChatDrawer';
 import { ReportListingModal } from './components/ReportListingModal';
 import { AddListingModal } from './components/AddListingModal';
 import { OnboardingPage } from './components/OnboardingPage';
+import { ResetPasswordPage } from './components/ResetPasswordPage';
+import { AuthConfirmedPage } from './components/AuthConfirmedPage';
 import { OnboardingShowcaseModal } from './components/OnboardingShowcaseModal';
 import { AppGuidedTour } from './components/AppGuidedTour';
 import { BusinessVerificationPage } from './components/BusinessVerificationPage';
@@ -97,19 +99,25 @@ import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { supabase } from './services/supabase';
 
 export default function App() {
-  const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities'>(() => {
+  const [activeView, setActiveView] = useState<'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'inspections' | 'universities' | 'reset-password' | 'auth-confirmed'>(() => {
     // 1. Password reset and auth link errors MUST be checked FIRST
-    // (wins over parseRouteFromUrl which maps '/' to 'landing')
     if (detectRecoveryUrl() || detectAuthLinkError() || isRecoveryFlowActive()) {
       markRecoveryFlowIfPresent();
-      return 'onboarding';
+      return 'reset-password';
     }
 
     if (typeof window !== 'undefined') {
       const p = window.location.pathname;
-      if (p.startsWith('/auth/') || p.includes('reset-password')) return 'onboarding';
+      if (p.includes('reset-password') || p.includes('/auth/reset-password')) return 'reset-password';
       const hash = window.location.hash;
-      if (hash.includes('type=recovery') || hash.includes('type=signup')) return 'onboarding';
+      const search = window.location.search;
+      if (hash.includes('type=recovery') || search.includes('type=recovery')) return 'reset-password';
+
+      if (p.includes('confirmed') || p.includes('/auth/confirmed') || hash.includes('type=signup') || search.includes('token_hash') || search.includes('code')) {
+        return 'auth-confirmed';
+      }
+
+      if (p.startsWith('/auth/')) return 'onboarding';
     }
 
     const route = parseRouteFromUrl();
@@ -1315,6 +1323,58 @@ export default function App() {
           />
         ) : (
           <>
+            {/* Reset Password Page */}
+            {activeView === 'reset-password' && (
+              <ErrorBoundary sectionName="Reset Password">
+                <ResetPasswordPage
+                  onSwitchToSignIn={() => {
+                    clearRecoveryFlow();
+                    setActiveView('onboarding');
+                    window.history.pushState({ type: 'view', view: 'onboarding' }, '', '/onboarding');
+                  }}
+                  onRequestNewLinkModal={() => {
+                    clearRecoveryFlow();
+                    setActiveView('onboarding');
+                    window.history.pushState({ type: 'view', view: 'onboarding' }, '', '/onboarding');
+                  }}
+                />
+              </ErrorBoundary>
+            )}
+
+            {/* Auth Confirmed Page */}
+            {activeView === 'auth-confirmed' && (
+              <ErrorBoundary sectionName="Auth Confirmed">
+                <AuthConfirmedPage
+                  onContinue={() => {
+                    supabase.auth.getSession().then(({ data: { session } }) => {
+                      if (session) {
+                        const currentAccount = accounts.find(a => a.id === session.user.id) || accounts[0];
+                        if (currentAccount?.role === 'agent') {
+                          if (currentAccount.businessVerificationStatus === 'approved') {
+                            setActiveView('agent-dash');
+                            pushViewUrl('agent-dash');
+                          } else {
+                            setActiveView('business-verification');
+                            pushViewUrl('business-verification');
+                          }
+                        } else {
+                          setActiveView('search');
+                          pushViewUrl('search');
+                        }
+                      } else {
+                        setActiveView('onboarding');
+                        pushViewUrl('onboarding');
+                      }
+                    });
+                  }}
+                  onSwitchToSignIn={(emailParam) => {
+                    setActiveView('onboarding');
+                    window.history.pushState({ type: 'view', view: 'onboarding' }, '', '/onboarding');
+                  }}
+                />
+              </ErrorBoundary>
+            )}
+
             {/* 1. Landing Page */}
             {activeView === 'landing' && (
               <LandingPage
