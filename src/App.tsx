@@ -249,6 +249,10 @@ export default function App() {
         return 'auth-confirmed';
       }
 
+      if (p.includes('business-verification') || p.includes('/agent/verification') || p.includes('/agent-verification')) {
+        return 'business-verification';
+      }
+
       if (p.startsWith('/auth/')) return 'onboarding';
     }
 
@@ -400,6 +404,13 @@ export default function App() {
       return;
     }
 
+    if (view === 'business-verification') {
+      setCurrentRole('agent');
+      setActiveView('business-verification');
+      pushViewUrl('business-verification');
+      return;
+    }
+
     if (isLoggedIn) {
       const currentAccount = accounts.find(a => a.id === activeAccountId) || accounts[0];
       if (currentRole === 'student' && !hasCompleteStudentProfile(currentAccount)) {
@@ -436,7 +447,7 @@ export default function App() {
       }
     }
 
-    if (!isLoggedIn && view !== 'landing' && view !== 'onboarding' && view !== 'business-verification' && view !== 'search' && view !== 'coming-soon' && view !== 'universities') {
+    if (!isLoggedIn && view !== 'landing' && view !== 'onboarding' && view !== 'search' && view !== 'coming-soon' && view !== 'universities') {
       setActiveView('onboarding');
       pushViewUrl('onboarding');
       setToastNotice('Please sign up or sign in to access verified accommodation.');
@@ -446,7 +457,7 @@ export default function App() {
 
     const isVerified = auth.currentUser ? (auth.currentUser.emailVerified || auth.currentUser.providerData.some(p => p.providerId === 'google.com')) : true;
 
-    if (isLoggedIn && !isVerified && (view === 'student-dash' || view === 'agent-dash' || view === 'saved' || view === 'messages' || view === 'inspections' || view === 'business-verification')) {
+    if (isLoggedIn && !isVerified && (view === 'student-dash' || view === 'agent-dash' || view === 'saved' || view === 'messages' || view === 'inspections')) {
       setActiveView('onboarding');
       pushViewUrl('onboarding');
       setToastNotice('Please verify your email address before accessing portal features.');
@@ -810,14 +821,11 @@ export default function App() {
         hasRoutedInitialAuthRef.current = true;
         if (userAccount.role === 'agent') {
           const isAgentBusinessApproved = userAccount.businessVerificationStatus === 'approved' || userAccount.isVerifiedAgent;
-          if (!isVerified) {
-            setActiveView('agent-landing');
-            pushViewUrl('agent-landing', true);
-          } else if (!isAgentBusinessApproved) {
+          if (!isAgentBusinessApproved) {
             setPendingAgentRegistration(userAccount);
             setActiveView('business-verification');
             pushViewUrl('business-verification', true);
-            setToastNotice('Email verified. Complete your business verification to start listing properties');
+            setToastNotice('Complete your business verification to start listing properties');
             setTimeout(() => setToastNotice(null), 4000);
           } else {
             setActiveView('agent-dash');
@@ -1053,7 +1061,14 @@ export default function App() {
   useEffect(() => {
     if (isAuthInitializing || activeView === 'admin-dash') return;
 
-    const authenticatedViews = ['saved', 'messages', 'inspections', 'student-dash', 'agent-dash', 'business-verification'];
+    if (activeView === 'business-verification') {
+      if (currentRole !== 'agent') {
+        setCurrentRole('agent');
+      }
+      return;
+    }
+
+    const authenticatedViews = ['saved', 'messages', 'inspections', 'student-dash', 'agent-dash'];
     if (!isLoggedIn && authenticatedViews.includes(activeView)) {
       setActiveView('onboarding');
       pushViewUrl('onboarding', true);
@@ -1069,7 +1084,7 @@ export default function App() {
       return;
     }
 
-    if (currentRole === 'student' && (activeView === 'agent-dash' || activeView === 'business-verification')) {
+    if (currentRole === 'student' && activeView === 'agent-dash') {
       setActiveView(isLoggedIn ? 'search' : 'onboarding');
       pushViewUrl(isLoggedIn ? 'search' : 'onboarding', true);
       return;
@@ -1727,9 +1742,7 @@ export default function App() {
                 hasRoutedInitialAuthRef.current = true;
 
                 const isBusinessApproved = agentUser.businessVerificationStatus === 'approved' || agentUser.isVerifiedAgent;
-                if (!agentUser.isEmailVerified) {
-                  setActiveView('agent-landing');
-                } else if (!isBusinessApproved) {
+                if (!isBusinessApproved) {
                   setActiveView('business-verification');
                   pushViewUrl('business-verification', true);
                 } else {
@@ -1747,10 +1760,26 @@ export default function App() {
         {activeView === 'business-verification' && (
           <ErrorBoundary sectionName="Business Verification">
             <BusinessVerificationPage
-              agentData={accounts.find(a => a.id === activeAccountId) || pendingAgentRegistration}
+              agentData={
+                accounts.find(a => a.id === activeAccountId) || 
+                pendingAgentRegistration ||
+                (auth.currentUser ? {
+                  id: auth.currentUser.uid,
+                  name: auth.currentUser.displayName || '',
+                  email: auth.currentUser.email || '',
+                  role: 'agent',
+                  phone: '',
+                  agencyName: '',
+                  universityId: 'uniosun',
+                  universityName: 'Osun State University (UNIOSUN)',
+                  isVerifiedAgent: false,
+                  businessVerificationStatus: 'none',
+                  avatarUrl: auth.currentUser.photoURL || ''
+                } : null)
+              }
               universities={universities}
               onCompleteVerification={({ licenseNumber, avatarUrl, isVerifiedAgent }) => {
-                const currentId = activeAccountId || pendingAgentRegistration?.id;
+                const currentId = activeAccountId || pendingAgentRegistration?.id || auth.currentUser?.uid;
                 const isApprovedNow = Boolean(isVerifiedAgent);
                 if (currentId) {
                   setAccounts(prev => prev.map(a => 

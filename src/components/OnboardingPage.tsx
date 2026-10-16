@@ -602,9 +602,8 @@ if (error) {
           await saveUserToFirestore(agentData).catch(err => console.warn("saveUser agent err:", err));
         }
 
-        // 2. Go straight to Check your email screen
-        setPendingUserOnboardingData(agentData);
-        setShowEmailVerificationScreen(true);
+        // Once signed up, take agent directly to business verification page!
+        onCompleteOnboarding(agentData);
       } else {
         // SIGN IN
         setPendingPassword(agentPassword);
@@ -641,30 +640,28 @@ if (error) {
           isEmailVerified: isVerified
         };
 
-        if (!isVerified) {
-          setPendingUserOnboardingData(agentData);
-          setShowEmailVerificationScreen(true);
-        } else {
-          onCompleteOnboarding(agentData);
-        }
+        // Forward agent directly to Business Verification (or Caretaker Dashboard if already verified)
+        onCompleteOnboarding(agentData);
       }
     } catch (err: any) {
       console.error("[AGENT AUTH] Error:", err);
       const code = String(err?.code || err?.error_code || '').toLowerCase();
       const msg = String(err?.message || '').toLowerCase();
       if (code === 'email_not_confirmed' || msg.includes('email not confirmed') || msg.includes('not confirmed')) {
-        setPendingUserOnboardingData({
-          id: '',
+        const fallbackAgentData = {
+          id: auth.currentUser?.uid || '',
           role: 'agent' as UserRole,
           name: agentName || agentEmail.split('@')[0] || 'Agent',
           email: agentEmail.trim().toLowerCase(),
           agencyName: agencyName,
           phone: agentPhoneWA,
           universityName: agentUni,
+          businessVerificationStatus: 'none',
+          isVerifiedAgent: false,
           isSignup: false,
           isEmailVerified: false
-        });
-        setShowEmailVerificationScreen(true);
+        };
+        onCompleteOnboarding(fallbackAgentData);
         return;
       }
       if (

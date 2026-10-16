@@ -168,9 +168,10 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
         };
 
         await saveUserToFirestore(newAgentProfile).catch(() => {});
+        onAgentAuthenticated(newAgentProfile);
+        return;
       }
 
-      setUnverifiedEmail(agentEmail.trim().toLowerCase());
       setAuthError(null);
     } catch (err: any) {
       console.error("[AGENT SIGNUP] Error:", err);
@@ -221,19 +222,28 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
         createdAt: existingProfile?.createdAt || new Date().toISOString().split('T')[0]
       };
 
-      if (!isVerified) {
-        // Block dashboard access, show email verification notice
-        setUnverifiedEmail(agentData.email);
-      } else {
-        onAgentAuthenticated(agentData);
-      }
+      onAgentAuthenticated(agentData);
     } catch (err: any) {
       console.error("[AGENT SIGNIN] Error:", err);
       const code = String(err?.code || err?.error_code || '').toLowerCase();
       const msg = String(err?.message || '').toLowerCase();
       if (code === 'email_not_confirmed' || msg.includes('email not confirmed') || msg.includes('not confirmed')) {
-        setUnverifiedEmail(agentEmail.trim().toLowerCase());
-        setAuthError(null);
+        const pendingAgent: User = {
+          id: auth.currentUser?.uid || '',
+          name: agentName || agentEmail.split('@')[0] || 'Agent',
+          email: agentEmail.trim().toLowerCase(),
+          role: 'agent',
+          phone: agentPhone,
+          agencyName: agencyName || `${agentName || 'Agent'} Housing`,
+          universityId: agentUniId || 'uniosun',
+          universityName: agentUni,
+          isVerifiedAgent: false,
+          isEmailVerified: false,
+          businessVerificationStatus: 'none',
+          avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
+          createdAt: new Date().toISOString().split('T')[0]
+        };
+        onAgentAuthenticated(pendingAgent);
         return;
       }
       if (

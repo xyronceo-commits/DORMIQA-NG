@@ -46,7 +46,7 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
  const existingDetails = agentData?.businessVerificationDetails;
 
  // Session Authentication Check
- const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+ const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(() => Boolean(auth.currentUser || agentData?.id || agentData?.email));
 
  useEffect(() => {
   let isMounted = true;
@@ -294,7 +294,7 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
  };
 
  // Signed-out guard: asks to sign in and never uploads
- if (isAuthenticated === false && !auth.currentUser) {
+ if (!auth.currentUser && !agentData?.id && !agentData?.email && isAuthenticated === false) {
   return (
    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex flex-col items-center justify-center p-4">
     <div className="w-full max-w-md bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 sm:p-8 shadow-md text-center space-y-5">

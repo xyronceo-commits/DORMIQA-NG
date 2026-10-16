@@ -55,6 +55,9 @@ export function resolveDestination(state: AuthRoutingState): DestinationRoute {
   if (state.hasConfirm || state.currentPath?.includes('auth/confirmed') || state.currentPath?.includes('confirmed')) {
     return 'auth-confirmed';
   }
+  if (state.currentPath?.includes('business-verification') || state.currentPath?.includes('agent/verification') || state.currentPath?.includes('agent-verification')) {
+    return 'business-verification';
+  }
 
   // 2. While session is loading, show splash/skeleton
   if (state.sessionStatus === 'loading') {
@@ -76,6 +79,9 @@ export function resolveDestination(state: AuthRoutingState): DestinationRoute {
   // 4. Session is valid
   // Email confirmed?
   if (!state.emailConfirmed) {
+    if (state.role === 'agent' && !state.businessVerified) {
+      return 'business-verification';
+    }
     return 'auth-verify';
   }
 
