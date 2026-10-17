@@ -10,7 +10,7 @@ export interface ParsedRoute {
 }
 
 export const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
-  '/': 'landing',
+  '/': 'onboarding',
   '/search': 'search',
   '/discover': 'search',
   '/explore': 'search',

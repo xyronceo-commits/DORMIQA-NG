@@ -66,14 +66,7 @@ export function resolveDestination(state: AuthRoutingState): DestinationRoute {
 
   // 3. Valid session check
   if (state.sessionStatus === 'none' || state.sessionStatus === 'expired') {
-    if (!state.onboardingSeen) {
-      return 'onboarding';
-    }
-    // If on auth or onboarding already, respect guest paths if requested, otherwise landing or onboarding
-    if (state.currentPath?.startsWith('/auth') || state.currentPath === '/onboarding') {
-      return state.currentPath === '/onboarding' ? 'onboarding' : 'landing';
-    }
-    return 'landing';
+    return 'onboarding';
   }
 
   // 4. Session is valid

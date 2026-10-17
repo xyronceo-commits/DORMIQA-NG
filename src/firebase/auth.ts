@@ -134,6 +134,35 @@ export const applyActionCode = async (_auth: any, tokenHash: string, type = 'sig
   return { data };
 };
 
+export const verifyOtpWithEmail = async (email: string, token: string, type: 'signup' | 'email' | 'recovery' = 'signup') => {
+  let { data, error } = await supabase.auth.verifyOtp({
+    email: email.trim().toLowerCase(),
+    token: token.trim(),
+    type: type as any,
+  });
+
+  // If type signup failed, fallback to email type
+  if (error && type === 'signup') {
+    const retry = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token: token.trim(),
+      type: 'email' as any,
+    });
+    if (!retry.error) {
+      data = retry.data;
+      error = null;
+    }
+  }
+
+  if (error) throw error;
+  syncAuthState(data.user ?? null, data.session?.access_token);
+  return { 
+    user: normalizeUser(data.user ?? null, data.session?.access_token),
+    session: data.session,
+    data 
+  };
+};
+
 export const isSignInWithEmailLink = () => false;
 
 export const signInWithEmailLink = async (_auth: any, email: string, _link: string) => {

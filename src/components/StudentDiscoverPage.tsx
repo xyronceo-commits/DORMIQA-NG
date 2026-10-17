@@ -10,13 +10,11 @@ import {
   ChevronLeft,
   ChevronDown,
   Check,
-  Sparkles,
   ArrowRight
 } from 'lucide-react';
 import { Listing, University, Campus, PropertyType } from '../types';
 import { ListingCard } from './ListingCard';
 import { ListingGridSkeleton } from './SkeletonLoader';
-import { ThemeToggle } from './ThemeToggle';
 
 interface StudentDiscoverPageProps {
   listings: Listing[];
@@ -248,34 +246,31 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/70 dark:bg-slate-950 pb-28 text-slate-900 dark:text-slate-100">
+    <div className="min-h-screen bg-white pb-24 text-neutral-900 font-sans">
       
       {/* =========================================================================
-          TOP NAV BAR: Brand Logo, Notifications, Theme, User Avatar
+          TOP NAV BAR: Brand, Notifications, Profile
           ========================================================================= */}
-      <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-neutral-200/80 dark:border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-30 bg-white border-b border-neutral-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
           
           {/* Logo & Brand */}
-          <div className="flex items-center gap-2.5">
-            <img src="/favicon.svg" alt="Dormiqa" className="h-8 w-auto object-contain" />
-            <span className="font-black text-xl tracking-tight text-slate-900 dark:text-white">
+          <div className="flex items-center gap-2">
+            <span className="font-black text-lg tracking-tight text-neutral-900">
               DORMIQA
             </span>
           </div>
 
-          {/* Right Header Icons */}
+          {/* Right Header Controls */}
           <div className="flex items-center gap-2">
-            <ThemeToggle variant="dropdown" />
-
             <button
               onClick={onOpenNotifications}
-              className="relative p-2.5 rounded-full hover:bg-neutral-100 dark:hover:bg-slate-800 text-neutral-700 dark:text-slate-300 transition-colors cursor-pointer"
+              className="relative p-2 rounded-md hover:bg-neutral-100 text-neutral-700 transition-colors cursor-pointer"
               title="Notifications"
             >
-              <Bell className="w-5 h-5" />
+              <Bell className="w-4 h-4" />
               {notificationCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 bg-emerald-500 text-white text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center">
+                <span className="absolute top-1.5 right-1.5 bg-emerald-600 text-white text-[10px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center">
                   {notificationCount}
                 </span>
               )}
@@ -283,13 +278,13 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
 
             <button
               onClick={onOpenProfile}
-              className="flex items-center gap-2 p-1 rounded-full hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors cursor-pointer border border-neutral-200 dark:border-slate-700 ml-1"
+              className="flex items-center gap-2 p-0.5 rounded-full hover:ring-2 hover:ring-neutral-200 transition-all cursor-pointer border border-neutral-200"
               title={userName}
             >
               <img
                 src={userAvatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80"}
                 alt=""
-                className="w-8 h-8 rounded-full object-cover"
+                className="w-7 h-7 rounded-full object-cover"
               />
             </button>
           </div>
@@ -299,53 +294,41 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
 
       {/* =========================================================================
           MAIN CONTAINER
-          Structure:
-          1. Top Area (Greeting, compact location context, search bar, filter button)
-          2. Recommend for You (horizontally scrollable cards)
-          3. Normal listings: Nearby Accommodation (vertical / responsive grid)
           ========================================================================= */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        {/* =====================================================================
-            1. TOP AREA
-            Example:
-            Good morning, [Name]   Osun State University, Osogbo
-            [ Search accommodation... ] [ Filter ]
-            No giant hero banner. Compact location selector.
-            ===================================================================== */}
-        <section className="space-y-4">
+        {/* Top Search & Filter Bar */}
+        <section className="space-y-3">
           
-          {/* Top greeting + Compact University/Location row */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-extrabold text-neutral-900 tracking-tight">
                 {greeting}, {studentFirstName}
               </h1>
             </div>
 
-            {/* Compact University / Location Selector */}
+            {/* University Location Selector */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setShowUniDropdown(prev => !prev)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-slate-900 border border-neutral-200 dark:border-slate-800 hover:border-neutral-300 dark:hover:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 shadow-2xs transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-neutral-200 hover:border-neutral-300 text-xs font-medium text-neutral-800 transition-colors cursor-pointer"
               >
-                <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <MapPin className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                 <span className="truncate max-w-[220px]">
                   {currentUniversity.name}, {currentUniversity.city || 'Osogbo'}
                 </span>
-                <ChevronDown className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                <ChevronDown className="w-3 h-3 text-neutral-400 shrink-0" />
               </button>
 
-              {/* Compact Dropdown */}
               {showUniDropdown && (
                 <>
                   <div 
                     className="fixed inset-0 z-20"
                     onClick={() => setShowUniDropdown(false)}
                   />
-                  <div className="absolute right-0 mt-1.5 w-72 bg-white dark:bg-slate-900 rounded-2xl border border-neutral-200 dark:border-slate-800 shadow-lg py-2 z-30">
-                    <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 dark:text-slate-500">
+                  <div className="absolute right-0 mt-1 w-72 bg-white rounded-lg border border-neutral-200 shadow-lg py-1.5 z-30">
+                    <div className="px-3 py-1 text-[11px] font-semibold text-neutral-400">
                       Select University Location
                     </div>
                     {universities.map((uni) => (
@@ -355,14 +338,14 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
                           onSelectUniversity(uni.id);
                           setShowUniDropdown(false);
                         }}
-                        className={`w-full text-left px-3.5 py-2 text-xs font-bold flex items-center justify-between gap-2 hover:bg-neutral-100 dark:hover:bg-slate-800 transition-colors cursor-pointer ${
+                        className={`w-full text-left px-3 py-1.5 text-xs font-medium flex items-center justify-between gap-2 hover:bg-neutral-50 transition-colors cursor-pointer ${
                           uni.id === currentUniversity.id 
-                            ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30' 
-                            : 'text-slate-800 dark:text-slate-200'
+                            ? 'text-emerald-700 font-semibold bg-emerald-50/50' 
+                            : 'text-neutral-800'
                         }`}
                       >
                         <span className="truncate">{uni.name} ({uni.code})</span>
-                        {uni.id === currentUniversity.id && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        {uni.id === currentUniversity.id && <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />}
                       </button>
                     ))}
                   </div>
@@ -372,67 +355,65 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
           </div>
 
           {/* Search bar + Filter button Row */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* Search Accommodation Input */}
+          <div className="flex items-center gap-2">
             <div className="relative flex-1">
-              <Search className="w-4 h-4 text-neutral-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search accommodation..."
-                className="w-full pl-10 pr-9 py-3 rounded-2xl border border-neutral-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-slate-500 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-2xs transition-all"
+                placeholder="Search by lodge name, area (e.g. Oke-Baale), or property type..."
+                className="w-full pl-9 pr-8 py-2.5 rounded-lg border border-neutral-300 bg-white text-neutral-900 placeholder:text-neutral-400 text-xs sm:text-sm font-normal focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
               />
               {searchTerm && (
                 <button
                   type="button"
                   onClick={() => setSearchTerm('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-slate-200 p-1 cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 p-1 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
 
-            {/* Filter Button */}
             <button
               type="button"
               onClick={() => setShowFiltersModal(true)}
-              className={`px-4 sm:px-5 py-3 rounded-2xl border font-bold text-xs sm:text-sm transition-all flex items-center gap-2 shadow-2xs cursor-pointer shrink-0 ${
+              className={`px-3.5 py-2.5 rounded-lg border text-xs sm:text-sm font-medium transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 ${
                 activeFilterCount > 0
                   ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
-                  : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-neutral-200/90 dark:border-slate-800 hover:border-neutral-300 dark:hover:border-slate-700'
+                  : 'bg-white text-neutral-800 border-neutral-300 hover:bg-neutral-50'
               }`}
             >
-              <SlidersHorizontal className="w-4 h-4" />
-              <span>Filter</span>
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Filters</span>
               {activeFilterCount > 0 && (
-                <span className="w-5 h-5 rounded-full bg-white text-emerald-800 text-[10px] font-black flex items-center justify-center">
-                  {activeFilterCount}
+                <span className="ml-0.5 text-xs font-bold text-white">
+                  ({activeFilterCount})
                 </span>
               )}
             </button>
           </div>
 
-          {/* Active Filter Chips (if any active) */}
+          {/* Active Filter Indicators */}
           {activeFilterCount > 0 && (
-            <div className="flex items-center gap-2 flex-wrap pt-1 text-xs">
-              <span className="text-[11px] font-bold text-neutral-400 dark:text-slate-500">Active Filters:</span>
+            <div className="flex items-center gap-2 flex-wrap pt-0.5 text-xs text-neutral-600">
+              <span className="text-[11px] text-neutral-400">Filters:</span>
               {selectedPropertyType !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold border border-emerald-200 dark:border-emerald-800">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-800 text-xs font-medium border border-neutral-200">
                   {PROPERTY_TYPES.find(p => p.id === selectedPropertyType)?.label}
-                  <button type="button" onClick={() => setSelectedPropertyType('all')} className="cursor-pointer">
+                  <button type="button" onClick={() => setSelectedPropertyType('all')} className="cursor-pointer text-neutral-400 hover:text-neutral-700">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
               {selectedAmenities.map(amenity => (
-                <span key={amenity} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold border border-emerald-200 dark:border-emerald-800">
+                <span key={amenity} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-800 text-xs font-medium border border-neutral-200">
                   {amenity}
                   <button 
                     type="button" 
                     onClick={() => setSelectedAmenities(prev => prev.filter(a => a !== amenity))}
-                    className="cursor-pointer"
+                    className="cursor-pointer text-neutral-400 hover:text-neutral-700"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -441,7 +422,7 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer ml-1"
+                className="text-xs font-medium text-red-600 hover:underline cursor-pointer ml-1"
               >
                 Clear all
               </button>
@@ -450,66 +431,51 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
 
         </section>
 
-        {/* Loading State Skeleton */}
+        {/* Loading State */}
         {isListingsLoading ? (
-          <div className="space-y-6">
-            <div className="h-6 w-48 bg-neutral-200 dark:bg-slate-800 rounded-md animate-pulse" />
+          <div className="space-y-4">
+            <div className="h-5 w-40 bg-neutral-200 rounded animate-pulse" />
             <ListingGridSkeleton count={4} />
           </div>
         ) : legitimateUniversityListings.length === 0 ? (
-          /* ===================================================================
-              EMPTY STATE: When University has no approved hostels yet
-              =================================================================== */
-          <section className="text-center py-16 bg-white dark:bg-slate-900 rounded-3xl border border-neutral-200/90 dark:border-slate-800 p-8 max-w-xl mx-auto space-y-4 shadow-xs">
-            <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/60 rounded-2xl border border-emerald-200 dark:border-emerald-800 flex items-center justify-center mx-auto text-emerald-600 dark:text-emerald-400">
-              <Building2 className="w-7 h-7" />
+          /* Empty State */
+          <section className="text-center py-12 bg-white rounded-lg border border-neutral-200 p-6 max-w-md mx-auto space-y-3">
+            <div className="w-10 h-10 bg-neutral-100 rounded-md flex items-center justify-center mx-auto text-neutral-600">
+              <Building2 className="w-5 h-5" />
             </div>
             <div className="space-y-1">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                No verified accommodation is available around your university yet.
+              <h2 className="text-base font-bold text-neutral-900">
+                No verified lodges for this university yet
               </h2>
-              <p className="text-xs text-neutral-500 dark:text-slate-400 max-w-md mx-auto">
-                We are actively onboarding verified caretakers and lodges around {currentUniversity.name}. Be the first to get notified when listings open!
+              <p className="text-xs text-neutral-500 max-w-sm mx-auto">
+                We are actively onboarding verified property managers near {currentUniversity.name}. You can switch to Osun State University (UNIOSUN) to explore live campus lodges.
               </p>
             </div>
             <button
-              onClick={() => setIsNotifyModalOpen(true)}
-              className="mt-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-2xl shadow-xs transition-colors cursor-pointer inline-flex items-center gap-2"
+              type="button"
+              onClick={() => onSelectUniversity('uniosun')}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
             >
-              <Bell className="w-4 h-4" />
-              <span>Notify me when new hostels are available</span>
+              Explore UNIOSUN Lodges
             </button>
           </section>
         ) : (
           <>
-            {/* ===================================================================
-                2. RECOMMEND FOR YOU
-                - Appears ABOVE normal listings
-                - Heading "Recommend for You" with "See all" on the right
-                - Horizontally scrollable property cards
-                - Admin promoted listings (or defined legitimate fallback logic)
-                =================================================================== */}
+            {/* Recommended Lodges */}
             {recommendedListings.length > 0 && (
-              <section className="space-y-4">
+              <section className="space-y-3">
                 
-                {/* Header Row: Heading + "See all" */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">
-                      Recommend for You
-                    </h2>
-                    <span className="p-1 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60" title="Promoted by Platform Administrators">
-                      <Sparkles className="w-3.5 h-3.5 fill-amber-500" />
-                    </span>
-                  </div>
+                  <h2 className="text-base sm:text-lg font-bold text-neutral-900 tracking-tight">
+                    Recommended Accommodation
+                  </h2>
 
-                  <div className="flex items-center gap-3">
-                    {/* Horizontal scroll navigation buttons */}
+                  <div className="flex items-center gap-2">
                     <div className="hidden sm:flex items-center gap-1">
                       <button
                         type="button"
                         onClick={() => handleScrollRecommend('left')}
-                        className="p-1.5 rounded-full border border-neutral-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-neutral-100 dark:hover:bg-slate-800 text-neutral-600 dark:text-slate-300 transition-colors cursor-pointer"
+                        className="p-1 rounded-md border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-600 transition-colors cursor-pointer"
                         title="Scroll left"
                       >
                         <ChevronLeft className="w-4 h-4" />
@@ -517,39 +483,37 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
                       <button
                         type="button"
                         onClick={() => handleScrollRecommend('right')}
-                        className="p-1.5 rounded-full border border-neutral-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-neutral-100 dark:hover:bg-slate-800 text-neutral-600 dark:text-slate-300 transition-colors cursor-pointer"
+                        className="p-1 rounded-md border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-600 transition-colors cursor-pointer"
                         title="Scroll right"
                       >
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
 
-                    {/* "See all" link on the right */}
                     <button
                       type="button"
                       onClick={() => setOnlyRecommendedFilter(prev => !prev)}
-                      className={`text-xs sm:text-sm font-extrabold transition-colors cursor-pointer flex items-center gap-1 ${
+                      className={`text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
                         onlyRecommendedFilter 
-                          ? 'text-emerald-700 dark:text-emerald-300 underline' 
-                          : 'text-emerald-600 dark:text-emerald-400 hover:text-emerald-700'
+                          ? 'text-emerald-800 underline' 
+                          : 'text-emerald-700 hover:text-emerald-800'
                       }`}
                     >
-                      <span>{onlyRecommendedFilter ? 'Show all lodges' : 'See all'}</span>
+                      <span>{onlyRecommendedFilter ? 'Show all' : 'See all'}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
-                {/* Horizontally scrollable property cards container */}
                 <div 
                   ref={recommendScrollRef}
-                  className="flex gap-4 sm:gap-5 overflow-x-auto pb-3 pt-1 scrollbar-none snap-x snap-mandatory"
+                  className="flex gap-4 overflow-x-auto pb-2 pt-0.5 scrollbar-none snap-x snap-mandatory"
                   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
                   {recommendedListings.map(listing => (
                     <div 
                       key={`rec_${listing.id}`} 
-                      className="w-[270px] sm:w-[320px] shrink-0 snap-start"
+                      className="w-[260px] sm:w-[300px] shrink-0 snap-start"
                     >
                       <ListingCard
                         listing={listing}
@@ -568,40 +532,35 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
               </section>
             )}
 
-            {/* ===================================================================
-                3. NORMAL LISTINGS: "Nearby Accommodation"
-                - Positioned BELOW Recommend for You
-                - Clean vertical listing structure on mobile, responsive grid on desktop
-                - Clean property card design (Image, Heart, Name, Location, Price, Key Info)
-                =================================================================== */}
-            <section className="space-y-4 pt-2">
+            {/* Normal Listings: Nearby Accommodation */}
+            <section className="space-y-3 pt-1">
               
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">
-                    Nearby Accommodation
+                  <h2 className="text-base sm:text-lg font-bold text-neutral-900 tracking-tight">
+                    Nearby Campus Lodges
                   </h2>
-                  <p className="text-xs text-neutral-500 dark:text-slate-400 font-medium">
-                    {nearbyAccommodationListings.length} {nearbyAccommodationListings.length === 1 ? 'verified lodge' : 'verified lodges'} available around campus
+                  <p className="text-xs text-neutral-500 font-normal">
+                    {nearbyAccommodationListings.length} {nearbyAccommodationListings.length === 1 ? 'verified listing' : 'verified listings'} around campus gates
                   </p>
                 </div>
               </div>
 
               {nearbyAccommodationListings.length === 0 ? (
-                <div className="text-center py-12 bg-white dark:bg-slate-900 rounded-3xl border border-neutral-200/90 dark:border-slate-800 p-6 space-y-3">
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                <div className="text-center py-10 bg-white rounded-lg border border-neutral-200 p-6 space-y-3">
+                  <p className="text-sm font-semibold text-neutral-800">
                     No accommodation matches your active search or filters.
                   </p>
                   <button
                     type="button"
                     onClick={handleResetFilters}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
                   >
                     Reset Filters
                   </button>
                 </div>
               ) : (
-                /* Responsive Grid: Vertical on mobile, 2-col on tablet, 3-col on desktop */
+                /* Responsive Grid: 1-col mobile, 2-col tablet, 3-col desktop */
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                   {nearbyAccommodationListings.map(listing => (
                     <ListingCard
@@ -625,42 +584,43 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
       </main>
 
       {/* =========================================================================
-          FILTER MODAL / SHEET
+          FILTER MODAL / SHEET (Clean, Zero-Pill Design)
           ========================================================================= */}
       {showFiltersModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-neutral-200 dark:border-slate-800 shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 animate-in fade-in duration-150">
+          <div className="bg-white rounded-lg border border-neutral-200 shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 sm:p-6 space-y-5">
             
             {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-slate-800">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
               <div className="flex items-center gap-2">
-                <SlidersHorizontal className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">Filter Accommodation</h3>
+                <SlidersHorizontal className="w-4 h-4 text-emerald-700" />
+                <h3 className="text-base font-bold text-neutral-900">Filter Accommodation</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowFiltersModal(false)}
-                className="p-1.5 rounded-full hover:bg-neutral-100 dark:hover:bg-slate-800 text-neutral-500 cursor-pointer"
+                className="p-1.5 rounded-md hover:bg-neutral-100 text-neutral-500 cursor-pointer transition-colors"
+                title="Close"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Room Type Options */}
+            {/* Room Type Options: Clean Segmented Buttons, Zero-Pills */}
             <div className="space-y-2">
-              <label className="text-xs font-extrabold uppercase tracking-wider text-neutral-400 dark:text-slate-400">
+              <label className="text-xs font-semibold text-neutral-700">
                 Room / Property Type
               </label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {PROPERTY_TYPES.map(type => (
                   <button
                     key={type.id}
                     type="button"
                     onClick={() => setSelectedPropertyType(type.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
                       selectedPropertyType === type.id
-                        ? 'bg-slate-900 text-white dark:bg-emerald-600 dark:text-white'
-                        : 'bg-neutral-100 dark:bg-slate-800 text-neutral-700 dark:text-slate-300 hover:bg-neutral-200'
+                        ? 'bg-neutral-900 text-white border-neutral-900'
+                        : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50'
                     }`}
                   >
                     {type.label}
@@ -672,11 +632,11 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
             {/* Price Range Slider */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <label className="font-extrabold uppercase tracking-wider text-neutral-400 dark:text-slate-400">
+                <label className="font-semibold text-neutral-700">
                   Maximum Annual Rent
                 </label>
-                <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm">
-                  ₦{maxPrice.toLocaleString()} / yr
+                <span className="font-bold text-neutral-900 text-sm">
+                  ₦{maxPrice.toLocaleString()} / year
                 </span>
               </div>
               <input
@@ -688,7 +648,7 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
                 onChange={(e) => setMaxPrice(Number(e.target.value))}
                 className="w-full accent-emerald-600 cursor-pointer"
               />
-              <div className="flex justify-between text-[10px] text-neutral-400 font-bold">
+              <div className="flex justify-between text-[11px] text-neutral-400 font-medium">
                 <span>₦100,000</span>
                 <span>₦500,000</span>
                 <span>₦1,000,000+</span>
@@ -698,10 +658,10 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
             {/* Walking Distance to Campus */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <label className="font-extrabold uppercase tracking-wider text-neutral-400 dark:text-slate-400">
-                  Max Walking Distance to Campus
+                <label className="font-semibold text-neutral-700">
+                  Maximum Walking Distance to Campus Gate
                 </label>
-                <span className="font-black text-slate-800 dark:text-slate-200">
+                <span className="font-bold text-neutral-900">
                   {maxWalkMinutes} mins walk
                 </span>
               </div>
@@ -714,7 +674,7 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
                 onChange={(e) => setMaxWalkMinutes(Number(e.target.value))}
                 className="w-full accent-emerald-600 cursor-pointer"
               />
-              <div className="flex justify-between text-[10px] text-neutral-400 font-bold">
+              <div className="flex justify-between text-[11px] text-neutral-400 font-medium">
                 <span>5 mins</span>
                 <span>15 mins</span>
                 <span>30 mins</span>
@@ -723,7 +683,7 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
 
             {/* Key Amenities Checkboxes */}
             <div className="space-y-2">
-              <label className="text-xs font-extrabold uppercase tracking-wider text-neutral-400 dark:text-slate-400">
+              <label className="text-xs font-semibold text-neutral-700">
                 Key Amenities
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -738,14 +698,14 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
                           isChecked ? prev.filter(a => a !== amenity) : [...prev, amenity]
                         );
                       }}
-                      className={`p-2.5 rounded-xl border text-left text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
+                      className={`p-2.5 rounded-md border text-left text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
                         isChecked
-                          ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
-                          : 'border-neutral-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-neutral-700 dark:text-slate-300'
+                          ? 'border-emerald-600 bg-emerald-50/50 text-emerald-900 font-semibold'
+                          : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
                       }`}
                     >
                       <span className="truncate">{amenity}</span>
-                      {isChecked && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                      {isChecked && <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />}
                     </button>
                   );
                 })}
@@ -753,29 +713,29 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
             </div>
 
             {/* Availability Toggle */}
-            <div className="pt-2 border-t border-neutral-100 dark:border-slate-800 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+            <div className="pt-2 border-t border-neutral-100 flex items-center justify-between">
+              <span className="text-xs font-medium text-neutral-700">
                 Show vacant rooms only
               </span>
               <button
                 type="button"
                 onClick={() => setOnlyVacant(prev => !prev)}
-                className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
-                  onlyVacant ? 'bg-emerald-600' : 'bg-neutral-300 dark:bg-slate-700'
+                className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer ${
+                  onlyVacant ? 'bg-emerald-600' : 'bg-neutral-300'
                 }`}
               >
-                <span className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${
-                  onlyVacant ? 'left-6' : 'left-1'
+                <span className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 transition-transform ${
+                  onlyVacant ? 'left-5.5' : 'left-1'
                 }`} />
               </button>
             </div>
 
             {/* Modal Actions */}
-            <div className="pt-4 border-t border-neutral-100 dark:border-slate-800 flex items-center justify-between gap-3">
+            <div className="pt-4 border-t border-neutral-100 flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="px-4 py-2.5 text-xs font-bold text-neutral-500 hover:text-neutral-800 dark:hover:text-slate-200 cursor-pointer"
+                className="px-3 py-2 text-xs font-medium text-neutral-600 hover:text-neutral-900 cursor-pointer"
               >
                 Reset All
               </button>
@@ -783,7 +743,7 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
               <button
                 type="button"
                 onClick={() => setShowFiltersModal(false)}
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-xs transition-colors cursor-pointer"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
               >
                 Apply Filters
               </button>
@@ -797,20 +757,20 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
           NOTIFY ME MODAL (Empty state notification subscription)
           ========================================================================= */}
       {isNotifyModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-neutral-200 dark:border-slate-800 shadow-xl w-full max-w-md p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-lg border border-neutral-200 shadow-xl w-full max-w-md p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-black text-slate-900 dark:text-white">Hostel Availability Alert</h3>
-              <button onClick={() => setIsNotifyModalOpen(false)} className="text-neutral-400 p-1 cursor-pointer">
+              <h3 className="text-base font-bold text-neutral-900">Hostel Availability Alert</h3>
+              <button onClick={() => setIsNotifyModalOpen(false)} className="text-neutral-400 hover:text-neutral-600 p-1 cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-neutral-500 dark:text-slate-400">
-              Get notified immediately when verified caretakers publish new lodges near {currentUniversity.name}.
+            <p className="text-xs text-neutral-600 leading-relaxed">
+              Receive an email as soon as verified caretakers publish new lodges near {currentUniversity.name}.
             </p>
             {notifySuccess ? (
-              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/60 rounded-xl border border-emerald-200 dark:border-emerald-800 text-center text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                You're subscribed! We'll alert you once verified accommodation opens.
+              <div className="p-3 bg-emerald-50 rounded-md border border-emerald-200 text-center text-xs font-medium text-emerald-800">
+                Subscription confirmed. We will notify you when new lodges become available.
               </div>
             ) : (
               <form onSubmit={handleSubscribeNotification} className="space-y-3">
@@ -820,11 +780,11 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
                   placeholder="Enter your student email..."
                   value={notifyEmail}
                   onChange={(e) => setNotifyEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 text-xs rounded-xl border border-neutral-200 dark:border-slate-800 bg-neutral-50 dark:bg-slate-800 focus:outline-none focus:border-emerald-500 font-medium"
+                  className="w-full px-3.5 py-2.5 text-xs rounded-md border border-neutral-300 bg-white text-neutral-900 focus:outline-none focus:border-emerald-600 font-medium"
                 />
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
                 >
                   Notify Me
                 </button>

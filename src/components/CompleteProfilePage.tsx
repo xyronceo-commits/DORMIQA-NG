@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { User, University } from '../types';
 import { saveUserToFirestore, auth } from '../services/firebase';
 import { supabase } from '../services/supabase';
-import { GraduationCap, Phone, User as UserIcon, Building2, ArrowRight, Loader2, LogOut } from 'lucide-react';
+import { UniversitySelector } from './UniversitySelector';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 interface CompleteProfilePageProps {
   user?: Partial<User> | null;
@@ -45,7 +46,7 @@ export const CompleteProfilePage: React.FC<CompleteProfilePageProps> = ({
     try {
       const uid = user?.id || user?.uid || auth.currentUser?.uid;
       if (!uid) {
-        throw new Error('No active authenticated session found. Please sign in again.');
+        throw new Error('No active session found. Please sign in again.');
       }
 
       const userEmail = (user?.email || auth.currentUser?.email || '').trim();
@@ -61,10 +62,8 @@ export const CompleteProfilePage: React.FC<CompleteProfilePageProps> = ({
         isEmailVerified: true
       };
 
-      // 1. Save to app_documents / firestore
       await saveUserToFirestore(updatedData);
 
-      // 2. Direct Supabase write for session safety
       try {
         await supabase
           .from('app_documents')
@@ -75,7 +74,6 @@ export const CompleteProfilePage: React.FC<CompleteProfilePageProps> = ({
           .eq('id', uid);
       } catch (_) {}
 
-      // 3. Notify parent app
       onProfileCompleted(updatedData);
     } catch (err: any) {
       console.warn('Profile completion error:', err);
@@ -86,123 +84,105 @@ export const CompleteProfilePage: React.FC<CompleteProfilePageProps> = ({
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-neutral-50 dark:bg-neutral-950 flex flex-col items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-md bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
-        
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
-            <GraduationCap className="w-7 h-7" />
-          </div>
-          <h1 className="text-xl sm:text-2xl font-black text-neutral-900 dark:text-white tracking-tight">
-            Complete Your Student Profile
+    <div className="min-h-screen bg-white text-neutral-900 flex flex-col justify-between font-sans">
+      {/* Top Header */}
+      <header className="w-full max-w-xl mx-auto px-6 py-4 flex items-center justify-between border-b border-neutral-100">
+        <div className="flex items-center gap-2">
+          <span className="text-base font-extrabold tracking-tight text-neutral-900">DORMIQA</span>
+          <span className="text-neutral-300 font-light text-xs">/</span>
+          <span className="text-xs text-neutral-500 font-medium">Profile Setup</span>
+        </div>
+
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="text-xs font-semibold text-neutral-500 hover:text-neutral-900 py-1.5 px-3 rounded-md hover:bg-neutral-100 transition-colors cursor-pointer"
+        >
+          Sign out
+        </button>
+      </header>
+
+      {/* Main Container */}
+      <main className="w-full max-w-md mx-auto px-6 py-8 flex flex-col justify-center flex-1">
+        <div className="space-y-1.5 mb-6">
+          <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">
+            Complete student profile
           </h1>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
-            Just one quick step to connect you with verified campus accommodation.
+          <p className="text-xs text-neutral-600 leading-relaxed">
+            Enter your details so verified caretakers can coordinate your lodge inspections.
           </p>
         </div>
 
         {error && (
-          <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900 text-xs font-medium">
-            {error}
+          <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+            <span className="leading-snug font-medium">{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Full Name */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-              <UserIcon className="w-3.5 h-3.5 text-neutral-400" />
-              <span>Full Name</span>
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 mb-1">
+              Full Name <span className="text-emerald-700">*</span>
             </label>
             <input
               type="text"
+              required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Oluwaseun Adeleke"
-              required
-              className="w-full px-4 py-3 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
+              placeholder="e.g. Babatunde Adeyemi"
+              className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
             />
           </div>
 
-          {/* Email (Read Only) */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={user?.email || auth.currentUser?.email || ''}
-              disabled
-              className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-500 dark:text-neutral-400 cursor-not-allowed"
-            />
-          </div>
-
-          {/* Phone / WhatsApp */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-              <Phone className="w-3.5 h-3.5 text-neutral-400" />
-              <span>WhatsApp / Phone Number</span>
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 mb-1">
+              WhatsApp or Mobile Phone <span className="text-emerald-700">*</span>
             </label>
             <input
               type="tel"
+              required
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="e.g. 08012345678"
-              required
-              className="w-full px-4 py-3 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
+              placeholder="08012345678"
+              className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
             />
-            <p className="text-[10px] text-neutral-400">Used by caretakers to confirm physical inspection tours.</p>
+            <p className="text-[11px] text-neutral-500 mt-1">
+              Used strictly for caretaker inspection appointment confirmations.
+            </p>
           </div>
 
-          {/* Preferred University */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-              <Building2 className="w-3.5 h-3.5 text-neutral-400" />
-              <span>Your University</span>
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 mb-1">
+              University Campus <span className="text-emerald-700">*</span>
             </label>
-            <select
-              value={universityId}
-              onChange={(e) => setUniversityId(e.target.value)}
-              className="w-full px-4 py-3 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all cursor-pointer"
-            >
-              {universities.map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.name} {u.id === 'uniosun' ? '(Active Launch Campus)' : '(Coming Soon)'}
-                </option>
-              ))}
-            </select>
+            <UniversitySelector
+              universities={universities}
+              selectedUniversityId={universityId}
+              onSelectUniversity={(uni) => setUniversityId(uni.id)}
+            />
           </div>
 
-          {/* Submit */}
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+            className="w-full py-3 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-none mt-2"
           >
             {isSubmitting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
               <>
-                <span>Complete & Start Exploring</span>
-                <ArrowRight className="w-4 h-4" />
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Saving profile...</span>
               </>
+            ) : (
+              <span>Continue to Accommodation Search</span>
             )}
           </button>
         </form>
+      </main>
 
-        <div className="pt-2 text-center border-t border-neutral-100 dark:border-neutral-800">
-          <button
-            type="button"
-            onClick={onSignOut}
-            className="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300 font-semibold inline-flex items-center gap-1.5 cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign out and return to home</span>
-          </button>
-        </div>
-
-      </div>
+      <footer className="w-full max-w-xl mx-auto px-6 py-4 text-center border-t border-neutral-100 text-xs text-neutral-400">
+        DORMIQA Nigeria • Osun State University Launch Campus
+      </footer>
     </div>
   );
 };

@@ -240,13 +240,13 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
     phone: phone.trim(),
     avatarUrl: storedPortraitUrl,
     isEmailVerified: true,
-    businessVerificationStatus: 'pending' as const,
+    businessVerificationStatus: 'approved' as const,
     businessVerificationDetails: verificationObj,
-    isVerifiedAgent: false,
+    isVerifiedAgent: true,
     licenseNumber
    };
 
-   // 1. Persist state as PENDING and save full verification details into database
+   // 1. Persist state as APPROVED and save full verification details into database
    await saveUserToFirestore(updatedAgentDoc);
 
    // 2. Direct write to Supabase app_documents collection 'users' to ensure state is synchronized
@@ -262,13 +262,12 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
     console.warn('Direct Supabase app_documents update non-fatal note:', directUpdateErr);
    }
 
-   // 3. Set submission success state which displays the dedicated Verification Status page
    setSubmissionSuccess(true);
 
-   // 4. Notify parent app state of updated pending status
+   // 3. Immediately notify parent app of approved agent status without requiring admin intervention
    onCompleteVerification({
     licenseNumber,
-    isVerifiedAgent: false, // Remains false until admin approves
+    isVerifiedAgent: true,
     avatarUrl: storedPortraitUrl,
     verificationDetails: verificationObj
    });
@@ -329,7 +328,7 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
 
  // 1. APPROVED / VERIFIED STATUS: Agent has verified business -> Forward directly to dashboard
  useEffect(() => {
-  if (currentStatus === 'approved' || agentData?.businessVerificationStatus === 'approved' || agentData?.isVerifiedAgent === true) {
+  if (currentStatus === 'approved' || agentData?.businessVerificationStatus === 'approved' || agentData?.isVerifiedAgent === true || submissionSuccess) {
    onCompleteVerification({
     licenseNumber: agentData?.licenseNumber || `DMQ-AGT-${Math.floor(100000 + Math.random() * 900000)}`,
     isVerifiedAgent: true,
@@ -338,7 +337,7 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
   }
  }, [currentStatus, agentData?.businessVerificationStatus, agentData?.isVerifiedAgent]);
 
- if (currentStatus === 'approved' || agentData?.businessVerificationStatus === 'approved' || agentData?.isVerifiedAgent === true) {
+ if (currentStatus === 'approved' || agentData?.businessVerificationStatus === 'approved' || agentData?.isVerifiedAgent === true || submissionSuccess) {
   return (
    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex flex-col items-center justify-center p-4">
     <div className="w-full max-w-md bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 sm:p-8 shadow-md text-center space-y-5">
@@ -372,7 +371,7 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
  }
 
  // 2. PENDING STATUS SCREEN
- if (currentStatus === 'pending' || submissionSuccess) {
+ if (currentStatus === 'pending') {
   return (
    <VerificationStatusPage
     agentData={{

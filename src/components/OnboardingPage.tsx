@@ -1,73 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  GraduationCap, 
-  Briefcase, 
-  ShieldCheck, 
-  ArrowRight, 
-  CheckCircle2, 
-  FileCheck, 
-  User as UserIcon, 
-  Building2, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Lock, 
-  Sparkles, 
-  Upload, 
-  Info,
-  ArrowLeft,
-  Loader2,
-  AlertCircle
+  Eye, 
+  EyeOff, 
+  Loader2, 
+  AlertCircle 
 } from 'lucide-react';
 import { UserRole, University } from '../types';
-import { EmailVerificationCard } from './EmailVerificationCard';
 import { UniversitySelector } from './UniversitySelector';
-import { PasswordResetModal, PasswordResetStep } from './PasswordResetModal';
-import { 
-  detectRecoveryUrl, 
-  detectAuthLinkError, 
-  isRecoveryFlowActive, 
-  markRecoveryFlowIfPresent, 
-  clearRecoveryFlow 
-} from '../utils/routing';
-import { supabase } from '../services/supabase';
+import { PasswordResetModal } from './PasswordResetModal';
+import { OnboardingSlides } from './onboarding/OnboardingSlides';
+import { RoleSelectionScreen } from './onboarding/RoleSelectionScreen';
+import { OtpVerificationScreen } from './onboarding/OtpVerificationScreen';
 import { mapAuthError } from '../utils/authErrors';
 import { 
   auth,
-  signInWithGoogle, 
   registerWithEmail, 
   loginWithEmail, 
+  verifyOtpWithEmail,
   resendVerificationEmail, 
-  checkEmailVerified,
   saveUserToFirestore,
-  savePendingSignupProfile,
   fetchUserProfileFromFirestore,
   saveStudentProfileToFirestore,
-  fetchStudentProfileFromFirestore,
-  validateAndNormalizePhoneNumber,
-  logoutFirebase
+  validateAndNormalizePhoneNumber
 } from '../services/firebase';
-
-const GoogleIcon = () => (
-  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-    <path
-      fill="#4285F4"
-      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-    />
-    <path
-      fill="#34A853"
-      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-    />
-    <path
-      fill="#FBBC05"
-      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-    />
-    <path
-      fill="#EA4335"
-      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-    />
-  </svg>
-);
 
 interface OnboardingPageProps {
   universities: University[];
@@ -84,6 +39,8 @@ interface OnboardingPageProps {
     avatarUrl?: string;
     isSignup?: boolean;
     isEmailVerified?: boolean;
+    businessVerificationStatus?: 'none' | 'pending' | 'approved' | 'rejected';
+    isVerifiedAgent?: boolean;
   }) => void;
   onBackToLanding: () => void;
 }
@@ -92,13 +49,21 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   universities,
   initialEmail,
   onCompleteOnboarding,
-  onBackToLanding
 }) => {
+  const [step, setStep] = useState<'slides' | 'role_selection' | 'auth' | 'otp_verification'>(() => {
+    if (initialEmail && initialEmail.trim()) {
+      return 'auth';
+    }
+    return 'slides';
+  });
+
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
   const [authMode, setAuthMode] = useState<'signup' | 'signin'>(initialEmail ? 'signin' : 'signup');
-  const [authMethod, setAuthMethod] = useState<'google' | 'email'>(initialEmail ? 'email' : 'google');
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  // Show/Hide password toggle
+  const [showPassword, setShowPassword] = useState(false);
 
   // Student Form State
   const [studentName, setStudentName] = useState('');
@@ -114,7 +79,18 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   const [agentName, setAgentName] = useState('');
   const [agentEmail, setAgentEmail] = useState(initialEmail || '');
   const [agencyName, setAgencyName] = useState('');
-  const [verificationType, setVerificationType] = useState<'cac' | 'id_card'>('cac');
+  const [agentPhoneWA, setAgentPhoneWA] = useState('');
+  const [agentPassword, setAgentPassword] = useState('');
+
+  // OTP Verification State
+  const [pendingOtpEmail, setPendingOtpEmail] = useState('');
+  const [pendingUserData, setPendingUserData] = useState<any>(null);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [isOtpLoading, setIsOtpLoading] = useState(false);
+
+  // Password Reset Modal State
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetModalEmail, setResetModalEmail] = useState('');
 
   useEffect(() => {
     if (initialEmail && initialEmail.trim()) {
@@ -122,320 +98,37 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
       setStudentEmail(clean);
       setAgentEmail(clean);
       setAuthMode('signin');
-      setAuthMethod('email');
+      setStep('auth');
     }
   }, [initialEmail]);
-  const [verificationDocNum, setVerificationDocNum] = useState('');
-  const [agentUniId, setAgentUniId] = useState('uniosun');
-  const [agentUni, setAgentUni] = useState(universities[0]?.name || 'Osun State University (UNIOSUN)');
-  const [agentPhoneWA, setAgentPhoneWA] = useState('');
-  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
-  const [agentPassword, setAgentPassword] = useState('');
 
-  // Google OAuth Auth State for Profile Completion Step
-  const [googleAuthData, setGoogleAuthData] = useState<{
-    uid: string;
-    displayName: string;
-    email: string;
-    photoURL?: string;
-    provider: 'google' | 'email';
-  } | null>(null);
-
-  // Post-Signup Business Verification Step State
-  const [step, setStep] = useState<'auth' | 'agent_verification'>('auth');
-  const [pendingAgentData, setPendingAgentData] = useState<any>(null);
-
-  // Email Verification Step State
-  const [showEmailVerificationScreen, setShowEmailVerificationScreen] = useState(false);
-  const [pendingUserOnboardingData, setPendingUserOnboardingData] = useState<any>(null);
-  const [pendingPassword, setPendingPassword] = useState<string>('');
-  const [resendStatusMessage, setResendStatusMessage] = useState<string | null>(null);
-  const [isResending, setIsResending] = useState(false);
-
-  // Password Reset Modal State
-  const hasAuthError = detectAuthLinkError();
-  const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
-  const [passwordResetStep, setPasswordResetStep] = useState<PasswordResetStep>('forgot');
-
-  useEffect(() => {
-    if (googleAuthData && !studentName.trim() && googleAuthData.displayName) {
-      setStudentName(googleAuthData.displayName);
-    }
-  }, [googleAuthData, studentName]);
-
-  useEffect(() => {
-    if (!studentUniId || studentUniId === 'uniosun') {
-      const uniosun = universities.find(u => u.id === 'uniosun');
-      if (uniosun && (!studentUni || studentUni !== uniosun.name)) {
-        setStudentUniId('uniosun');
-        setStudentUni(uniosun.name);
-      }
-    }
-  }, [universities, studentUniId, studentUni]);
-
-  useEffect(() => {
-  if (selectedRole === 'agent') {
-    setAuthMethod('email');
-  }
-
-    let handledGoogleUid: string | null = null;
-
-  const handleSupabaseAuth = async () => {
-    const { data, error } = await supabase.auth.getSession();
-
-    if (error || !data.session?.user) return;
-
-    const user = data.session.user;
-
-    if (user.app_metadata?.provider !== 'google') return;
-
-    const displayName =
-      user.user_metadata?.full_name ||
-      user.user_metadata?.name ||
-      '';
-
-    const email = user.email?.toLowerCase() || '';
-    const photoURL =
-      user.user_metadata?.avatar_url ||
-      user.user_metadata?.picture ||
-      undefined;
-
-    const uid = user.id;
-    if (handledGoogleUid === uid) return;
-    handledGoogleUid = uid;
-
-    if (selectedRole === 'agent') {
-      setAuthError('Google sign-in is available for students only. Agents must use email and password.');
-      await supabase.auth.signOut();
-      return;
-    }
-
-    const savedProfile = await fetchUserProfileFromFirestore(uid).catch(() => null);
-    const savedPhone = String(savedProfile?.phone || savedProfile?.phoneNumber || '').trim();
-    const savedUniversityId = String(savedProfile?.universityId || '').trim();
-    const savedName = String(savedProfile?.name || displayName).trim();
-    const isSavedProfileComplete = savedProfile?.role === 'student'
-      && Boolean(savedName)
-      && Boolean(savedPhone)
-      && savedUniversityId === 'uniosun';
-
-    if (isSavedProfileComplete) {
-      onCompleteOnboarding({
-        role: 'student',
-        name: savedName,
-        email,
-        phone: savedPhone,
-        universityId: savedUniversityId,
-        universityName: savedProfile.universityName || universities.find(uni => uni.id === 'uniosun')?.name || 'Osun State University (UNIOSUN)',
-        avatarUrl: photoURL || savedProfile.avatarUrl,
-        isSignup: false,
-        isEmailVerified: Boolean(user.email_confirmed_at)
-      });
-      return;
-    }
-
-    setStudentName(savedName);
-    setStudentPhone(savedPhone);
-    const savedUniversity = universities.find(uni => uni.id === savedUniversityId && (uni.status === 'active' || uni.isActive === true));
-    setStudentUniId(savedUniversity?.id || '');
-    setStudentUni(savedUniversity?.name || '');
-
-    setGoogleAuthData({
-      uid,
-      displayName,
-      email,
-      photoURL,
-      provider: 'google',
-    });
-
-    setIsLoading(false);
-  };
-
-  handleSupabaseAuth();
-
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN' && session?.user) {
-      handleSupabaseAuth();
-    }
-  });
-
-  return () => {
-    subscription.unsubscribe();
-  };
-}, [selectedRole, universities, onCompleteOnboarding]);
-
-  const handleGoogleAuth = async () => {
-    if (selectedRole === 'agent') {
-      setAuthError("Agent authentication requires Email & Password. Google sign-in is disabled for Agents.");
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    setAuthError(null);
-    try {
-     const { error } = await supabase.auth.signInWithOAuth({
-  provider: 'google',
-  options: {
-    redirectTo: window.location.origin,
-  },
-});
-
-if (error) {
-  throw error;
-}
-
-    } catch (err: any) {
-      if (err?.code !== 'auth/popup-closed-by-user' && err?.code !== 'auth/cancelled-popup-request') {
-        console.error("Google Auth Failure:", err);
-      }
-      let errorMsg: string | null = "Google sign-in failed. Please try again.";
-      if (err?.code === 'auth/unauthorized-domain') {
-        const currentHostname = typeof window !== 'undefined' ? window.location.hostname : 'dormiqa-ng.vercel.app';
-        errorMsg = `The domain '${currentHostname}' is not in the Supabase Auth redirect allow list. Add it in Supabase Authentication settings.`;
-      } else if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
-        errorMsg = null;
-      }
-      setAuthError(errorMsg);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!googleAuthData) return;
-    if (selectedRole !== 'student') {
-      setAuthError('Agent accounts must use email and password.');
-      return;
-    }
-
-    setIsLoading(true);
-    setAuthError(null);
-
-    try {
-      if (selectedRole === 'student') {
-        const trimmedName = studentName.trim();
-        if (!trimmedName) {
-          setAuthError('Full name is required.');
-          setIsLoading(false);
-          return;
-        }
-
-        const phoneCheck = validateAndNormalizePhoneNumber(studentPhone);
-        if (!phoneCheck.isValid) {
-          setAuthError(phoneCheck.error || "Please enter a valid phone number.");
-          setIsLoading(false);
-          return;
-        }
-
-        if (!studentUniId) {
-          setAuthError('Please select your preferred school.');
-          setIsLoading(false);
-          return;
-        }
-
-        const selectedUniObj = universities.find(u => u.id === studentUniId) || {
-          id: 'uniosun',
-          name: 'Osun State University (UNIOSUN)',
-          status: 'active' as const,
-          isActive: true
-        };
-        const isUniActive = selectedUniObj.id === 'uniosun' || selectedUniObj.status === 'active' || selectedUniObj.isActive === true;
-        if (!isUniActive) {
-          setAuthError('Osun State University (UNIOSUN) is the only active school right now. The rest are coming soon.');
-          setIsLoading(false);
-          return;
-        }
-
-        const studentData = {
-          uid: googleAuthData.uid || auth.currentUser?.uid || '',
-          name: trimmedName,
-          email: googleAuthData.email,
-          photoURL: googleAuthData.photoURL || '',
-          avatarUrl: googleAuthData.photoURL || '',
-          phoneNumber: phoneCheck.normalized,
-          phone: phoneCheck.normalized,
-          universityId: selectedUniObj.id,
-          universityName: selectedUniObj.name,
-          profileCompleted: true
-        };
-
-        await saveStudentProfileToFirestore(studentData);
-
-        const fullData = {
-          id: studentData.uid,
-          role: 'student' as UserRole,
-          name: studentData.name,
-          email: studentData.email,
-          phone: studentData.phoneNumber,
-          universityId: studentData.universityId,
-          universityName: studentData.universityName,
-          avatarUrl: studentData.photoURL,
-          isSignup: false,
-          isEmailVerified: true
-        };
-
-        onCompleteOnboarding(fullData);
-      }
-    } catch (err: any) {
-      console.error("Failed to save profile:", err);
-      setAuthError("We couldn't save your profile. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Handle Student Email Sign Up / Sign In
   const handleStudentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setAuthError(null);
 
+    const cleanEmail = studentEmail.trim().toLowerCase();
+    const cleanPassword = studentPassword;
+
     try {
       if (authMode === 'signup') {
-        const trimmedName = studentName.trim();
-        const trimmedEmail = studentEmail.trim().toLowerCase();
-        const phoneCheck = validateAndNormalizePhoneNumber(studentPhone);
-        if (!trimmedName) {
-          setAuthError('Full name is required.');
-          setIsLoading(false);
-          return;
-        }
-        if (!phoneCheck.isValid) {
-          setAuthError(phoneCheck.error || 'Phone number is required.');
-          setIsLoading(false);
-          return;
-        }
-        if (!studentUniId) {
-          setAuthError('Please select your preferred school.');
+        if (!studentName.trim()) {
+          setAuthError('Please enter your full name.');
           setIsLoading(false);
           return;
         }
 
-        const selectedUniObj = universities.find(u => u.id === studentUniId) || {
-          id: 'uniosun',
-          name: 'Osun State University (UNIOSUN)',
-          status: 'active' as const,
-          isActive: true
-        };
-        const isUniActive = selectedUniObj.id === 'uniosun' || selectedUniObj.status === 'active' || selectedUniObj.isActive === true;
-        if (!isUniActive) {
-          setAuthError('Osun State University (UNIOSUN) is the only active school right now. The rest are coming soon.');
-          setIsLoading(false);
-          return;
-        }
+        const phoneResult = studentPhone ? validateAndNormalizePhoneNumber(studentPhone) : null;
+        const normalizedPhone = phoneResult?.normalized || studentPhone.trim();
 
-        // Store password in component state for instant verification
-        setPendingPassword(studentPassword);
-
-        // 1. Single sign-up call passing profile metadata to Supabase Auth
-        const regUser = await registerWithEmail(trimmedEmail, studentPassword, {
+        // 1. Call Supabase Sign-Up (sends 6-digit verification code)
+        const regUser = await registerWithEmail(cleanEmail, cleanPassword, {
           role: 'student',
-          full_name: trimmedName,
-          phone: phoneCheck.normalized,
-          university_id: selectedUniObj.id,
-          university_name: selectedUniObj.name
+          full_name: studentName.trim(),
+          phone: normalizedPhone,
+          university_id: studentUniId,
+          university_name: studentUni
         });
 
         const studentUid = regUser?.id || (regUser as any)?.uid || auth.currentUser?.uid || '';
@@ -443,69 +136,60 @@ if (error) {
           id: studentUid,
           uid: studentUid,
           role: 'student' as UserRole,
-          name: trimmedName,
-          email: trimmedEmail,
-          phone: phoneCheck.normalized,
-          phoneNumber: phoneCheck.normalized,
-          universityId: selectedUniObj.id,
-          universityName: selectedUniObj.name,
-          profileCompleted: true,
+          name: studentName.trim(),
+          email: cleanEmail,
+          phone: normalizedPhone,
+          universityId: studentUniId,
+          universityName: studentUni,
+          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
           isSignup: true,
           isEmailVerified: false
         };
 
-        // Immediately persist to app_documents / database so it is never lost!
         if (studentUid) {
-          saveUserToFirestore(studentData).catch(err => console.warn("saveUser err:", err));
-          saveStudentProfileToFirestore(studentData).catch(err => console.warn("saveStudent err:", err));
+          saveUserToFirestore(studentData).catch(() => {});
+          saveStudentProfileToFirestore({
+            uid: studentUid,
+            name: studentName.trim(),
+            email: cleanEmail,
+            phoneNumber: normalizedPhone,
+            universityId: studentUniId,
+            universityName: studentUni,
+            profileCompleted: false
+          }).catch(() => {});
         }
 
-        // 2. Go straight to Check your email screen
-        setPendingUserOnboardingData(studentData);
-        setShowEmailVerificationScreen(true);
+        // 2. Transition immediately to in-app OTP Verification screen
+        setPendingOtpEmail(cleanEmail);
+        setPendingUserData(studentData);
+        setStep('otp_verification');
       } else {
         // SIGN IN
-        setPendingPassword(studentPassword);
-        const loggedInUser = await loginWithEmail(studentEmail.trim().toLowerCase(), studentPassword);
-
-        const fbUser = loggedInUser || auth.currentUser;
-        if (!fbUser) {
-          const { data: { user: supaUser } } = await supabase.auth.getUser();
-          if (!supaUser) throw new Error("Authentication failed.");
-        }
-
+        const loggedInUser = await loginWithEmail(cleanEmail, cleanPassword);
         const activeUser = loggedInUser || auth.currentUser;
         const uid = activeUser?.uid || activeUser?.id;
         const isVerified = Boolean(activeUser?.emailVerified || activeUser?.email_confirmed_at);
 
-        // Fetch existing profile from app_documents / database
         const existingProfile = await fetchUserProfileFromFirestore(uid) || 
-                                await fetchUserProfileFromFirestore(studentEmail.trim().toLowerCase());
+                                await fetchUserProfileFromFirestore(cleanEmail);
 
         if (existingProfile?.role === 'agent') {
-          setAuthError('This account is registered as an agent. Use the Agent Portal to sign in.');
+          setAuthError('This account is registered as an agent. Switch to Agent mode above.');
+          setIsLoading(false);
           return;
         }
 
         const meta = activeUser?.user_metadata || {};
-        const resolvedName = (existingProfile?.name || meta.full_name || meta.name || activeUser?.displayName || studentEmail.split('@')[0] || '').trim();
+        const resolvedName = (existingProfile?.name || meta.full_name || meta.name || activeUser?.displayName || cleanEmail.split('@')[0] || '').trim();
         const resolvedPhone = (existingProfile?.phone || existingProfile?.phoneNumber || meta.phone || '').trim();
         const resolvedUniId = existingProfile?.universityId || meta.university_id || meta.universityId || 'uniosun';
-        const activeUniversity = universities.find(u => u.id === resolvedUniId) || {
-          id: 'uniosun',
-          name: 'Osun State University (UNIOSUN)',
-          status: 'active' as const,
-          isActive: true
-        };
-        const resolvedUniName = existingProfile?.universityName || meta.university_name || activeUniversity.name;
-
-        const isInfoValid = Boolean(resolvedName && resolvedPhone);
+        const resolvedUniName = existingProfile?.universityName || meta.university_name || studentUni;
 
         const studentData = {
           id: uid,
           role: 'student' as UserRole,
           name: resolvedName || 'Student',
-          email: activeUser?.email || studentEmail.trim().toLowerCase(),
+          email: activeUser?.email || cleanEmail,
           phone: resolvedPhone,
           universityId: resolvedUniId,
           universityName: resolvedUniName,
@@ -515,69 +199,80 @@ if (error) {
         };
 
         if (!isVerified) {
-          setPendingUserOnboardingData(studentData);
-          setShowEmailVerificationScreen(true);
+          setPendingOtpEmail(cleanEmail);
+          setPendingUserData(studentData);
+          setStep('otp_verification');
         } else {
-          // Both credentials and email are verified -> Go directly to the student discovery page!
           saveUserToFirestore(studentData).catch(() => {});
           onCompleteOnboarding(studentData);
         }
       }
     } catch (err: any) {
-      console.error("[STUDENT AUTH] Error:", err);
+      console.error('[STUDENT AUTH] Error:', err);
       const code = String(err?.code || err?.error_code || '').toLowerCase();
       const msg = String(err?.message || '').toLowerCase();
+
       if (code === 'email_not_confirmed' || msg.includes('email not confirmed') || msg.includes('not confirmed')) {
-        setPendingUserOnboardingData({
+        setPendingOtpEmail(cleanEmail);
+        setPendingUserData({
           id: '',
           role: 'student' as UserRole,
-          name: studentEmail.split('@')[0] || 'Student',
-          email: studentEmail.trim().toLowerCase(),
-          phone: '',
-          universityId: 'uniosun',
-          universityName: 'Osun State University (UNIOSUN)',
+          name: studentName || cleanEmail.split('@')[0] || 'Student',
+          email: cleanEmail,
+          phone: studentPhone,
+          universityId: studentUniId,
+          universityName: studentUni,
           isSignup: false,
           isEmailVerified: false
         });
-        setShowEmailVerificationScreen(true);
+        setStep('otp_verification');
         return;
       }
+
       if (
         code === 'invalid_credentials' ||
         code === 'auth/invalid-credential' ||
-        code === 'auth/user-not-found' ||
         msg.includes('invalid login credentials') ||
-        msg.includes('invalid credentials') ||
-        msg.includes('user not found')
+        msg.includes('invalid credentials')
       ) {
-        // If credentials are not in database, take directly to sign up page
-        setAuthMode('signup');
-        setAuthError('No account found with these credentials. Please fill in your details below to sign up.');
+        setAuthError('Invalid email or password. Please verify your credentials or create a new account.');
         return;
       }
+
       setAuthError(mapAuthError(err));
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Handle Agent Email Sign Up / Sign In
   const handleAgentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setAuthError(null);
 
+    const cleanEmail = agentEmail.trim().toLowerCase();
+    const cleanPassword = agentPassword;
+
     try {
       if (authMode === 'signup') {
-        setPendingPassword(agentPassword);
+        if (!agentName.trim()) {
+          setAuthError('Please enter your full name.');
+          setIsLoading(false);
+          return;
+        }
 
-        // 1. Single sign-up call passing agent metadata to Supabase Auth
-        const regUser = await registerWithEmail(agentEmail.trim().toLowerCase(), agentPassword, {
+        const phoneResult = agentPhoneWA ? validateAndNormalizePhoneNumber(agentPhoneWA) : null;
+        const normalizedPhone = phoneResult?.normalized || agentPhoneWA.trim();
+
+        // 1. Call Supabase Sign-Up passing agent metadata
+        const regUser = await registerWithEmail(cleanEmail, cleanPassword, {
           role: 'agent',
-          full_name: agentName || agentEmail.split('@')[0],
-          agency_name: agencyName || `${agentName || 'Agent'} Housing`,
-          phone: agentPhoneWA,
-          university_id: agentUniId,
-          university_name: agentUni
+          full_name: agentName.trim(),
+          agency_name: agencyName.trim() || `${agentName.trim()} Properties`,
+          phone: normalizedPhone,
+          university_id: 'uniosun',
+          university_name: 'Osun State University (UNIOSUN)'
         });
 
         const agentUid = regUser?.id || (regUser as any)?.uid || auth.currentUser?.uid || '';
@@ -585,904 +280,541 @@ if (error) {
           id: agentUid,
           uid: agentUid,
           role: 'agent' as UserRole,
-          name: agentName || agentEmail.split('@')[0],
-          email: agentEmail.trim().toLowerCase(),
-          agencyName: agencyName || `${agentName || 'Agent'} Housing`,
-          phone: agentPhoneWA,
-          universityId: agentUniId || 'uniosun',
-          universityName: agentUni,
-          businessVerificationStatus: 'none',
+          name: agentName.trim(),
+          email: cleanEmail,
+          agencyName: agencyName.trim() || `${agentName.trim()} Properties`,
+          phone: normalizedPhone,
+          universityId: 'uniosun',
+          universityName: 'Osun State University (UNIOSUN)',
+          businessVerificationStatus: 'none' as const,
           isVerifiedAgent: false,
           isSignup: true,
           isEmailVerified: false
         };
 
-        // Persist to database immediately
         if (agentUid) {
-          await saveUserToFirestore(agentData).catch(err => console.warn("saveUser agent err:", err));
+          await saveUserToFirestore(agentData).catch(() => {});
         }
 
-        // Once signed up, take agent directly to business verification page!
+        // Direct agent to Business Verification
         onCompleteOnboarding(agentData);
       } else {
         // SIGN IN
-        setPendingPassword(agentPassword);
-        const loggedInUser = await loginWithEmail(agentEmail.trim().toLowerCase(), agentPassword);
-
-        const fbUser = loggedInUser || auth.currentUser;
-        if (!fbUser) {
-          const { data: { user: supaUser } } = await supabase.auth.getUser();
-          if (!supaUser) throw new Error("Authentication failed.");
-        }
-
+        const loggedInUser = await loginWithEmail(cleanEmail, cleanPassword);
         const activeUser = loggedInUser || auth.currentUser;
         const uid = activeUser?.uid || activeUser?.id;
         const isVerified = Boolean(activeUser?.emailVerified || activeUser?.email_confirmed_at);
 
         const existingProfile = await fetchUserProfileFromFirestore(uid) || 
-                                await fetchUserProfileFromFirestore(agentEmail.trim().toLowerCase());
+                                await fetchUserProfileFromFirestore(cleanEmail);
 
         const meta = activeUser?.user_metadata || {};
+        const isApproved = existingProfile?.businessVerificationStatus === 'approved' || existingProfile?.isVerifiedAgent === true;
+
         const agentData = {
           id: uid,
-          role: (existingProfile?.role || 'agent') as UserRole,
-          name: existingProfile?.name || meta.full_name || meta.name || activeUser?.displayName || agentEmail.split('@')[0],
-          email: activeUser?.email || agentEmail.trim().toLowerCase(),
+          role: 'agent' as UserRole,
+          name: existingProfile?.name || meta.full_name || agentName || cleanEmail.split('@')[0],
+          email: activeUser?.email || cleanEmail,
           agencyName: existingProfile?.agencyName || meta.agency_name || agencyName,
           phone: existingProfile?.phone || meta.phone || agentPhoneWA,
-          universityId: existingProfile?.universityId || meta.university_id || agentUniId || 'uniosun',
-          universityName: existingProfile?.universityName || meta.university_name || agentUni,
+          universityId: existingProfile?.universityId || 'uniosun',
+          universityName: existingProfile?.universityName || 'Osun State University (UNIOSUN)',
           avatarUrl: existingProfile?.avatarUrl || activeUser?.photoURL,
-          businessVerificationStatus: existingProfile?.businessVerificationStatus || 'none',
+          businessVerificationStatus: existingProfile?.businessVerificationStatus || (isApproved ? 'approved' : 'none'),
           businessVerificationDetails: existingProfile?.businessVerificationDetails,
-          isVerifiedAgent: existingProfile?.businessVerificationStatus === 'approved' || existingProfile?.isVerifiedAgent || false,
+          isVerifiedAgent: isApproved,
           isSignup: false,
           isEmailVerified: isVerified
         };
 
-        // Forward agent directly to Business Verification (or Caretaker Dashboard if already verified)
         onCompleteOnboarding(agentData);
       }
     } catch (err: any) {
-      console.error("[AGENT AUTH] Error:", err);
+      console.error('[AGENT AUTH] Error:', err);
       const code = String(err?.code || err?.error_code || '').toLowerCase();
       const msg = String(err?.message || '').toLowerCase();
+
       if (code === 'email_not_confirmed' || msg.includes('email not confirmed') || msg.includes('not confirmed')) {
-        const fallbackAgentData = {
-          id: auth.currentUser?.uid || '',
-          role: 'agent' as UserRole,
-          name: agentName || agentEmail.split('@')[0] || 'Agent',
-          email: agentEmail.trim().toLowerCase(),
-          agencyName: agencyName,
+        onCompleteOnboarding({
+          role: 'agent',
+          name: agentName || cleanEmail.split('@')[0],
+          email: cleanEmail,
           phone: agentPhoneWA,
-          universityName: agentUni,
+          agencyName: agencyName,
+          universityId: 'uniosun',
+          universityName: 'Osun State University (UNIOSUN)',
           businessVerificationStatus: 'none',
           isVerifiedAgent: false,
           isSignup: false,
           isEmailVerified: false
-        };
-        onCompleteOnboarding(fallbackAgentData);
+        });
         return;
       }
+
       if (
         code === 'invalid_credentials' ||
         code === 'auth/invalid-credential' ||
-        code === 'auth/user-not-found' ||
         msg.includes('invalid login credentials') ||
-        msg.includes('invalid credentials') ||
-        msg.includes('user not found')
+        msg.includes('invalid credentials')
       ) {
-        // Switch to sign up
-        setAuthMode('signup');
-        setAuthError('No account found with these credentials. Please fill in your details below to sign up.');
+        setAuthError('Invalid email or password. Please verify your credentials or create a new account.');
         return;
       }
+
       setAuthError(mapAuthError(err));
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (showEmailVerificationScreen) {
+  // OTP Verification Submission
+  const handleVerifyOtp = async (otpCode: string) => {
+    setIsOtpLoading(true);
+    setOtpError(null);
+
+    try {
+      const { user } = await verifyOtpWithEmail(pendingOtpEmail, otpCode, 'signup');
+      const verifiedUser = user || auth.currentUser;
+      const uid = verifiedUser?.uid || verifiedUser?.id || pendingUserData?.id;
+
+      const updatedUserData = {
+        ...(pendingUserData || {}),
+        id: uid,
+        uid: uid,
+        email: pendingOtpEmail,
+        isEmailVerified: true
+      };
+
+      if (uid) {
+        await saveUserToFirestore(updatedUserData).catch(() => {});
+      }
+
+      onCompleteOnboarding(updatedUserData);
+    } catch (err: any) {
+      console.error('[OTP VERIFY] Error:', err);
+      const msg = err?.message || 'Invalid or expired 6-digit verification code. Please check your email and try again.';
+      setOtpError(msg);
+    } finally {
+      setIsOtpLoading(false);
+    }
+  };
+
+  // OTP Resend Action
+  const handleResendOtp = async (): Promise<boolean> => {
+    try {
+      const ok = await resendVerificationEmail(pendingOtpEmail);
+      return ok;
+    } catch (err) {
+      console.warn('Resend OTP error:', err);
+      return false;
+    }
+  };
+
+  // 1. Walkthrough Slides
+  if (step === 'slides') {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-neutral-50 dark:bg-neutral-950 py-12 px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center gap-4">
-        <EmailVerificationCard
-          email={pendingUserOnboardingData?.email || studentEmail || agentEmail || auth.currentUser?.email || ''}
-          password={pendingPassword}
-          onBack={() => setShowEmailVerificationScreen(false)}
-          onVerified={async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            const user = session?.user || auth.currentUser;
-            const userMeta = user?.user_metadata || {};
-            const dbProfile = user?.id ? await fetchUserProfileFromFirestore(user.id).catch(() => null) : null;
-
-            const role: UserRole = dbProfile?.role || userMeta.role || pendingUserOnboardingData?.role || (selectedRole === 'agent' ? 'agent' : 'student');
-            const name = (dbProfile?.name || userMeta.full_name || userMeta.name || pendingUserOnboardingData?.name || studentName || agentName || '').trim();
-            const phone = (dbProfile?.phone || userMeta.phone || pendingUserOnboardingData?.phone || studentPhone || agentPhoneWA || '').trim();
-            const uniId = dbProfile?.universityId || userMeta.university_id || pendingUserOnboardingData?.universityId || studentUniId || agentUniId || 'uniosun';
-            const uniName = dbProfile?.universityName || userMeta.university_name || pendingUserOnboardingData?.universityName || studentUni || agentUni || 'Osun State University (UNIOSUN)';
-
-            const isApproved = dbProfile?.businessVerificationStatus === 'approved' || dbProfile?.isVerifiedAgent === true;
-
-            const verifiedData = {
-              ...pendingUserOnboardingData,
-              id: user?.id || pendingUserOnboardingData?.id,
-              role,
-              name: name || user?.email?.split('@')[0] || 'User',
-              email: user?.email || pendingUserOnboardingData?.email || studentEmail || agentEmail,
-              phone,
-              universityId: uniId,
-              universityName: uniName,
-              agencyName: dbProfile?.agencyName || userMeta.agency_name || pendingUserOnboardingData?.agencyName || agencyName || '',
-              businessVerificationStatus: dbProfile?.businessVerificationStatus || pendingUserOnboardingData?.businessVerificationStatus || (isApproved ? 'approved' : 'none'),
-              isVerifiedAgent: isApproved,
-              isEmailVerified: true
-            };
-
-            setShowEmailVerificationScreen(false);
-            onCompleteOnboarding(verifiedData);
-          }}
-        />
-      </div>
+      <OnboardingSlides
+        onComplete={() => setStep('role_selection')}
+        onLoginClick={() => {
+          setAuthMode('signin');
+          setStep('auth');
+        }}
+      />
     );
   }
 
-  if (googleAuthData) {
-    const selectedUniObj = universities.find(u => u.id === (selectedRole === 'student' ? studentUniId : agentUniId));
-    const isComingSoon = selectedRole === 'student' && selectedUniObj && selectedUniObj.status === 'coming_soon' && selectedUniObj.id !== 'uniosun';
-
+  // 2. Role Selection Screen
+  if (step === 'role_selection') {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-neutral-50 py-10 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
-        <div className="max-w-lg w-full bg-white rounded-2xl border border-neutral-200 p-6 sm:p-8 shadow-sm space-y-6 animate-in fade-in">
-          
-          {/* Header Banner */}
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600 shadow-xs">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-[11px] font-bold">
-              {googleAuthData.provider === 'google' ? <GoogleIcon /> : <ShieldCheck className="w-3.5 h-3.5" />}
-              <span>{googleAuthData.provider === 'google' ? 'Google account verified' : 'Email account verified'}</span>
-            </div>
-            <h2 className="text-2xl font-black text-neutral-900 tracking-tight">
-              Complete your profile
-            </h2>
-            <p className="text-xs text-neutral-600 max-w-sm mx-auto leading-relaxed">
-              Just a few details before you start exploring accommodation.
-            </p>
-          </div>
-
-          {authError && (
-            <div className="p-3 bg-black text-white border border-neutral-800 rounded-xl flex items-center gap-2 text-xs font-semibold">
-              <AlertCircle className="w-4 h-4 shrink-0 text-emerald-400" />
-              <span>{authError}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleGoogleProfileSubmit} className="space-y-4">
-            {/* Email Address (Readonly Verified Badge) */}
-            <div>
-              <label className="text-xs font-bold text-neutral-800 block mb-1">Email Address</label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                <input
-                  type="email"
-                  disabled
-                  value={googleAuthData.email}
-                  className="w-full pl-9 pr-24 py-2.5 bg-neutral-100 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-600 cursor-not-allowed"
-                />
-                <span className="absolute right-2.5 top-2.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                  Verified
-                </span>
-              </div>
-            </div>
-
-            {/* Full Name */}
-            <div>
-              <label className="text-xs font-bold text-neutral-800 block mb-1">Full Name</label>
-              <div className="relative">
-                <UserIcon className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                <input
-                  type="text"
-                  required
-                  value={selectedRole === 'student' ? studentName : agentName}
-                  onChange={(e) => {
-                    if (selectedRole === 'student') setStudentName(e.target.value);
-                    else setAgentName(e.target.value);
-                  }}
-                  placeholder="e.g. Chinedu Okonkwo"
-                  className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                />
-              </div>
-            </div>
-
-            {/* University Selector */}
-            <UniversitySelector
-              universities={universities}
-              selectedUniversityId={selectedRole === 'student' ? studentUniId : agentUniId}
-              onSelectUniversity={(uni) => {
-                if (selectedRole === 'student') {
-                  setStudentUniId(uni.id);
-                  setStudentUni(uni.name);
-                } else {
-                  setAgentUniId(uni.id);
-                  setAgentUni(uni.name);
-                }
-              }}
-              label={selectedRole === 'student' ? 'Preferred School' : 'Primary Serviced Campus'}
-              required
-            />
-
-            {/* Coming Soon Notice */}
-            {isComingSoon && selectedUniObj && (
-              <div className="p-4 bg-black text-white rounded-2xl space-y-3 animate-in fade-in">
-                <div className="flex items-start gap-2.5">
-                  <AlertCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-extrabold text-xs text-white">
-                      Dormiqa isn't available at this university yet.
-                    </h4>
-                    <p className="text-xs text-neutral-300 mt-0.5">
-                      We're expanding rapidly! Join our waitlist to get early access when we launch at {selectedUniObj.name}.
-                    </p>
-                  </div>
-                </div>
-                <a
-                  href={`https://dormiqa-waitlist.vercel.app?university=${encodeURIComponent(selectedUniObj.shortName || selectedUniObj.code || selectedUniObj.name)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-black font-extrabold text-xs rounded-xl transition-all shadow-xs"
-                >
-                  <span>Join the waitlist →</span>
-                </a>
-              </div>
-            )}
-
-            {/* Phone Number (WhatsApp) */}
-            <div>
-              <label className="text-xs font-bold text-neutral-800 block mb-1">Phone number</label>
-              <div className="relative">
-                <Phone className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                <input
-                  type="tel"
-                  required
-                  value={selectedRole === 'student' ? studentPhone : agentPhoneWA}
-                  onChange={(e) => {
-                    if (selectedRole === 'student') setStudentPhone(e.target.value);
-                    else setAgentPhoneWA(e.target.value);
-                  }}
-                  placeholder="+234 801 234 5678"
-                  className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                />
-              </div>
-            </div>
-
-            {/* Agent-Specific Field: Agency / Business Name */}
-            {selectedRole === 'agent' && (
-              <div>
-                <label className="text-xs font-bold text-neutral-800 block mb-1">Name of Agency / Business</label>
-                <div className="relative">
-                  <Building2 className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                  <input
-                    type="text"
-                    required
-                    value={agencyName}
-                    onChange={(e) => setAgencyName(e.target.value)}
-                    placeholder="e.g. Yaba Student Housing Ltd"
-                    className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="pt-2 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setGoogleAuthData(null)}
-                className="px-4 py-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isLoading || isComingSoon}
-                className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-neutral-300 disabled:cursor-not-allowed text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
-                ) : (
-                  <>
-                    <span>Save & Start Exploring →</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-
-        </div>
-      </div>
+      <RoleSelectionScreen
+        selectedRole={selectedRole}
+        onSelectRole={setSelectedRole}
+        onContinue={() => {
+          setAuthMode('signup');
+          setStep('auth');
+        }}
+        onSwitchToSignIn={() => {
+          setAuthMode('signin');
+          setStep('auth');
+        }}
+        onBackToSlides={() => setStep('slides')}
+      />
     );
   }
 
+  // 3. OTP Verification Screen
+  if (step === 'otp_verification') {
+    return (
+      <OtpVerificationScreen
+        email={pendingOtpEmail}
+        onVerify={handleVerifyOtp}
+        onResend={handleResendOtp}
+        onChangeEmail={() => {
+          setStep('auth');
+          setAuthError(null);
+        }}
+        isLoading={isOtpLoading}
+        errorMessage={otpError}
+      />
+    );
+  }
+
+  // 4. Clean Production Auth Form
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-neutral-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto space-y-8">
-        
-        {/* Navigation back & Header */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={onBackToLanding}
-            className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-600 hover:text-neutral-900 bg-white px-3 py-1.5 rounded-md border border-neutral-200 transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Back to Home
-          </button>
+    <div className="min-h-screen bg-white text-neutral-900 flex flex-col justify-between font-sans">
+      {/* Top Header */}
+      <header className="w-full max-w-xl mx-auto px-6 py-4 flex items-center justify-between border-b border-neutral-100">
+        <div className="flex items-center gap-2">
+          <span className="text-base font-extrabold tracking-tight text-neutral-900">DORMIQA</span>
+          <span className="text-neutral-300 font-light text-xs">/</span>
+          <span className="text-xs text-neutral-500 font-medium">
+            {selectedRole === 'student' ? 'Student' : 'Agent'}
+          </span>
         </div>
 
-        {/* Title & Description */}
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight">
-            Select Your Role & Join Dormiqa
+        <button
+          type="button"
+          onClick={() => setStep('role_selection')}
+          className="text-xs font-semibold text-neutral-600 hover:text-neutral-900 py-1.5 px-3 rounded-md hover:bg-neutral-100 transition-colors cursor-pointer"
+        >
+          Change role
+        </button>
+      </header>
+
+      {/* Main Container */}
+      <main className="w-full max-w-md mx-auto px-6 py-8 flex flex-col justify-center flex-1">
+        <div className="space-y-1.5 mb-6 text-center">
+          <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">
+            {authMode === 'signup' ? 'Create Account' : 'Sign In'}
           </h1>
-          <p className="text-xs sm:text-sm text-neutral-600 max-w-xl mx-auto">
-            Connecting Nigerian university & polytechnic students directly with 100% verified caretakers, property managers, and official housing hosts.
+          <p className="text-xs text-neutral-600">
+            {selectedRole === 'student'
+              ? 'Find verified lodges near your campus gates.'
+              : 'Manage student lodge listings and bookings.'}
           </p>
         </div>
 
-        {/* 1. ROLE CARDS SELECTOR */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
-          
-          {/* Student Card */}
+        {/* Clean Segmented Role Switcher */}
+        <div className="grid grid-cols-2 p-1 bg-neutral-100 rounded-lg mb-6">
           <button
             type="button"
-            onClick={() => setSelectedRole('student')}
-            className={`p-5 rounded-2xl text-left border transition-all relative flex flex-col justify-between ${
+            onClick={() => {
+              setSelectedRole('student');
+              setAuthError(null);
+            }}
+            className={`py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
               selectedRole === 'student'
-                ? 'bg-neutral-900 text-white border-neutral-900 shadow-lg ring-2 ring-neutral-900 ring-offset-2'
-                : 'bg-white text-neutral-900 border-neutral-200 hover:border-neutral-400'
+                ? 'bg-white text-neutral-900 shadow-xs'
+                : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >
-            {selectedRole === 'student' && (
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 absolute top-4 right-4" />
-            )}
-            <div className="space-y-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
-                selectedRole === 'student' ? 'bg-neutral-800 text-emerald-400' : 'bg-neutral-100 text-neutral-900'
-              }`}>
-                <GraduationCap className="w-5 h-5" />
-              </div>
-              <div>
-                <span className={`text-[10px] font-bold uppercase tracking-wider block ${
-                  selectedRole === 'student' ? 'text-neutral-400' : 'text-neutral-500'
-                }`}>
-                  For Students
-                </span>
-                <h3 className="text-lg font-bold">Student Account</h3>
-              </div>
-              <p className={`text-xs leading-relaxed ${
-                selectedRole === 'student' ? 'text-neutral-300' : 'text-neutral-600'
-              }`}>
-                Search verified lodges near UNILAG, UI, OAU, FUTA, YABATECH, LASU & 20+ institutions with 0% scam guarantee.
-              </p>
-            </div>
-            <div className="pt-4 border-t border-neutral-200/20 text-[11px] font-semibold flex items-center gap-1">
-              <span>Continue as Student</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </div>
+            Student
           </button>
-
-          {/* Agent Card */}
           <button
             type="button"
-            onClick={() => setSelectedRole('agent')}
-            className={`p-5 rounded-2xl text-left border transition-all relative flex flex-col justify-between ${
+            onClick={() => {
+              setSelectedRole('agent');
+              setAuthError(null);
+            }}
+            className={`py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
               selectedRole === 'agent'
-                ? 'bg-neutral-900 text-white border-neutral-900 shadow-lg ring-2 ring-neutral-900 ring-offset-2'
-                : 'bg-white text-neutral-900 border-neutral-200 hover:border-neutral-400'
+                ? 'bg-white text-neutral-900 shadow-xs'
+                : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >
-            {selectedRole === 'agent' && (
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 absolute top-4 right-4" />
-            )}
-            <div className="space-y-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
-                selectedRole === 'agent' ? 'bg-neutral-800 text-emerald-400' : 'bg-neutral-100 text-neutral-900'
-              }`}>
-                <Briefcase className="w-5 h-5" />
-              </div>
-              <div>
-                <span className={`text-[10px] font-bold uppercase tracking-wider block ${
-                  selectedRole === 'agent' ? 'text-neutral-400' : 'text-neutral-500'
-                }`}>
-                  For Property Hosts
-                </span>
-                <h3 className="text-lg font-bold">Verified Agent</h3>
-              </div>
-              <p className={`text-xs leading-relaxed ${
-                selectedRole === 'agent' ? 'text-neutral-300' : 'text-neutral-600'
-              }`}>
-                List self-contains & lodges, submit proof of business (banner, logo, office, or CAC photo), and receive WhatsApp inspection requests directly.
-              </p>
-            </div>
-            <div className="pt-4 border-t border-neutral-200/20 text-[11px] font-semibold flex items-center gap-1">
-              <span>Continue as Agent</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </div>
+            Agent / Caretaker
           </button>
-
         </div>
 
-        {/* 2. ONBOARDING FORM CONTAINER */}
-        <div className="bg-white rounded-2xl border border-neutral-200 p-6 sm:p-8 shadow-xs">
-          
-          {/* Header & Auth Mode Toggle (Sign Up vs Sign In) */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-neutral-100 pb-6 mb-6">
+        {/* Error Alert */}
+        {authError && (
+          <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+            <span className="leading-snug font-medium">{authError}</span>
+          </div>
+        )}
+
+        {/* Form: Student */}
+        {selectedRole === 'student' ? (
+          <form onSubmit={handleStudentSubmit} className="space-y-4">
+            {authMode === 'signup' && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Full Name <span className="text-emerald-700">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={studentName}
+                    onChange={(e) => setStudentName(e.target.value)}
+                    placeholder="e.g. Ibrahim Adeyemi"
+                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Mobile or WhatsApp Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={studentPhone}
+                    onChange={(e) => setStudentPhone(e.target.value)}
+                    placeholder="08012345678"
+                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Preferred Higher Institution <span className="text-emerald-700">*</span>
+                  </label>
+                  <UniversitySelector
+                    universities={universities}
+                    selectedUniversityId={studentUniId}
+                    onSelectUniversity={(uni) => {
+                      setStudentUniId(uni.id);
+                      setStudentUni(uni.name);
+                    }}
+                  />
+                </div>
+              </>
+            )}
+
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-neutral-100 text-neutral-800 uppercase tracking-wider">
-                  {selectedRole === 'student' ? 'Student Portal' : 'Agent Portal'}
-                </span>
-              </div>
-              <h2 className="text-xl font-bold text-neutral-900 mt-1">
-                {authMode === 'signup' 
-                  ? `Create ${selectedRole === 'student' ? 'Student' : 'Agent / Caretaker'} Account`
-                  : `Sign In to ${selectedRole === 'student' ? 'Student' : 'Agent'} Desk`
-                }
-              </h2>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                Email Address <span className="text-emerald-700">*</span>
+              </label>
+              <input
+                type="email"
+                required
+                value={studentEmail}
+                onChange={(e) => setStudentEmail(e.target.value)}
+                placeholder="student@example.com"
+                className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+              />
             </div>
 
-            <div className="flex items-center gap-1 bg-neutral-100 p-1 rounded-xl w-full sm:w-auto">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-neutral-700">
+                  Password <span className="text-emerald-700">*</span>
+                </label>
+                {authMode === 'signin' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetModalEmail(studentEmail);
+                      setShowResetModal(true);
+                    }}
+                    className="text-xs text-emerald-700 font-semibold hover:underline cursor-pointer"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  value={studentPassword}
+                  onChange={(e) => setStudentPassword(e.target.value)}
+                  placeholder="At least 6 characters"
+                  className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-700 cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-none mt-2"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <span>{authMode === 'signup' ? 'Create Student Account' : 'Sign In as Student'}</span>
+              )}
+            </button>
+          </form>
+        ) : (
+          /* Form: Agent */
+          <form onSubmit={handleAgentSubmit} className="space-y-4">
+            {authMode === 'signup' && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Full Legal Name <span className="text-emerald-700">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={agentName}
+                    onChange={(e) => setAgentName(e.target.value)}
+                    placeholder="e.g. Babatunde Lawal"
+                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Agency or Property Name
+                  </label>
+                  <input
+                    type="text"
+                    value={agencyName}
+                    onChange={(e) => setAgencyName(e.target.value)}
+                    placeholder="e.g. Oke-Baale Lodge Caretakers"
+                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Direct WhatsApp / Phone <span className="text-emerald-700">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={agentPhoneWA}
+                    onChange={(e) => setAgentPhoneWA(e.target.value)}
+                    placeholder="08098765432"
+                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                  />
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                Email Address <span className="text-emerald-700">*</span>
+              </label>
+              <input
+                type="email"
+                required
+                value={agentEmail}
+                onChange={(e) => setAgentEmail(e.target.value)}
+                placeholder="agent@example.com"
+                className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-neutral-700">
+                  Password <span className="text-emerald-700">*</span>
+                </label>
+                {authMode === 'signin' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetModalEmail(agentEmail);
+                      setShowResetModal(true);
+                    }}
+                    className="text-xs text-emerald-700 font-semibold hover:underline cursor-pointer"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  value={agentPassword}
+                  onChange={(e) => setAgentPassword(e.target.value)}
+                  placeholder="At least 6 characters"
+                  className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-700 cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-none mt-2"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <span>{authMode === 'signup' ? 'Continue to Business Verification' : 'Sign In as Agent'}</span>
+              )}
+            </button>
+          </form>
+        )}
+
+        {/* Switcher: Create Account vs Sign In */}
+        <div className="mt-6 text-center text-xs text-neutral-600">
+          {authMode === 'signup' ? (
+            <p>
+              Already have an account?{' '}
               <button
                 type="button"
-                onClick={() => setAuthMode('signup')}
-                className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  authMode === 'signup'
-                    ? 'bg-white text-neutral-900 shadow-xs'
-                    : 'text-neutral-600 hover:text-neutral-900'
-                }`}
-              >
-                Create Account (Sign Up)
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthMode('signin')}
-                className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  authMode === 'signin'
-                    ? 'bg-white text-neutral-900 shadow-xs'
-                    : 'text-neutral-600 hover:text-neutral-900'
-                }`}
+                onClick={() => {
+                  setAuthMode('signin');
+                  setAuthError(null);
+                }}
+                className="text-emerald-700 font-semibold hover:underline cursor-pointer ml-1"
               >
                 Sign In
               </button>
-            </div>
-          </div>
-
-          {/* Auth Method Switcher: Google vs Email */}
-          {selectedRole === 'agent' ? (
-            <div className="p-3 bg-neutral-50 dark:bg-neutral-800/80 rounded-xl text-xs text-neutral-700 dark:text-neutral-300 font-semibold mb-6 flex items-center gap-2 border border-neutral-200 dark:border-neutral-700">
-              <Mail className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Agent Portal: Caretakers and Agents sign in and register using Email & Password.</span>
-            </div>
+            </p>
           ) : (
-            <div className="space-y-3 mb-6">
-              <label className="text-xs font-bold text-neutral-700 block">Choose Sign-In / Sign-Up Method</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setAuthMethod('google'); setAuthError(null); }}
-                  className={`py-2.5 px-4 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-                    authMethod === 'google'
-                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
-                      : 'bg-neutral-50 text-neutral-800 border-neutral-200 hover:bg-neutral-100'
-                  }`}
-                >
-                  <GoogleIcon />
-                  Google Account
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setAuthMethod('email'); setAuthError(null); }}
-                  className={`py-2.5 px-4 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-                    authMethod === 'email'
-                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
-                      : 'bg-neutral-50 text-neutral-800 border-neutral-200 hover:bg-neutral-100'
-                  }`}
-                >
-                  <Mail className="w-4 h-4 text-emerald-600" />
-                  Email & Password
-                </button>
-              </div>
-            </div>
+            <p>
+              Don't have an account yet?{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signup');
+                  setAuthError(null);
+                }}
+                className="text-emerald-700 font-semibold hover:underline cursor-pointer ml-1"
+              >
+                Create Account
+              </button>
+            </p>
           )}
-
-          {authError && (
-            <div className="p-3 bg-black text-white rounded-xl flex items-center gap-2 text-xs font-medium mb-4 border border-neutral-800">
-              <AlertCircle className="w-4 h-4 shrink-0 text-emerald-400" />
-              <span>{authError}</span>
-            </div>
-          )}
-
-          {/* OPTION A: GOOGLE SIGN-IN / SIGN-UP (STUDENTS ONLY) */}
-          {authMethod === 'google' && selectedRole === 'student' ? (
-            <div className="space-y-4 py-4">
-              <div className="p-6 border border-neutral-200 rounded-2xl bg-neutral-50 text-center space-y-4">
-                <div className="w-12 h-12 rounded-full bg-white border border-neutral-200 flex items-center justify-center mx-auto shadow-xs">
-                  <GoogleIcon />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-neutral-900">
-                    {authMode === 'signup' 
-                      ? `Sign Up as Student with Google`
-                      : `Sign In with Google Account`
-                    }
-                  </h3>
-                  <p className="text-xs text-neutral-500 mt-1 max-w-sm mx-auto">
-                    Secure sign-in through Supabase using your Google account.
-                  </p>
-                </div>
-
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    disabled={isLoading}
-                    onClick={handleGoogleAuth}
-                    className="w-full sm:w-auto px-8 py-3 bg-white hover:bg-neutral-100 text-neutral-900 border border-neutral-300 font-extrabold text-xs rounded-xl shadow-xs transition-all inline-flex items-center justify-center gap-2.5 cursor-pointer"
-                  >
-                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin text-neutral-600" /> : <GoogleIcon />}
-                    <span>{authMode === 'signup' ? `Sign Up as Student with Google` : 'Sign In with Google'}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* OPTION B: EMAIL & PASSWORD FORM */
-            <>
-              {/* FORM TYPE 1: STUDENT FORM */}
-              {selectedRole === 'student' && (
-                <form onSubmit={handleStudentSubmit} className="space-y-4">
-                  
-                  {authMode === 'signup' ? (
-                    <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* Student Name */}
-                        <div>
-                          <label className="text-xs font-bold text-neutral-800 block mb-1">Full Name</label>
-                          <div className="relative">
-                            <UserIcon className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                            <input
-                              type="text"
-                              required
-                              value={studentName}
-                              onChange={(e) => setStudentName(e.target.value)}
-                              placeholder="e.g. Chinedu Okonkwo"
-                              className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Student Email */}
-                        <div>
-                          <label className="text-xs font-bold text-neutral-800 block mb-1">Email Address</label>
-                          <div className="relative">
-                            <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                            <input
-                              type="email"
-                              required
-                              name="email"
-                              autoComplete="email"
-                              inputMode="email"
-                              value={studentEmail}
-                              onChange={(e) => setStudentEmail(e.target.value)}
-                              placeholder="chinedu@student.unilag.edu.ng"
-                              className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* Student Phone */}
-                        <div>
-                          <label className="text-xs font-bold text-neutral-800 block mb-1">Phone Number (WhatsApp)</label>
-                          <div className="relative">
-                            <Phone className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                            <input
-                              type="tel"
-                              required
-                              value={studentPhone}
-                              onChange={(e) => setStudentPhone(e.target.value)}
-                              placeholder="+234 812 345 6789"
-                              className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                            />
-                          </div>
-                        </div>
-
-                        {/* University Selection */}
-                        <UniversitySelector
-                          universities={universities}
-                          selectedUniversityId={studentUniId || 'uniosun'}
-                          onSelectUniversity={(uni) => {
-                            setStudentUniId(uni.id);
-                            setStudentUni(uni.name);
-                            if (authError) setAuthError(null);
-                          }}
-                          label="Preferred School"
-                          required
-                          error={null}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-xs font-bold text-neutral-800 block mb-1">Password</label>
-                        <div className="relative">
-                          <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                          <input
-                            type="password"
-                            required
-                            name="new-password"
-                            autoComplete="new-password"
-                            value={studentPassword}
-                            onChange={(e) => setStudentPassword(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                          />
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    /* Student Sign In */
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-xs font-bold text-neutral-800 block mb-1">Student Email Address</label>
-                        <div className="relative">
-                          <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                          <input
-                            type="email"
-                            required
-                            name="email"
-                            autoComplete="email"
-                            inputMode="email"
-                            value={studentEmail}
-                            onChange={(e) => setStudentEmail(e.target.value)}
-                            placeholder="student@unilag.edu.ng"
-                            className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200">Password</label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPasswordResetStep('forgot');
-                              setIsPasswordResetOpen(true);
-                            }}
-                            className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 cursor-pointer"
-                          >
-                            Forgot password?
-                          </button>
-                        </div>
-                        <div className="relative">
-                          <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                          <input
-                            type="password"
-                            required
-                            name="current-password"
-                            autoComplete="current-password"
-                            value={studentPassword}
-                            onChange={(e) => setStudentPassword(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full py-3 px-4 bg-neutral-900 hover:bg-black text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2"
-                    >
-                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <GraduationCap className="w-4 h-4" />}
-                      {authMode === 'signup' ? 'Complete Student Onboarding with Email' : 'Sign In as Student'}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* FORM TYPE 2: AGENT FORM */}
-              {selectedRole === 'agent' && (
-                <form onSubmit={handleAgentSubmit} className="space-y-4">
-                  
-                  {authMode === 'signup' ? (
-                    <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* Agent Name */}
-                        <div>
-                          <label className="text-xs font-bold text-neutral-800 block mb-1">Lead Agent / Caretaker Name</label>
-                          <div className="relative">
-                            <UserIcon className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                            <input
-                              type="text"
-                              required
-                              value={agentName}
-                              onChange={(e) => setAgentName(e.target.value)}
-                              placeholder="e.g. Chief Tunde Adebayo"
-                              className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Agent Email */}
-                        <div>
-                          <label className="text-xs font-bold text-neutral-800 block mb-1">Business Email Address</label>
-                          <div className="relative">
-                            <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                            <input
-                              type="email"
-                              required
-                              name="email"
-                              autoComplete="email"
-                              inputMode="email"
-                              value={agentEmail}
-                              onChange={(e) => setAgentEmail(e.target.value)}
-                              placeholder="tunde@yabahomes.ng"
-                              className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* Name of Business */}
-                        <div>
-                          <label className="text-xs font-bold text-neutral-800 block mb-1">Name of Agency / Business</label>
-                          <div className="relative">
-                            <Building2 className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                            <input
-                              type="text"
-                              required
-                              value={agencyName}
-                              onChange={(e) => setAgencyName(e.target.value)}
-                              placeholder="e.g. Yaba Student Housing Ltd"
-                              className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                            />
-                          </div>
-                        </div>
-
-                        {/* WhatsApp Phone Number */}
-                        <div>
-                          <label className="text-xs font-bold text-neutral-800 block mb-1">WhatsApp Phone Number (WA)</label>
-                          <div className="relative">
-                            <Phone className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                            <input
-                              type="tel"
-                              required
-                              value={agentPhoneWA}
-                              onChange={(e) => setAgentPhoneWA(e.target.value)}
-                              placeholder="+234 803 456 7890"
-                              className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Serviced University Selector */}
-                      <UniversitySelector
-                        universities={universities}
-                        selectedUniversityId={agentUniId}
-                        onSelectUniversity={(uni) => {
-                          setAgentUniId(uni.id);
-                          setAgentUni(uni.name);
-                        }}
-                        label="Primary University / Polytechnic Serviced"
-                        required
-                      />
-
-                      <div>
-                        <label className="text-xs font-bold text-neutral-800 block mb-1">Account Password</label>
-                        <div className="relative">
-                          <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                          <input
-                            type="password"
-                            required
-                            name="new-password"
-                            autoComplete="new-password"
-                            value={agentPassword}
-                            onChange={(e) => setAgentPassword(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    /* Agent Sign In */
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-xs font-bold text-neutral-800 block mb-1">Business Email Address</label>
-                        <div className="relative">
-                          <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                          <input
-                            type="email"
-                            required
-                            name="email"
-                            autoComplete="email"
-                            inputMode="email"
-                            value={agentEmail}
-                            onChange={(e) => setAgentEmail(e.target.value)}
-                            placeholder="agent@yabahomes.ng"
-                            className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200">Password</label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPasswordResetStep('forgot');
-                              setIsPasswordResetOpen(true);
-                            }}
-                            className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 cursor-pointer"
-                          >
-                            Forgot password?
-                          </button>
-                        </div>
-                        <div className="relative">
-                          <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
-                          <input
-                            type="password"
-                            required
-                            name="current-password"
-                            autoComplete="current-password"
-                            value={agentPassword}
-                            onChange={(e) => setAgentPassword(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-900 focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2"
-                    >
-                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : authMode === 'signup' ? <ArrowRight className="w-4 h-4" /> : <Briefcase className="w-4 h-4" />}
-                      {authMode === 'signup' ? 'Continue to Business Verification →' : 'Sign In as Agent'}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </>
-          )}
-
         </div>
+      </main>
 
-      </div>
+      <footer className="w-full max-w-xl mx-auto px-6 py-4 text-center border-t border-neutral-100 text-xs text-neutral-400">
+        DORMIQA Nigeria • Verified Student Housing Platform
+      </footer>
 
-      {/* Branded Password Reset Modal Flow (Section 2.2) */}
       <PasswordResetModal
-        isOpen={isPasswordResetOpen}
-        initialStep={passwordResetStep}
-        initialEmail={selectedRole === 'student' ? studentEmail : agentEmail}
-        onClose={() => {
-          clearRecoveryFlow();
-          setIsPasswordResetOpen(false);
-        }}
-        onSwitchToSignIn={(emailParam) => {
-          clearRecoveryFlow();
-          setIsPasswordResetOpen(false);
+        isOpen={showResetModal}
+        initialEmail={resetModalEmail}
+        onClose={() => setShowResetModal(false)}
+        onSwitchToSignIn={(email) => {
+          setShowResetModal(false);
           setAuthMode('signin');
-          if (emailParam) {
-            setStudentEmail(emailParam);
-            setAgentEmail(emailParam);
+          if (email) {
+            setStudentEmail(email);
+            setAgentEmail(email);
           }
         }}
       />

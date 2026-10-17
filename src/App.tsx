@@ -260,7 +260,7 @@ export default function App() {
     const route = parseRouteFromUrl();
     if (route.type === 'view' && route.view) return route.view;
 
-    return 'landing';
+    return 'onboarding';
   });
   const [selectedComingSoonUniId, setSelectedComingSoonUniId] = useState<string>('unilag');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);

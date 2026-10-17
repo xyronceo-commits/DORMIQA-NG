@@ -30,6 +30,7 @@ import {
   signOut,
   deleteUser,
   onAuthStateChanged,
+  verifyOtpWithEmail,
   User as FirebaseUser
 } from 'firebase/auth';
 import { 
@@ -211,6 +212,8 @@ export const loginWithEmail = async (email: string, pass: string) => {
 export const logoutFirebase = async () => {
   return await signOut(auth);
 };
+
+export { verifyOtpWithEmail };
 
 // Storage Helper
 export const uploadFileToFirebaseStorage = async (file: File, path: string): Promise<string> => {
