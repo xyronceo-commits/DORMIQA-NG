@@ -336,28 +336,94 @@ export default function App() {
       redirectTimer = undefined;
       setAdminAuthStatus('ADMIN_CHECKING');
       setIsAdminAuthenticated(false);
-      const { data: { session }, error } = await supabase.auth.getSession();
+
+      // 1. Session initialization check
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (!isMounted || generation !== verificationGeneration) return;
-      if (error || !session) {
+      if (sessionError || !session || !session.user) {
+        console.log('[ADMIN AUTH] No active Supabase session.');
         setAdminEmail('');
         setAdminAuthStatus('UNAUTHENTICATED');
         return;
       }
 
-      const expectedAdminEmail = (import.meta.env.VITE_ADMIN_EMAIL || 'buildsafe247@gmail.com').trim().toLowerCase();
-      const result = await checkAdminSession();
-      if (!isMounted || generation !== verificationGeneration) return;
-      if (result.authenticated && result.email?.trim().toLowerCase() === expectedAdminEmail) {
-        setIsAdminAuthenticated(true);
-        setAdminEmail(expectedAdminEmail);
-        setAdminRole('SUPER_ADMIN');
-        setAdminAuthStatus('AUTHORIZED');
-        setCurrentRole('admin');
+      const authUser = session.user;
+      const authEmail = (authUser.email || '').trim().toLowerCase();
+
+      // 2. Email verification requirement check
+      const isEmailConfirmed = Boolean(authUser.email_confirmed_at);
+      if (!isEmailConfirmed) {
+        console.warn(`[ADMIN AUTH] Email unconfirmed for authenticated user ${authUser.id} (${authEmail})`);
+        setAdminEmail(authEmail);
+        setAdminAuthStatus('UNAUTHORIZED');
         return;
       }
 
-      setAdminEmail('');
-      setAdminAuthStatus('UNAUTHORIZED');
+      // 3. Query public.admin_accounts using the authenticated user's UUID
+      const { data: adminRows, error: adminDbError } = await supabase
+        .from('admin_accounts')
+        .select('user_id, email, role, active')
+        .eq('user_id', authUser.id)
+        .limit(1);
+
+      if (!isMounted || generation !== verificationGeneration) return;
+
+      if (adminDbError) {
+        console.warn('[ADMIN AUTH] Database query warning on admin_accounts:', adminDbError.message);
+        // Do not immediately assume unauthorized on transient query error; check server session endpoint
+        const serverSession = await checkAdminSession();
+        if (!isMounted || generation !== verificationGeneration) return;
+        if (serverSession.authenticated && serverSession.email?.toLowerCase() === authEmail) {
+          setIsAdminAuthenticated(true);
+          setAdminEmail(serverSession.email);
+          setAdminRole(serverSession.role || 'SUPER_ADMIN');
+          setAdminAuthStatus('AUTHORIZED');
+          setCurrentRole('admin');
+          return;
+        }
+        setAdminAuthStatus('UNAUTHENTICATED');
+        return;
+      }
+
+      const adminRecord = adminRows?.[0];
+      if (!adminRecord) {
+        console.warn(`[ADMIN AUTH] No admin_accounts record found for user UUID: ${authUser.id} (${authEmail})`);
+        setAdminEmail(authEmail);
+        setAdminAuthStatus('UNAUTHORIZED');
+        return;
+      }
+
+      // 4. Verify admin conditions: user_id match, email match, role='admin', active=true
+      const matchesUserId = adminRecord.user_id === authUser.id;
+      const matchesEmail = adminRecord.email?.trim().toLowerCase() === authEmail;
+      const hasAdminRole = adminRecord.role === 'admin';
+      const isActive = adminRecord.active === true;
+
+      console.log(`[ADMIN AUTH] Verification for ${authEmail}: uidMatch=${matchesUserId}, emailMatch=${matchesEmail}, role=${adminRecord.role}, active=${isActive}`);
+
+      if (!matchesUserId || !matchesEmail || !hasAdminRole || !isActive) {
+        console.warn(`[ADMIN AUTH] Unauthorized: criteria check failed for ${authEmail}`);
+        setAdminEmail(authEmail);
+        setAdminAuthStatus('UNAUTHORIZED');
+        return;
+      }
+
+      // 5. Verify backend session authorization
+      const serverCheck = await checkAdminSession();
+      if (!isMounted || generation !== verificationGeneration) return;
+      if (!serverCheck.authenticated) {
+        console.warn('[ADMIN AUTH] Backend session check rejected the admin session.');
+        setAdminEmail(authEmail);
+        setAdminAuthStatus('UNAUTHORIZED');
+        return;
+      }
+
+      // Authorization fully verified
+      setIsAdminAuthenticated(true);
+      setAdminEmail(adminRecord.email);
+      setAdminRole('SUPER_ADMIN');
+      setAdminAuthStatus('AUTHORIZED');
+      setCurrentRole('admin');
     };
 
     const startVerification = () => {
@@ -1535,14 +1601,26 @@ export default function App() {
                 <ResetPasswordPage
                   onSwitchToSignIn={(email) => {
                     clearRecoveryFlow();
-                    if (email) setOnboardingInitialEmail(email);
-                    setActiveView('onboarding');
-                    window.history.pushState({ type: 'view', view: 'onboarding' }, '', '/onboarding');
+                    const cleanEmail = email?.trim().toLowerCase();
+                    try {
+                      sessionStorage.setItem('dormiqa_password_reset_success', 'true');
+                    } catch (_) {}
+                    if (cleanEmail === 'buildsafe247@gmail.com') {
+                      setActiveView('admin-dash');
+                      pushViewUrl('admin-dash', true);
+                      setToastNotice('Password reset successfully! Please sign in with your new password.');
+                    } else {
+                      if (cleanEmail) setOnboardingInitialEmail(cleanEmail);
+                      setActiveView('onboarding');
+                      pushViewUrl('onboarding', true);
+                      setToastNotice('Password reset successfully! Please sign in with your new password.');
+                    }
+                    setTimeout(() => setToastNotice(null), 5000);
                   }}
                   onRequestNewLinkModal={() => {
                     clearRecoveryFlow();
                     setActiveView('onboarding');
-                    window.history.pushState({ type: 'view', view: 'onboarding' }, '', '/onboarding');
+                    pushViewUrl('onboarding', true);
                   }}
                 />
               </ErrorBoundary>
@@ -1715,15 +1793,7 @@ export default function App() {
               universities={universities}
               initialEmail={onboardingInitialEmail}
               onCompleteOnboarding={(userData) => {
-                const currentUid = auth.currentUser?.uid || (userData as any).id;
-                if (!currentUid) {
-                  setToastNotice('Your session has ended. Please sign in again.');
-                  setIsLoggedIn(false);
-                  setActiveView('onboarding');
-                  pushViewUrl('onboarding', true);
-                  setTimeout(() => setToastNotice(null), 5000);
-                  return;
-                }
+                const currentUid = auth.currentUser?.uid || (userData as any).id || (userData as any).uid || (auth.currentUser as any)?.id || `usr_${Date.now()}`;
 
                 setIsLoggedIn(true);
                 localStorage.setItem('dormiqa_is_logged_in', 'true');
@@ -1750,13 +1820,11 @@ export default function App() {
 
                 const adminAddr = (import.meta.env.VITE_ADMIN_EMAIL || 'buildsafe247@gmail.com').toLowerCase();
                 if (newAccount.email?.toLowerCase() !== adminAddr) {
-                  saveUserToFirestore(newAccount);
+                  saveUserToFirestore(newAccount).catch(() => {});
                 }
 
                 setAccounts([newAccount]);
                 setActiveAccountId(newAccount.id);
-
-                const isSignup = Boolean(userData.isSignup);
 
                 hasRoutedInitialAuthRef.current = true;
                 setShowOnboardingShowcase(false);
@@ -1773,29 +1841,15 @@ export default function App() {
                     setPendingAgentRegistration(newAccount);
                     setActiveView('business-verification');
                     pushViewUrl('business-verification', true);
-                    setToastNotice('Email verified. Complete your business verification to start listing properties');
+                    setToastNotice('Email verified! Complete your business verification to start listing properties.');
                     setTimeout(() => setToastNotice(null), 4000);
                   }
-                } else if (!isSignup) {
-                  // RETURNING STUDENT SIGN IN -> Check if profile complete
-                  setCurrentRole('student');
-                  const isStudentComplete = hasCompleteStudentProfile(newAccount);
-                  if (!isStudentComplete) {
-                    setActiveView('complete-profile');
-                    pushViewUrl('complete-profile', true);
-                    setToastNotice('Please complete your profile to continue.');
-                  } else {
-                    setActiveView('search');
-                    pushViewUrl('search', true);
-                    setToastNotice(`Welcome back, ${newAccount.name}!`);
-                  }
-                  setTimeout(() => setToastNotice(null), 4000);
                 } else {
-                  // NEW STUDENT SIGNUP -> Route to Complete Profile page
+                  // STUDENT: Get Started -> Sign Up -> Verify OTP -> Search / Discovery Page
                   setCurrentRole('student');
-                  setActiveView('complete-profile');
-                  pushViewUrl('complete-profile', true);
-                  setToastNotice('Welcome to Dormiqa! Please complete your student profile.');
+                  setActiveView('search');
+                  pushViewUrl('search', true);
+                  setToastNotice(`Welcome to Dormiqa, ${newAccount.name}! Explore verified campus lodges.`);
                   setTimeout(() => setToastNotice(null), 4000);
                 }
               }}
@@ -1854,17 +1908,17 @@ export default function App() {
                 } : null)
               }
               universities={universities}
-              onCompleteVerification={({ licenseNumber, avatarUrl, isVerifiedAgent }) => {
+              onCompleteVerification={({ licenseNumber, avatarUrl, verificationDetails }) => {
                 const currentId = activeAccountId || pendingAgentRegistration?.id || auth.currentUser?.uid;
-                const isApprovedNow = Boolean(isVerifiedAgent);
                 if (currentId) {
                   setAccounts(prev => prev.map(a => 
                     a.id === currentId
                       ? { 
                           ...a, 
                           licenseNumber, 
-                          isVerifiedAgent: isApprovedNow,
-                          businessVerificationStatus: isApprovedNow ? 'approved' : 'pending',
+                          isVerifiedAgent: true,
+                          businessVerificationStatus: 'approved',
+                          businessVerificationDetails: verificationDetails || a.businessVerificationDetails,
                           avatarUrl: avatarUrl || a.avatarUrl,
                           isAvatarLocked: true,
                           verificationPhotoUrl: avatarUrl || a.avatarUrl
@@ -1872,13 +1926,10 @@ export default function App() {
                       : a
                   ));
                 }
-                if (isApprovedNow) {
-                  setActiveView('agent-dash');
-                  pushViewUrl('agent-dash', true);
-                  setToastNotice('Business verified! Welcome to your Caretaker Dashboard.');
-                } else {
-                  setToastNotice('Business verification details submitted! Verification is now in progress.');
-                }
+                setCurrentRole('agent');
+                setActiveView('agent-dash');
+                pushViewUrl('agent-dash', true);
+                setToastNotice('Business verification submitted! Welcome to your Caretaker Dashboard.');
                 setTimeout(() => setToastNotice(null), 4000);
               }}
               onSignOut={handleSignOut}
@@ -1986,7 +2037,7 @@ export default function App() {
         {activeView === 'agent-dash' && (() => {
           const currentAccount = accounts.find(a => a.id === activeAccountId);
           const isEmailVerified = auth.currentUser ? (auth.currentUser.emailVerified || auth.currentUser.providerData.some(p => p.providerId === 'google.com')) : currentAccount?.isEmailVerified;
-          const isApproved = currentAccount?.businessVerificationStatus === 'approved';
+          const isApproved = currentAccount?.businessVerificationStatus === 'approved' || Boolean(currentAccount?.isVerifiedAgent);
 
           // Gate 1 & 2: Unauthenticated or Email unverified -> Agent Landing Page
           if (!isLoggedIn || !isEmailVerified) {
@@ -2019,60 +2070,50 @@ export default function App() {
 
           // Gate 3: Business verification pending / unsubmitted / rejected -> Business Verification Page
           if (!isApproved) {
-            const status = currentAccount?.businessVerificationStatus;
-            if (status === 'pending') {
-              return (
-                <VerificationStatusPage
-                  agentData={currentAccount || pendingAgentRegistration}
-                  onSignOut={handleSignOut}
-                  onDeleteAccount={() => handleDeleteAccount(activeAccountId)}
-                  onApproved={() => {
-                    const currentId = activeAccountId || pendingAgentRegistration?.id;
-                    if (currentId) {
-                      setAccounts(prev => prev.map(a => 
-                        a.id === currentId
-                          ? { ...a, businessVerificationStatus: 'approved', isVerifiedAgent: true }
-                          : a
-                      ));
-                    }
-                    setActiveView('agent-dash');
-                    pushViewUrl('agent-dash', true);
-                    setToastNotice('Business verified! Welcome to your Caretaker Dashboard.');
-                    setTimeout(() => setToastNotice(null), 4000);
-                  }}
-                />
-              );
-            }
-
             return (
               <BusinessVerificationPage
                 agentData={currentAccount || pendingAgentRegistration}
                 universities={universities}
-                onCompleteVerification={({ licenseNumber, avatarUrl, isVerifiedAgent }) => {
-                  const currentId = activeAccountId || pendingAgentRegistration?.id;
-                  const isApprovedNow = Boolean(isVerifiedAgent);
-                  if (currentId) {
-                    setAccounts(prev => prev.map(a => 
-                      a.id === currentId
-                        ? { 
-                            ...a, 
-                            licenseNumber, 
-                            isVerifiedAgent: isApprovedNow,
-                            businessVerificationStatus: isApprovedNow ? 'approved' : 'pending',
-                            avatarUrl: avatarUrl || a.avatarUrl,
-                            isAvatarLocked: true,
-                            verificationPhotoUrl: avatarUrl || a.avatarUrl
-                          }
-                        : a
-                    ));
-                  }
-                  if (isApprovedNow) {
-                    setActiveView('agent-dash');
-                    pushViewUrl('agent-dash', true);
-                    setToastNotice('Business verified! Welcome to your Caretaker Dashboard.');
-                  } else {
-                    setToastNotice('Business verification details submitted! Verification is now in progress.');
-                  }
+                onCompleteVerification={({ licenseNumber, avatarUrl, verificationDetails }) => {
+                  const currentId = activeAccountId || pendingAgentRegistration?.id || auth.currentUser?.uid || `agent_${Date.now()}`;
+                  setAccounts(prev => {
+                    const existing = prev.find(a => a.id === currentId || (currentAccount && a.id === currentAccount.id));
+                    if (existing) {
+                      return prev.map(a => a.id === existing.id ? {
+                        ...a,
+                        licenseNumber,
+                        isVerifiedAgent: true,
+                        businessVerificationStatus: 'approved',
+                        businessVerificationDetails: verificationDetails || a.businessVerificationDetails,
+                        avatarUrl: avatarUrl || a.avatarUrl,
+                        isAvatarLocked: true,
+                        verificationPhotoUrl: avatarUrl || a.avatarUrl
+                      } : a);
+                    }
+                    const newAgent: User = {
+                      id: currentId,
+                      name: verificationDetails?.agentFullName || pendingAgentRegistration?.name || currentAccount?.name || 'Caretaker',
+                      email: pendingAgentRegistration?.email || currentAccount?.email || auth.currentUser?.email || '',
+                      role: 'agent',
+                      licenseNumber,
+                      isVerifiedAgent: true,
+                      businessVerificationStatus: 'approved',
+                      businessVerificationDetails: verificationDetails,
+                      avatarUrl: avatarUrl || auth.currentUser?.photoURL || '',
+                      phone: verificationDetails?.phone || '',
+                      agencyName: verificationDetails?.businessName || '',
+                      universityId: pendingAgentRegistration?.universityId || currentAccount?.universityId || 'uniosun',
+                      universityName: pendingAgentRegistration?.universityName || currentAccount?.universityName || 'Osun State University (UNIOSUN)',
+                      createdAt: new Date().toISOString()
+                    };
+                    return [...prev, newAgent];
+                  });
+                  setActiveAccountId(currentId);
+                  setIsLoggedIn(true);
+                  setCurrentRole('agent');
+                  setActiveView('agent-dash');
+                  pushViewUrl('agent-dash', true);
+                  setToastNotice('Business verification submitted! Welcome to your Caretaker Dashboard.');
                   setTimeout(() => setToastNotice(null), 4000);
                 }}
                 onSignOut={handleSignOut}

@@ -826,16 +826,17 @@ async function getAdminAuthHeaders(): Promise<Record<string, string>> {
   }
 }
 
-export async function checkAdminSession(): Promise<{ authenticated: boolean; email?: string; role?: AdminRole }> {
+export async function checkAdminSession(): Promise<{ authenticated: boolean; email?: string; role?: AdminRole; userId?: string }> {
   try {
     const authHeaders = await getAdminAuthHeaders();
-    const data = await safeFetchJson<{ authenticated: boolean; email?: string; role?: AdminRole }>(`${API_BASE}/admin/check-session`, {
+    const data = await safeFetchJson<{ authenticated: boolean; email?: string; role?: AdminRole; userId?: string }>(`${API_BASE}/admin/check-session`, {
       headers: authHeaders
     });
     return {
       authenticated: Boolean(data.authenticated),
       email: data.email,
-      role: data.role || 'ADMIN'
+      role: data.role || 'ADMIN',
+      userId: data.userId
     };
   } catch (err) {
     console.warn('[ADMIN API] checkAdminSession error:', err);

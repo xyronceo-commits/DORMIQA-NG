@@ -1,36 +1,47 @@
 import React, { useState } from 'react';
 import { Shield, ShieldAlert, Loader2, ArrowLeft, Lock, Mail, KeyRound, QrCode, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../services/supabase';
+import { PasswordResetModal } from './PasswordResetModal';
 
 interface AdminAccessScreenProps {
- status: 'AUTH_LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED' | 'ADMIN_CHECKING' | 'AUTHORIZED' | 'UNAUTHORIZED' | 'SESSION_EXPIRED' | 'SIGNED_OUT';
- currentUserEmail?: string;
- errorMessage?: string | null;
- onContinueWithGoogle: () => void;
- onAdminSuccess?: () => void;
- onBackToDormiqa: () => void;
+  status: 'AUTH_LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED' | 'ADMIN_CHECKING' | 'AUTHORIZED' | 'UNAUTHORIZED' | 'SESSION_EXPIRED' | 'SIGNED_OUT';
+  currentUserEmail?: string;
+  errorMessage?: string | null;
+  onContinueWithGoogle: () => void;
+  onAdminSuccess?: () => void;
+  onBackToDormiqa: () => void;
 }
 
 export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
- status,
- currentUserEmail,
- errorMessage,
- onContinueWithGoogle,
- onAdminSuccess,
- onBackToDormiqa,
+  status,
+  currentUserEmail,
+  errorMessage,
+  onContinueWithGoogle,
+  onAdminSuccess,
+  onBackToDormiqa,
 }) => {
- const [authMode, setAuthMode] = useState<'password'>('password');
- const [email, setEmail] = useState((import.meta.env.VITE_ADMIN_EMAIL || 'buildsafe247@gmail.com').trim().toLowerCase());
- const [password, setPassword] = useState('');
- const [totpCode, setTotpCode] = useState('');
- const [isSubmitting, setIsSubmitting] = useState(false);
- const [localError, setLocalError] = useState<string | null>(null);
+  const [authMode, setAuthMode] = useState<'password'>('password');
+  const [email, setEmail] = useState('buildsafe247@gmail.com');
+  const [password, setPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetSuccessNotice, setResetSuccessNotice] = useState<string | null>(() => {
+    try {
+      if (sessionStorage.getItem('dormiqa_password_reset_success') === 'true') {
+        sessionStorage.removeItem('dormiqa_password_reset_success');
+        return 'Password reset successfully! Please sign in with your new password.';
+      }
+    } catch (_) {}
+    return null;
+  });
 
- // MFA state
- const [mfaStage, setMfaStage] = useState<'none' | 'challenge' | 'enroll'>('none');
- const [factorId, setFactorId] = useState<string>('');
- const [enrollQrSvg, setEnrollQrSvg] = useState<string>('');
- const [enrollSecret, setEnrollSecret] = useState<string>('');
+  // MFA state
+  const [mfaStage, setMfaStage] = useState<'none' | 'challenge' | 'enroll'>('none');
+  const [factorId, setFactorId] = useState<string>('');
+  const [enrollQrSvg, setEnrollQrSvg] = useState<string>('');
+  const [enrollSecret, setEnrollSecret] = useState<string>('');
 
  if (status === 'AUTH_LOADING' || status === 'ADMIN_CHECKING') {
   return (
@@ -71,13 +82,22 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
 
      <div className="pt-2 space-y-2">
       <button
-       onClick={onBackToDormiqa}
+       onClick={async () => {
+        await supabase.auth.signOut().catch(() => {});
+        if (onAdminSuccess) onAdminSuccess();
+       }}
        className="w-full py-3.5 px-4 rounded-2xl bg-black hover:bg-neutral-900 dark:bg-white dark:hover:bg-neutral-100 dark:text-black text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+      >
+       <Lock className="w-4 h-4" />
+       <span>Sign In with Admin Account</span>
+      </button>
+      <button
+       onClick={onBackToDormiqa}
+       className="w-full py-3 px-4 rounded-2xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
       >
        <ArrowLeft className="w-4 h-4" />
        <span>Back to Dormiqa</span>
       </button>
-
      </div>
     </div>
    </div>
@@ -93,6 +113,11 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
 
   try {
    const cleanEmail = email.trim().toLowerCase();
+   if (cleanEmail !== 'buildsafe247@gmail.com') {
+    setIsSubmitting(false);
+    setLocalError('Access denied: buildsafe247@gmail.com is the only approved administrator email address.');
+    return;
+   }
    const { data, error } = await supabase.auth.signInWithPassword({
     email: cleanEmail,
     password
@@ -106,42 +131,24 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
     throw new Error('Authentication failed. No user returned.');
    }
 
-   // Check MFA Assurance Level
-   const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-   if (aalError) throw aalError;
-
-   if (aalData.currentLevel === 'aal1' && aalData.nextLevel === 'aal2') {
-    // Factor already enrolled: challenge it
-    const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
-    if (factorsError) throw factorsError;
-
-    const totpFactor = factorsData.totp.find(f => f.status === 'verified');
-    if (totpFactor) {
-     setFactorId(totpFactor.id);
-     setMfaStage('challenge');
-     setIsSubmitting(false);
-     return;
+   // Check if verified factor already enrolled: challenge it
+   try {
+    const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aalData && aalData.currentLevel === 'aal1' && aalData.nextLevel === 'aal2') {
+     const { data: factorsData } = await supabase.auth.mfa.listFactors();
+     const totpFactor = factorsData?.totp?.find(f => f.status === 'verified');
+     if (totpFactor) {
+      setFactorId(totpFactor.id);
+      setMfaStage('challenge');
+      setIsSubmitting(false);
+      return;
+     }
     }
+   } catch (mfaErr) {
+    console.warn('[ADMIN MFA] MFA check notice:', mfaErr);
    }
 
-   if (aalData.currentLevel === 'aal1' && aalData.nextLevel === 'aal1') {
-    // No verified factor enrolled yet: initiate enrollment for admin
-    const { data: enrollData, error: enrollError } = await supabase.auth.mfa.enroll({
-     factorType: 'totp',
-     issuer: 'Dormiqa Admin'
-    });
-
-    if (enrollError) throw enrollError;
-
-    setFactorId(enrollData.id);
-    setEnrollQrSvg(enrollData.totp.qr_code || '');
-    setEnrollSecret(enrollData.totp.secret || '');
-    setMfaStage('enroll');
-    setIsSubmitting(false);
-    return;
-   }
-
-   // If already at AAL2 (or non-MFA enabled), complete
+   // Complete login and trigger authorization verification
    setIsSubmitting(false);
    if (onAdminSuccess) onAdminSuccess();
   } catch (err: any) {
@@ -197,6 +204,13 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
     </div>
 
 
+    {resetSuccessNotice && (
+     <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-semibold text-left flex items-center gap-2">
+      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+      <span>{resetSuccessNotice}</span>
+     </div>
+    )}
+
     {(errorMessage || localError) && (
      <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900 text-xs font-medium text-left">
       {localError || errorMessage}
@@ -207,9 +221,14 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
     {mfaStage === 'none' && (
      <form onSubmit={handlePasswordSubmit} className="pt-2 space-y-3 text-left">
       <div>
-       <label className="block text-[11px] font-bold text-neutral-600 dark:text-neutral-400 mb-1">
-        Admin Email
-       </label>
+       <div className="flex items-center justify-between mb-1">
+        <label className="block text-[11px] font-bold text-neutral-600 dark:text-neutral-400">
+         Admin Email
+        </label>
+        <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+         Only buildsafe247@gmail.com approved
+        </span>
+       </div>
        <div className="relative">
         <Mail className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3" />
         <input
@@ -217,16 +236,25 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
          value={email}
          onChange={(e) => setEmail(e.target.value)}
          required
-         placeholder="admin@dormiqa.com"
+         placeholder="buildsafe247@gmail.com"
          className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs text-black dark:text-white focus:outline-none focus:border-emerald-500"
         />
        </div>
       </div>
 
       <div>
-       <label className="block text-[11px] font-bold text-neutral-600 dark:text-neutral-400 mb-1">
-        Password
-       </label>
+       <div className="flex items-center justify-between mb-1">
+        <label className="block text-[11px] font-bold text-neutral-600 dark:text-neutral-400">
+         Password
+        </label>
+        <button
+         type="button"
+         onClick={() => setShowResetModal(true)}
+         className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+        >
+         Forgot password?
+        </button>
+       </div>
        <div className="relative">
         <Lock className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3" />
         <input
@@ -361,10 +389,20 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
 
     <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800">
      <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
-       Protected Administrator Environment (Google OAuth & TOTP MFA)
+       Protected Administrator Environment (buildsafe247@gmail.com)
      </p>
     </div>
    </div>
+
+   <PasswordResetModal
+     isOpen={showResetModal}
+     initialEmail={email || 'buildsafe247@gmail.com'}
+     onClose={() => setShowResetModal(false)}
+     onSwitchToSignIn={(em) => {
+       setShowResetModal(false);
+       if (em) setEmail(em);
+     }}
+   />
   </div>
  );
 };

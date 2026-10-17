@@ -9,6 +9,7 @@ import {
   RefreshCw, 
   ShieldAlert 
 } from 'lucide-react';
+import { supabase } from '../services/supabase';
 
 export type PasswordResetStep = 'forgot' | 'check_email';
 
@@ -54,7 +55,7 @@ export const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
 
   if (!isOpen) return null;
 
-  // 1. Submit Request for Reset Link (Forgot Password endpoint)
+  // 1. Submit Request for Reset Link (Forgot Password endpoint with Supabase direct fallback)
   const handleSendResetLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -68,6 +69,10 @@ export const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
     }
 
     setIsLoading(true);
+    let fallbackMessage = `If an account exists for ${trimmed}, a password reset link has been sent.`;
+    let isHandled = false;
+
+    // 1. Try backend endpoint first
     try {
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
@@ -75,34 +80,47 @@ export const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
         body: JSON.stringify({ email: trimmed }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (res.status === 429) {
-          const waitTime = data.retryAfterSeconds || 60;
-          setResendCooldown(waitTime);
-          setErrorMessage(data.message || `Too many requests. Please wait ${waitTime} seconds before trying again.`);
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.isGoogleOnly) {
+          setIsGoogleOnly(true);
+          setErrorMessage(data.message || 'This account signs in with Google. Please use Google Sign-In.');
+          setIsLoading(false);
           return;
         }
-        throw new Error(data.message || data.error || 'Could not process reset request.');
-      }
-
-      if (data.isGoogleOnly) {
-        setIsGoogleOnly(true);
-        setErrorMessage(data.message || 'This account signs in with Google. Please use Google Sign-In.');
+        if (data.message) fallbackMessage = data.message;
+        isHandled = true;
+      } else if (res.status === 429) {
+        const data = await res.json().catch(() => ({}));
+        const waitTime = data.retryAfterSeconds || 60;
+        setResendCooldown(waitTime);
+        setErrorMessage(data.message || `Too many requests. Please wait ${waitTime} seconds before trying again.`);
+        setIsLoading(false);
         return;
       }
-
-      // Success (Always standard message, no account enumeration)
-      setStep('check_email');
-      setResendCooldown(60);
-      setInfoMessage(data.message || `If an account exists for ${trimmed}, a password reset link has been sent.`);
-    } catch (err: any) {
-      console.error('Forgot password submission error:', err);
-      setErrorMessage(err?.message || 'Failed to request password reset. Please check your network and try again.');
-    } finally {
-      setIsLoading(false);
+    } catch (apiErr) {
+      console.warn('Server forgot-password endpoint notice, engaging direct client fallback:', apiErr);
     }
+
+    // 2. Client-side direct Supabase fallback if backend fetch encountered an error or network drop
+    if (!isHandled) {
+      try {
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        const { error: sbError } = await supabase.auth.resetPasswordForEmail(trimmed, {
+          redirectTo: origin ? `${origin}/reset-password` : undefined,
+        });
+        if (sbError) {
+          console.warn('Client Supabase reset notice:', sbError.message);
+        }
+      } catch (sbErr) {
+        console.warn('Client Supabase exception:', sbErr);
+      }
+    }
+
+    setIsLoading(false);
+    setStep('check_email');
+    setResendCooldown(60);
+    setInfoMessage(fallbackMessage);
   };
 
   // 2. Resend Reset Link from "Check your email" screen
@@ -110,30 +128,39 @@ export const PasswordResetModal: React.FC<PasswordResetModalProps> = ({
     if (resendCooldown > 0 || isLoading) return;
     setIsLoading(true);
     setErrorMessage(null);
+    const trimmed = email.trim().toLowerCase();
 
+    let isHandled = false;
     try {
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        body: JSON.stringify({ email: trimmed }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        if (res.status === 429) {
-          const wait = data.retryAfterSeconds || 60;
-          setResendCooldown(wait);
-          setErrorMessage(data.message || `Please wait ${wait} seconds before requesting another email.`);
-          return;
-        }
-        throw new Error(data.message || 'Failed to resend reset link.');
+      if (res.ok) {
+        isHandled = true;
+      } else if (res.status === 429) {
+        const data = await res.json().catch(() => ({}));
+        const wait = data.retryAfterSeconds || 60;
+        setResendCooldown(wait);
+        setErrorMessage(data.message || `Please wait ${wait} seconds before requesting another email.`);
+        setIsLoading(false);
+        return;
       }
-      setResendCooldown(60);
-      setInfoMessage(`A fresh reset link has been sent to ${email}. Please check your inbox and spam folder.`);
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Could not resend reset email.');
-    } finally {
-      setIsLoading(false);
+    } catch (_) {}
+
+    if (!isHandled) {
+      try {
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        await supabase.auth.resetPasswordForEmail(trimmed, {
+          redirectTo: origin ? `${origin}/reset-password` : undefined,
+        });
+      } catch (_) {}
     }
+
+    setIsLoading(false);
+    setResendCooldown(60);
+    setInfoMessage(`A fresh reset link has been sent to ${trimmed}. Please check your inbox and spam folder.`);
   };
 
   return (

@@ -3,7 +3,13 @@ import {
   Eye, 
   EyeOff, 
   Loader2, 
-  AlertCircle 
+  AlertCircle,
+  CheckCircle2,
+  User,
+  Mail,
+  Phone,
+  Lock,
+  Building
 } from 'lucide-react';
 import { UserRole, University } from '../types';
 import { UniversitySelector } from './UniversitySelector';
@@ -11,6 +17,7 @@ import { PasswordResetModal } from './PasswordResetModal';
 import { OnboardingSlides } from './onboarding/OnboardingSlides';
 import { RoleSelectionScreen } from './onboarding/RoleSelectionScreen';
 import { OtpVerificationScreen } from './onboarding/OtpVerificationScreen';
+import { DormiqaLogo } from './DormiqaLogo';
 import { mapAuthError } from '../utils/authErrors';
 import { 
   auth,
@@ -91,6 +98,15 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   // Password Reset Modal State
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetModalEmail, setResetModalEmail] = useState('');
+  const [resetSuccessNotice, setResetSuccessNotice] = useState<string | null>(() => {
+    try {
+      if (sessionStorage.getItem('dormiqa_password_reset_success') === 'true') {
+        sessionStorage.removeItem('dormiqa_password_reset_success');
+        return 'Password reset successfully! Please sign in with your new password.';
+      }
+    } catch (_) {}
+    return null;
+  });
 
   useEffect(() => {
     if (initialEmail && initialEmail.trim()) {
@@ -99,6 +115,12 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
       setAgentEmail(clean);
       setAuthMode('signin');
       setStep('auth');
+      try {
+        if (sessionStorage.getItem('dormiqa_password_reset_success') === 'true') {
+          sessionStorage.removeItem('dormiqa_password_reset_success');
+          setResetSuccessNotice('Password reset successfully! Please sign in with your new password.');
+        }
+      } catch (_) {}
     }
   }, [initialEmail]);
 
@@ -296,8 +318,10 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           await saveUserToFirestore(agentData).catch(() => {});
         }
 
-        // Direct agent to Business Verification
-        onCompleteOnboarding(agentData);
+        // Transition Agent to OTP Verification (8-digit code)
+        setPendingOtpEmail(cleanEmail);
+        setPendingUserData(agentData);
+        setStep('otp_verification');
       } else {
         // SIGN IN
         const loggedInUser = await loginWithEmail(cleanEmail, cleanPassword);
@@ -328,7 +352,13 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           isEmailVerified: isVerified
         };
 
-        onCompleteOnboarding(agentData);
+        if (!isVerified) {
+          setPendingOtpEmail(cleanEmail);
+          setPendingUserData(agentData);
+          setStep('otp_verification');
+        } else {
+          onCompleteOnboarding(agentData);
+        }
       }
     } catch (err: any) {
       console.error('[AGENT AUTH] Error:', err);
@@ -336,8 +366,10 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
       const msg = String(err?.message || '').toLowerCase();
 
       if (code === 'email_not_confirmed' || msg.includes('email not confirmed') || msg.includes('not confirmed')) {
-        onCompleteOnboarding({
-          role: 'agent',
+        setPendingOtpEmail(cleanEmail);
+        setPendingUserData({
+          id: '',
+          role: 'agent' as UserRole,
           name: agentName || cleanEmail.split('@')[0],
           email: cleanEmail,
           phone: agentPhoneWA,
@@ -349,6 +381,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           isSignup: false,
           isEmailVerified: false
         });
+        setStep('otp_verification');
         return;
       }
 
@@ -376,7 +409,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     try {
       const { user } = await verifyOtpWithEmail(pendingOtpEmail, otpCode, 'signup');
       const verifiedUser = user || auth.currentUser;
-      const uid = verifiedUser?.uid || verifiedUser?.id || pendingUserData?.id;
+      const uid = verifiedUser?.uid || verifiedUser?.id || pendingUserData?.id || `user_${Date.now()}`;
 
       const updatedUserData = {
         ...(pendingUserData || {}),
@@ -393,7 +426,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
       onCompleteOnboarding(updatedUserData);
     } catch (err: any) {
       console.error('[OTP VERIFY] Error:', err);
-      const msg = err?.message || 'Invalid or expired 6-digit verification code. Please check your email and try again.';
+      const msg = err?.message || 'Invalid or expired 8-digit verification code. Please check your email and try again.';
       setOtpError(msg);
     } finally {
       setIsOtpLoading(false);
@@ -463,29 +496,26 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   // 4. Clean Production Auth Form
   return (
     <div className="min-h-screen bg-white text-neutral-900 flex flex-col justify-between font-sans">
-      {/* Top Header */}
-      <header className="w-full max-w-xl mx-auto px-6 py-4 flex items-center justify-between border-b border-neutral-100">
-        <div className="flex items-center gap-2">
-          <span className="text-base font-extrabold tracking-tight text-neutral-900">DORMIQA</span>
-          <span className="text-neutral-300 font-light text-xs">/</span>
-          <span className="text-xs text-neutral-500 font-medium">
-            {selectedRole === 'student' ? 'Student' : 'Agent'}
-          </span>
+      {/* Top Header with Brand Logo (No URL path breadcrumbs) */}
+      <header className="w-full max-w-xl mx-auto px-5 py-3.5 flex items-center justify-between border-b border-neutral-100">
+        <div className="flex items-center gap-2.5">
+          <DormiqaLogo className="w-6 h-6 shrink-0" />
+          <span className="text-base font-black tracking-tight text-neutral-900">DORMIQA</span>
         </div>
 
         <button
           type="button"
           onClick={() => setStep('role_selection')}
-          className="text-xs font-semibold text-neutral-600 hover:text-neutral-900 py-1.5 px-3 rounded-md hover:bg-neutral-100 transition-colors cursor-pointer"
+          className="text-xs font-semibold text-neutral-600 hover:text-neutral-900 py-1 px-2.5 rounded-md hover:bg-neutral-100 transition-colors cursor-pointer"
         >
           Change role
         </button>
       </header>
 
-      {/* Main Container */}
-      <main className="w-full max-w-md mx-auto px-6 py-8 flex flex-col justify-center flex-1">
-        <div className="space-y-1.5 mb-6 text-center">
-          <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">
+      {/* Main Container - Compact vertical spacing so users do not need to scroll */}
+      <main className="w-full max-w-md mx-auto px-5 pt-4 pb-6 flex flex-col justify-start flex-1">
+        <div className="space-y-1 mb-4 text-center">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-neutral-900 tracking-tight">
             {authMode === 'signup' ? 'Create Account' : 'Sign In'}
           </h1>
           <p className="text-xs text-neutral-600">
@@ -496,7 +526,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
         </div>
 
         {/* Clean Segmented Role Switcher */}
-        <div className="grid grid-cols-2 p-1 bg-neutral-100 rounded-lg mb-6">
+        <div className="grid grid-cols-2 p-1 bg-neutral-100 rounded-lg mb-4">
           <button
             type="button"
             onClick={() => {
@@ -527,6 +557,14 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           </button>
         </div>
 
+        {/* Reset Success Notice */}
+        {resetSuccessNotice && (
+          <div className="mb-4 p-3 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+            <span className="leading-snug font-semibold">{resetSuccessNotice}</span>
+          </div>
+        )}
+
         {/* Error Alert */}
         {authError && (
           <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
@@ -537,34 +575,40 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
         {/* Form: Student */}
         {selectedRole === 'student' ? (
-          <form onSubmit={handleStudentSubmit} className="space-y-4">
+          <form onSubmit={handleStudentSubmit} className="space-y-3.5">
             {authMode === 'signup' && (
               <>
                 <div>
                   <label className="block text-xs font-semibold text-neutral-700 mb-1">
                     Full Name <span className="text-emerald-700">*</span>
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={studentName}
-                    onChange={(e) => setStudentName(e.target.value)}
-                    placeholder="e.g. Ibrahim Adeyemi"
-                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
-                  />
+                  <div className="relative">
+                    <User className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={studentName}
+                      onChange={(e) => setStudentName(e.target.value)}
+                      placeholder="e.g. Ibrahim Adeyemi"
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-neutral-700 mb-1">
                     Mobile or WhatsApp Phone
                   </label>
-                  <input
-                    type="tel"
-                    value={studentPhone}
-                    onChange={(e) => setStudentPhone(e.target.value)}
-                    placeholder="08012345678"
-                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
-                  />
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="tel"
+                      value={studentPhone}
+                      onChange={(e) => setStudentPhone(e.target.value)}
+                      placeholder="08012345678"
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -587,14 +631,17 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
               <label className="block text-xs font-semibold text-neutral-700 mb-1">
                 Email Address <span className="text-emerald-700">*</span>
               </label>
-              <input
-                type="email"
-                required
-                value={studentEmail}
-                onChange={(e) => setStudentEmail(e.target.value)}
-                placeholder="student@example.com"
-                className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
-              />
+              <div className="relative">
+                <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  required
+                  value={studentEmail}
+                  onChange={(e) => setStudentEmail(e.target.value)}
+                  placeholder="student@example.com"
+                  className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                />
+              </div>
             </div>
 
             <div>
@@ -616,6 +663,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                 )}
               </div>
               <div className="relative">
+                <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
@@ -623,7 +671,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   value={studentPassword}
                   onChange={(e) => setStudentPassword(e.target.value)}
                   placeholder="At least 6 characters"
-                  className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                  className="w-full pl-9 pr-10 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
                 />
                 <button
                   type="button"
@@ -652,48 +700,57 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           </form>
         ) : (
           /* Form: Agent */
-          <form onSubmit={handleAgentSubmit} className="space-y-4">
+          <form onSubmit={handleAgentSubmit} className="space-y-3.5">
             {authMode === 'signup' && (
               <>
                 <div>
                   <label className="block text-xs font-semibold text-neutral-700 mb-1">
                     Full Legal Name <span className="text-emerald-700">*</span>
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={agentName}
-                    onChange={(e) => setAgentName(e.target.value)}
-                    placeholder="e.g. Babatunde Lawal"
-                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
-                  />
+                  <div className="relative">
+                    <User className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={agentName}
+                      onChange={(e) => setAgentName(e.target.value)}
+                      placeholder="e.g. Babatunde Lawal"
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-neutral-700 mb-1">
                     Agency or Property Name
                   </label>
-                  <input
-                    type="text"
-                    value={agencyName}
-                    onChange={(e) => setAgencyName(e.target.value)}
-                    placeholder="e.g. Oke-Baale Lodge Caretakers"
-                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
-                  />
+                  <div className="relative">
+                    <Building className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={agencyName}
+                      onChange={(e) => setAgencyName(e.target.value)}
+                      placeholder="e.g. Oke-Baale Lodge Caretakers"
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-neutral-700 mb-1">
                     Direct WhatsApp / Phone <span className="text-emerald-700">*</span>
                   </label>
-                  <input
-                    type="tel"
-                    required
-                    value={agentPhoneWA}
-                    onChange={(e) => setAgentPhoneWA(e.target.value)}
-                    placeholder="08098765432"
-                    className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
-                  />
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="tel"
+                      required
+                      value={agentPhoneWA}
+                      onChange={(e) => setAgentPhoneWA(e.target.value)}
+                      placeholder="08098765432"
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                    />
+                  </div>
                 </div>
               </>
             )}
@@ -702,14 +759,17 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
               <label className="block text-xs font-semibold text-neutral-700 mb-1">
                 Email Address <span className="text-emerald-700">*</span>
               </label>
-              <input
-                type="email"
-                required
-                value={agentEmail}
-                onChange={(e) => setAgentEmail(e.target.value)}
-                placeholder="agent@example.com"
-                className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
-              />
+              <div className="relative">
+                <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  required
+                  value={agentEmail}
+                  onChange={(e) => setAgentEmail(e.target.value)}
+                  placeholder="agent@example.com"
+                  className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                />
+              </div>
             </div>
 
             <div>
@@ -731,6 +791,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                 )}
               </div>
               <div className="relative">
+                <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
@@ -738,7 +799,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   value={agentPassword}
                   onChange={(e) => setAgentPassword(e.target.value)}
                   placeholder="At least 6 characters"
-                  className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                  className="w-full pl-9 pr-10 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
                 />
                 <button
                   type="button"
@@ -761,7 +822,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   <span>Processing...</span>
                 </>
               ) : (
-                <span>{authMode === 'signup' ? 'Continue to Business Verification' : 'Sign In as Agent'}</span>
+                <span>{authMode === 'signup' ? 'Continue to Verification' : 'Sign In as Agent'}</span>
               )}
             </button>
           </form>

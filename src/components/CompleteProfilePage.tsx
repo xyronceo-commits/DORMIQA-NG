@@ -3,7 +3,8 @@ import { User, University } from '../types';
 import { saveUserToFirestore, auth } from '../services/firebase';
 import { supabase } from '../services/supabase';
 import { UniversitySelector } from './UniversitySelector';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, User as UserIcon, Phone } from 'lucide-react';
+import { DormiqaLogo } from './DormiqaLogo';
 
 interface CompleteProfilePageProps {
   user?: Partial<User> | null;
@@ -85,27 +86,26 @@ export const CompleteProfilePage: React.FC<CompleteProfilePageProps> = ({
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 flex flex-col justify-between font-sans">
-      {/* Top Header */}
-      <header className="w-full max-w-xl mx-auto px-6 py-4 flex items-center justify-between border-b border-neutral-100">
-        <div className="flex items-center gap-2">
-          <span className="text-base font-extrabold tracking-tight text-neutral-900">DORMIQA</span>
-          <span className="text-neutral-300 font-light text-xs">/</span>
-          <span className="text-xs text-neutral-500 font-medium">Profile Setup</span>
+      {/* Top Header with Brand Logo (No URL path breadcrumbs) */}
+      <header className="w-full max-w-xl mx-auto px-5 py-3.5 flex items-center justify-between border-b border-neutral-100">
+        <div className="flex items-center gap-2.5">
+          <DormiqaLogo className="w-6 h-6 shrink-0" />
+          <span className="text-base font-black tracking-tight text-neutral-900">DORMIQA</span>
         </div>
 
         <button
           type="button"
           onClick={onSignOut}
-          className="text-xs font-semibold text-neutral-500 hover:text-neutral-900 py-1.5 px-3 rounded-md hover:bg-neutral-100 transition-colors cursor-pointer"
+          className="text-xs font-semibold text-neutral-500 hover:text-neutral-900 py-1 px-2.5 rounded-md hover:bg-neutral-100 transition-colors cursor-pointer"
         >
           Sign out
         </button>
       </header>
 
       {/* Main Container */}
-      <main className="w-full max-w-md mx-auto px-6 py-8 flex flex-col justify-center flex-1">
-        <div className="space-y-1.5 mb-6">
-          <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">
+      <main className="w-full max-w-md mx-auto px-5 pt-4 pb-6 flex flex-col justify-start flex-1">
+        <div className="space-y-1 mb-4">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-neutral-900 tracking-tight">
             Complete student profile
           </h1>
           <p className="text-xs text-neutral-600 leading-relaxed">
@@ -120,33 +120,39 @@ export const CompleteProfilePage: React.FC<CompleteProfilePageProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
             <label className="block text-xs font-semibold text-neutral-700 mb-1">
               Full Name <span className="text-emerald-700">*</span>
             </label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Babatunde Adeyemi"
-              className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
-            />
+            <div className="relative">
+              <UserIcon className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Babatunde Adeyemi"
+                className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+              />
+            </div>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-neutral-700 mb-1">
               WhatsApp or Mobile Phone <span className="text-emerald-700">*</span>
             </label>
-            <input
-              type="tel"
-              required
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="08012345678"
-              className="w-full px-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
-            />
+            <div className="relative">
+              <Phone className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="tel"
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="08012345678"
+                className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+              />
+            </div>
             <p className="text-[11px] text-neutral-500 mt-1">
               Used strictly for caretaker inspection appointment confirmations.
             </p>

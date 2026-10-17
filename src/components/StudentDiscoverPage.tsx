@@ -15,6 +15,7 @@ import {
 import { Listing, University, Campus, PropertyType } from '../types';
 import { ListingCard } from './ListingCard';
 import { ListingGridSkeleton } from './SkeletonLoader';
+import { DormiqaLogo } from './DormiqaLogo';
 
 interface StudentDiscoverPageProps {
   listings: Listing[];
@@ -256,6 +257,7 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
           
           {/* Logo & Brand */}
           <div className="flex items-center gap-2">
+            <DormiqaLogo className="w-6 h-6 shrink-0" />
             <span className="font-black text-lg tracking-tight text-neutral-900">
               DORMIQA
             </span>

@@ -18,7 +18,10 @@ import { Listing, Inspection, Conversation, ChatMessage, Report, User } from './
 import { sendPasswordChangedNotice, isSmtpConfigured, maskEmail } from './server/mailer.js';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const rawAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseAnonKey = (process.env.VITE_SUPABASE_ANON_KEY?.split('.').length === 3 ? process.env.VITE_SUPABASE_ANON_KEY : null)
+  || (process.env.SUPABASE_ANON_KEY?.split('.').length === 3 ? process.env.SUPABASE_ANON_KEY : null)
+  || rawAnonKey;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
   throw new Error('Supabase server configuration is missing. Set SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY.');
@@ -315,44 +318,69 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
     : null;
 
   if (!token) {
-    console.warn('[ADMIN] 401 reason: Missing Bearer authorization token');
+    console.warn('[ADMIN AUTH] 401: Missing Bearer authorization token');
     return res.status(401).json({ success: false, error: 'Unauthorized', message: 'A valid Supabase session is required.' });
   }
 
-  void supabaseAuthClient.auth.getUser(token).then(({ data, error }) => {
+  void supabaseDataClient.auth.getUser(token).then(async ({ data, error }) => {
     if (error || !data.user) {
-      console.warn('[ADMIN] 401 reason: getUser failed:', error?.message);
+      console.warn('[ADMIN AUTH] 401: getUser failed:', error?.message);
       res.status(401).json({ success: false, error: 'Unauthorized', message: 'Your Supabase session is invalid or expired.' });
       return;
     }
 
     const user = data.user;
     const email = typeof user.email === 'string' ? user.email.trim().toLowerCase() : '';
-    const payload = parseJwtPayload(token);
-    const providers = [
-      user.app_metadata?.provider,
-      ...(Array.isArray(user.identities) ? user.identities.map(identity => identity.provider) : [])
-    ];
-    const amr = Array.isArray(payload.amr) ? payload.amr : [];
-    const hasGoogle = providers.includes('google') || amr.some((m: any) => m.method === 'oauth' || m.provider === 'google');
-    const isAal2 = payload.aal === 'aal2' || amr.some((m: any) => m.method === 'totp' || m.method === 'mfa');
-
-    const emailMatches = email === ADMIN_EMAIL;
     const emailConfirmed = Boolean(user.email_confirmed_at);
-    const isAllowedAuthMethod = hasGoogle || isAal2;
 
-    if (!emailMatches || !emailConfirmed || !isAllowedAuthMethod) {
-      console.warn(`[ADMIN] 403 reason: email_match=${emailMatches} (${email} vs ${ADMIN_EMAIL}), email_confirmed=${emailConfirmed}, hasGoogle=${hasGoogle}, isAal2=${isAal2}, aal=${payload.aal}`);
-      res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin access is restricted.' });
+    if (!emailConfirmed) {
+      console.warn(`[ADMIN AUTH] 403: Email unconfirmed for user ${user.id} (${email})`);
+      res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin email verification is required.' });
       return;
     }
 
-    console.log(`[ADMIN] session ok: email=${email}, hasGoogle=${hasGoogle}, aal=${payload.aal || 'aal1'}`);
-    (req as any).adminUser = { email: ADMIN_EMAIL, role: 'SUPER_ADMIN' };
-    (req as any).adminEmail = ADMIN_EMAIL;
+    // Query trusted public.admin_accounts table by authenticated user's UUID
+    const { data: adminRows, error: adminQueryError } = await supabaseDataClient
+      .from('admin_accounts')
+      .select('user_id, email, role, active')
+      .eq('user_id', user.id)
+      .limit(1);
+
+    if (adminQueryError) {
+      console.error('[ADMIN AUTH] Database query error on admin_accounts:', adminQueryError.message);
+      res.status(500).json({ success: false, error: 'DatabaseError', message: 'Failed to verify admin status.' });
+      return;
+    }
+
+    const adminRecord = adminRows?.[0];
+    if (!adminRecord) {
+      console.warn(`[ADMIN AUTH] 403: No admin_accounts record for user ${user.id} (${email})`);
+      res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin access is restricted to verified administrators.' });
+      return;
+    }
+
+    if (adminRecord.role !== 'admin' || !adminRecord.active) {
+      console.warn(`[ADMIN AUTH] 403: Record not active or invalid role for user ${user.id}: role=${adminRecord.role}, active=${adminRecord.active}`);
+      res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin access is inactive or not authorized.' });
+      return;
+    }
+
+    if (adminRecord.email.trim().toLowerCase() !== email) {
+      console.warn(`[ADMIN AUTH] 403: Email mismatch: stored=${adminRecord.email} vs auth=${email}`);
+      res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin email mismatch.' });
+      return;
+    }
+
+    console.log(`[ADMIN AUTH] Authorized user ${user.id} (${adminRecord.email})`);
+    (req as any).adminUser = {
+      id: user.id,
+      email: adminRecord.email,
+      role: 'SUPER_ADMIN'
+    };
+    (req as any).adminEmail = adminRecord.email;
     next();
   }).catch((err) => {
-    console.warn('[ADMIN] 401 exception during verification:', err);
+    console.warn('[ADMIN AUTH] 401 exception during verification:', err);
     res.status(401).json({ success: false, error: 'Unauthorized', message: 'Your Supabase session could not be verified.' });
   });
 }
@@ -365,7 +393,7 @@ const requireSupabaseUser: express.RequestHandler = (req, res, next) => {
     return;
   }
 
-  void supabaseAuthClient.auth.getUser(accessToken).then(({ data, error }) => {
+  void supabaseDataClient.auth.getUser(accessToken).then(({ data, error }) => {
     if (error || !data.user) {
       res.status(401).json({ error: 'Unauthorized', message: 'Your session is invalid or expired.' });
       return;
@@ -1677,7 +1705,8 @@ export async function createExpressApp() {
     res.json({
       authenticated: true,
       email: adminUser?.email || ADMIN_EMAIL,
-      role: adminUser?.role || 'SUPER_ADMIN'
+      role: adminUser?.role || 'SUPER_ADMIN',
+      userId: adminUser?.id
     });
   });
 
@@ -1707,6 +1736,10 @@ export async function createExpressApp() {
 
     if (!cleanEmail || !cleanEmail.includes('@')) {
       return res.status(400).json({ success: false, error: 'Valid email address required.' });
+    }
+
+    if (cleanEmail !== 'buildsafe247@gmail.com') {
+      return res.status(403).json({ success: false, error: 'Access denied: buildsafe247@gmail.com is the only approved administrator email address.' });
     }
 
     const adminUser = (req as any).adminUser;
@@ -1744,6 +1777,10 @@ export async function createExpressApp() {
 
     if (!cleanEmail || !cleanEmail.includes('@')) {
       return res.status(400).json({ success: false, error: 'Valid email address required.' });
+    }
+
+    if (cleanEmail !== 'buildsafe247@gmail.com') {
+      return res.status(403).json({ success: false, error: 'Access denied: buildsafe247@gmail.com is the only approved administrator email address.' });
     }
 
     const adminUser = (req as any).adminUser;
@@ -1902,6 +1939,62 @@ export async function createExpressApp() {
       totalInspections: inspections.length,
       pendingReviews: listings.filter(l => l.status === 'pending').length + users.filter(u => u.role === 'agent' && !u.isVerifiedAgent && u.status !== 'rejected').length
     });
+  });
+
+  // Submit Agent Business Verification to Admin Dashboard
+  app.post('/api/agents/submit-verification', async (req, res) => {
+    try {
+      const agentPayload = req.body?.agent || req.body || {};
+      const agentId = agentPayload.id || agentPayload.uid || `agent_${Date.now()}`;
+      const cleanEmail = typeof agentPayload.email === 'string' ? agentPayload.email.trim().toLowerCase() : '';
+
+      const updatedAgent: User = {
+        id: agentId,
+        uid: agentId,
+        name: agentPayload.name || agentPayload.agentFullName || 'Caretaker / Agent',
+        email: cleanEmail,
+        role: 'agent',
+        agencyName: agentPayload.agencyName || agentPayload.businessName || 'Caretaker Agency',
+        phone: agentPayload.phone || '',
+        universityId: agentPayload.universityId || 'uniosun',
+        universityName: agentPayload.universityName || 'Osun State University (UNIOSUN)',
+        isEmailVerified: true,
+        businessVerificationStatus: agentPayload.businessVerificationStatus || 'approved',
+        isVerifiedAgent: true,
+        licenseNumber: agentPayload.licenseNumber || `DMQ-AGT-${Math.floor(100000 + Math.random() * 900000)}`,
+        avatarUrl: agentPayload.avatarUrl || agentPayload.portraitPhotoUrl || '',
+        businessVerificationDetails: agentPayload.businessVerificationDetails || {},
+        createdAt: agentPayload.createdAt || new Date().toISOString()
+      };
+
+      // 1. Update in-memory usersStore so admin portal immediately sees the agent
+      const existingIndex = usersStore.findIndex(u => u.id === agentId || (cleanEmail && u.email?.toLowerCase() === cleanEmail));
+      if (existingIndex >= 0) {
+        usersStore[existingIndex] = { ...usersStore[existingIndex], ...updatedAgent };
+      } else {
+        usersStore.push(updatedAgent);
+      }
+
+      // 2. Persist to Firestore users collection
+      if (firestoreDb) {
+        try {
+          await setDoc(doc(firestoreDb, 'users', agentId), updatedAgent, { merge: true });
+        } catch (fsErr) {
+          console.warn('Firestore write in submit-verification non-fatal:', fsErr);
+        }
+      }
+
+      console.log(`[VERIFICATION SUBMITTED] Agent ${agentId} (${cleanEmail}) submitted to Admin Dashboard.`);
+
+      return res.json({
+        success: true,
+        message: 'Business verification information submitted to admin dashboard successfully.',
+        agent: updatedAgent
+      });
+    } catch (err: any) {
+      console.error('Error submitting agent verification:', err);
+      return res.status(500).json({ success: false, error: 'Could not submit verification information.' });
+    }
   });
 
   // Fetch Agents List for Verification (Real Firestore Data)

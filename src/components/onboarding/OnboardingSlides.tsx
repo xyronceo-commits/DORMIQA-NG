@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, MapPin, ShieldCheck, Key, Check } from 'lucide-react';
+import { DormiqaLogo } from '../DormiqaLogo';
 
 interface OnboardingSlide {
   id: number;
@@ -7,7 +8,7 @@ interface OnboardingSlide {
   description: string;
   primaryAction: string;
   imageUrl: string;
-  keyPoints: string[];
+  keyPoints: { text: string; icon: React.ElementType }[];
 }
 
 const SLIDES: OnboardingSlide[] = [
@@ -17,7 +18,11 @@ const SLIDES: OnboardingSlide[] = [
     description: 'Browse student accommodation verified for security, prepaid meters, and running water within direct walking distance of campus lecture halls.',
     primaryAction: 'Find Accommodation',
     imageUrl: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
-    keyPoints: ['Walking distance to gates', 'Verified utilities & water', 'Clear annual rent in Naira']
+    keyPoints: [
+      { text: 'Walking distance to gates', icon: MapPin },
+      { text: 'Verified utilities & water', icon: ShieldCheck },
+      { text: 'Clear annual rent in Naira', icon: Check }
+    ]
   },
   {
     id: 2,
@@ -25,7 +30,11 @@ const SLIDES: OnboardingSlide[] = [
     description: 'Schedule in-person physical inspections directly with verified property caretakers. Under platform policy, viewing fees are strictly zero.',
     primaryAction: 'Continue',
     imageUrl: 'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=1000&q=80',
-    keyPoints: ['₦0 inspection fee', 'Inspect before paying rent', 'Direct caretaker contact']
+    keyPoints: [
+      { text: '₦0 inspection fee', icon: Check },
+      { text: 'Inspect before paying rent', icon: ShieldCheck },
+      { text: 'Direct caretaker contact', icon: Key }
+    ]
   },
   {
     id: 3,
@@ -33,7 +42,11 @@ const SLIDES: OnboardingSlide[] = [
     description: 'Connect directly with verified local lodge managers and caretakers operating around your university. No middleman extortion or hidden markups.',
     primaryAction: 'Get Started',
     imageUrl: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=1000&q=80',
-    keyPoints: ['Verified caretaker identity', 'Direct WhatsApp & phone', 'UNIOSUN launch campus']
+    keyPoints: [
+      { text: 'Verified caretaker identity', icon: ShieldCheck },
+      { text: 'Direct WhatsApp & phone', icon: Key },
+      { text: 'UNIOSUN launch campus', icon: MapPin }
+    ]
   }
 ];
 
@@ -61,12 +74,11 @@ export const OnboardingSlides: React.FC<OnboardingSlidesProps> = ({
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 flex flex-col justify-between font-sans">
-      {/* Top Bar */}
+      {/* Top Bar with Brand Logo (No URL path breadcrumbs) */}
       <header className="w-full max-w-xl mx-auto px-6 py-4 flex items-center justify-between border-b border-neutral-100">
-        <div className="flex items-center gap-2">
-          <span className="text-base font-extrabold tracking-tight text-neutral-900">DORMIQA</span>
-          <span className="text-neutral-300 font-light text-xs">/</span>
-          <span className="text-xs text-neutral-500 font-medium">UNIOSUN Launch</span>
+        <div className="flex items-center gap-2.5">
+          <DormiqaLogo className="w-6 h-6" />
+          <span className="text-base font-black tracking-tight text-neutral-900">DORMIQA</span>
         </div>
 
         <button
@@ -109,14 +121,20 @@ export const OnboardingSlides: React.FC<OnboardingSlidesProps> = ({
             </p>
           </div>
 
-          {/* Key Facts: Unboxed text separated with dots */}
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-500 pt-1">
-            {slide.keyPoints.map((point, i) => (
-              <React.Fragment key={i}>
-                <span className="text-neutral-700 font-medium">{point}</span>
-                {i < slide.keyPoints.length - 1 && <span className="text-neutral-300 font-bold" aria-hidden="true">·</span>}
-              </React.Fragment>
-            ))}
+          {/* Key Facts with subtle icons */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-neutral-600 pt-1">
+            {slide.keyPoints.map((point, i) => {
+              const PointIcon = point.icon;
+              return (
+                <div key={i} className="flex items-center gap-1.5 font-medium">
+                  <PointIcon className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="text-neutral-700">{point.text}</span>
+                  {i < slide.keyPoints.length - 1 && (
+                    <span className="text-neutral-300 font-bold ml-1.5" aria-hidden="true">·</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* Step Progress Indicators */}
