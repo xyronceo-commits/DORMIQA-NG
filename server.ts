@@ -107,6 +107,7 @@ function getAllowedRedirectUrl(targetPath: string, req: express.Request): string
   const allowedOrigins = new Set<string>([
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'https://dormiqa.site',
     'https://dormiqa.com',
     'https://ais-pre-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app',
     'https://ais-dev-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app'
@@ -138,8 +139,8 @@ function getAllowedRedirectUrl(targetPath: string, req: express.Request): string
   // Base priority:
   // 1. Matched request Origin / Referer header if in allowedOrigins
   // 2. APP_BASE_URL if set
-  // 3. Documented canonical fallback: https://dormiqa.com
-  let base = appBaseUrl || 'https://dormiqa.com';
+  // 3. Documented canonical fallback: https://dormiqa.site
+  let base = appBaseUrl || 'https://dormiqa.site';
   const originHeader = req.get('origin') || req.get('referer');
   if (originHeader) {
     try {
@@ -594,7 +595,7 @@ export async function createExpressApp() {
         // Silently continue if admin list fails
       }
 
-      const redirectTo = getAllowedRedirectUrl('/auth/reset-password', req);
+      const redirectTo = getAllowedRedirectUrl('/reset-password', req);
       console.log(`[Auth Forgot Password] Sending reset link for masked: ${maskEmail(email)}, Redirect: ${redirectTo}`);
 
       // Call Supabase's reset-password-for-email method (anon client on server)

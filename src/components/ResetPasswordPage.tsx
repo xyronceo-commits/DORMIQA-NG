@@ -50,12 +50,16 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
         const errorCode = hashParams.get('error_code') || searchParams.get('error_code');
         const error = hashParams.get('error') || searchParams.get('error');
 
+        const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
+        const isResetPath = pathname === '/auth/reset-password' || pathname === '/reset-password';
+        const canonicalPath = pathname.startsWith('/auth/reset-password') ? '/auth/reset-password' : '/reset-password';
+
         // 1. Error links -> invalid state
         if (detectAuthLinkError() || errorCode || error) {
           if (isMounted) setState('invalid');
           try { sessionStorage.removeItem(RECOVERY_FLOW_STORAGE_KEY); } catch (_) {}
           if (window.location.hash || window.location.search) {
-            window.history.replaceState({ type: 'view', view: 'reset-password' }, '', '/auth/reset-password');
+            window.history.replaceState({ type: 'view', view: 'reset-password' }, '', canonicalPath);
           }
           return;
         }
@@ -65,8 +69,6 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
         const code = searchParams.get('code');
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
-        const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
-        const isResetPath = pathname === '/auth/reset-password' || pathname === '/reset-password';
 
         // If not a recovery link/path, check existing recovery session or state
         if (!isResetPath && type !== 'recovery' && !tokenHash && !code && !accessToken) {
@@ -91,14 +93,14 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
             console.error('Password recovery token error:', verifyErr);
             if (isMounted) setState('invalid');
             if (window.location.hash || window.location.search) {
-              window.history.replaceState({ type: 'view', view: 'reset-password' }, '', '/auth/reset-password');
+              window.history.replaceState({ type: 'view', view: 'reset-password' }, '', canonicalPath);
             }
             return;
           }
           markRecoveryFlowIfPresent();
           if (isMounted) setState('form');
           if (window.location.hash || window.location.search) {
-            window.history.replaceState({ type: 'view', view: 'reset-password' }, '', '/auth/reset-password');
+            window.history.replaceState({ type: 'view', view: 'reset-password' }, '', canonicalPath);
           }
           return;
         }
@@ -110,14 +112,14 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
             console.error('Exchange code error:', codeErr);
             if (isMounted) setState('invalid');
             if (window.location.hash || window.location.search) {
-              window.history.replaceState({ type: 'view', view: 'reset-password' }, '', '/auth/reset-password');
+              window.history.replaceState({ type: 'view', view: 'reset-password' }, '', canonicalPath);
             }
             return;
           }
           markRecoveryFlowIfPresent();
           if (isMounted) setState('form');
           if (window.location.hash || window.location.search) {
-            window.history.replaceState({ type: 'view', view: 'reset-password' }, '', '/auth/reset-password');
+            window.history.replaceState({ type: 'view', view: 'reset-password' }, '', canonicalPath);
           }
           return;
         }
@@ -129,14 +131,14 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
             console.error('Session set error:', sessionErr);
             if (isMounted) setState('invalid');
             if (window.location.hash || window.location.search) {
-              window.history.replaceState({ type: 'view', view: 'reset-password' }, '', '/auth/reset-password');
+              window.history.replaceState({ type: 'view', view: 'reset-password' }, '', canonicalPath);
             }
             return;
           }
           markRecoveryFlowIfPresent();
           if (isMounted) setState('form');
           if (window.location.hash || window.location.search) {
-            window.history.replaceState({ type: 'view', view: 'reset-password' }, '', '/auth/reset-password');
+            window.history.replaceState({ type: 'view', view: 'reset-password' }, '', canonicalPath);
           }
           return;
         }

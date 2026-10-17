@@ -4,7 +4,7 @@ Hello,
 
 Thank you for signing up for Dormiqa. To protect your student accommodation account, please verify your email address (student.uniosun@gmail.com) by visiting the link below:
 
-https://dormiqa.com/auth/confirmed?token_hash=sample_signup_token_12345&type=signup
+https://dormiqa.site/auth/confirmed?token_hash=sample_signup_token_12345&type=signup
 
 This verification link will expire in 1 hour. If you did not create a Dormiqa account, you can safely ignore this email.
 

@@ -33,7 +33,8 @@ import {
   detectAuthLinkError,
   isRecoveryFlowActive,
   markRecoveryFlowIfPresent,
-  clearRecoveryFlow
+  clearRecoveryFlow,
+  KNOWN_VIEW_PATHS
 } from './utils/routing';
 import { NotFoundPage } from './components/NotFoundPage';
 import { 
@@ -414,8 +415,8 @@ export default function App() {
     if (isLoggedIn) {
       const currentAccount = accounts.find(a => a.id === activeAccountId) || accounts[0];
       if (currentRole === 'student' && !hasCompleteStudentProfile(currentAccount)) {
-        setActiveView('onboarding');
-        pushViewUrl('onboarding');
+        setActiveView('complete-profile');
+        pushViewUrl('complete-profile');
         setToastNotice('Complete your profile to continue to the student dashboard.');
         setTimeout(() => setToastNotice(null), 4000);
         return;
@@ -480,7 +481,25 @@ export default function App() {
     setActiveView(view);
     pushViewUrl(view as any);
   };
-  const [pendingAgentRegistration, setPendingAgentRegistration] = useState<User | null>(null);
+  const [pendingAgentRegistration, setPendingAgentRegistrationState] = useState<User | null>(() => {
+    try {
+      const stored = localStorage.getItem('dormiqa_pending_agent_registration');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const setPendingAgentRegistration = (user: User | null) => {
+    setPendingAgentRegistrationState(user);
+    if (user) {
+      try {
+        localStorage.setItem('dormiqa_pending_agent_registration', JSON.stringify(user));
+      } catch {}
+    } else {
+      localStorage.removeItem('dormiqa_pending_agent_registration');
+    }
+  };
   const [currentRole, setCurrentRole] = useState<UserRole>('student');
   const [universities, setUniversities] = useState<University[]>(UNIVERSITIES);
   const [listings, setListings] = useState<Listing[]>([]);
@@ -805,9 +824,16 @@ export default function App() {
             setToastNotice('Email verified. Complete your business verification to start listing properties');
           }
         } else {
-          setActiveView('search');
-          pushViewUrl('search', true);
-          setToastNotice('Email verified. Welcome to Dormiqa!');
+          const isStudentComplete = hasCompleteStudentProfile(userAccount);
+          if (!isStudentComplete) {
+            setActiveView('complete-profile');
+            pushViewUrl('complete-profile', true);
+            setToastNotice('Email verified! Please complete your student profile.');
+          } else {
+            setActiveView('search');
+            pushViewUrl('search', true);
+            setToastNotice('Email verified. Welcome to Dormiqa!');
+          }
         }
         setTimeout(() => setToastNotice(null), 4000);
         return;
@@ -834,13 +860,20 @@ export default function App() {
             setTimeout(() => setToastNotice(null), 4000);
           }
         } else {
-          // STUDENT ROLE: Take directly to student discovery (search view)
-          setActiveView('search');
-          pushViewUrl('search', true);
-          if (isVerified) {
-            setToastNotice(`Welcome back, ${userAccount.name}!`);
-            setTimeout(() => setToastNotice(null), 4000);
+          // STUDENT ROLE
+          const isStudentComplete = hasCompleteStudentProfile(userAccount);
+          if (!isStudentComplete) {
+            setActiveView('complete-profile');
+            pushViewUrl('complete-profile', true);
+            setToastNotice('Please complete your profile to continue.');
+          } else {
+            setActiveView('search');
+            pushViewUrl('search', true);
+            if (isVerified) {
+              setToastNotice(`Welcome back, ${userAccount.name}!`);
+            }
           }
+          setTimeout(() => setToastNotice(null), 4000);
         }
       }
 
@@ -896,12 +929,39 @@ export default function App() {
   }, [currentRole, activeView, accounts, activeAccountId]);
 
   useEffect(() => {
-    const handlePopState = () => {
+    const handleRouteChange = () => {
       const parsed = parseRouteFromUrl();
       setCurrentRoute(parsed);
     };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    window.addEventListener('popstate', handleRouteChange);
+    window.addEventListener('dormiqa-route-change', handleRouteChange);
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange);
+      window.removeEventListener('dormiqa-route-change', handleRouteChange);
+    };
+  }, []);
+
+  // Global anchor click listener for seamless internal routing
+  useEffect(() => {
+    const handleAnchorClick = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement)?.closest('a');
+      if (!target) return;
+      const href = target.getAttribute('href');
+      if (!href || href.startsWith('http') || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('#')) return;
+
+      const path = href.split('?')[0].split('#')[0];
+      const matchedView = KNOWN_VIEW_PATHS[path];
+      if (matchedView) {
+        e.preventDefault();
+        if (matchedView === 'business-verification') {
+          setCurrentRole('agent');
+        }
+        setActiveView(matchedView);
+        pushViewUrl(matchedView);
+      }
+    };
+    document.addEventListener('click', handleAnchorClick);
+    return () => document.removeEventListener('click', handleAnchorClick);
   }, []);
 
   // Helper to open property detail and push canonical property URL
@@ -966,14 +1026,14 @@ export default function App() {
       setRoutePropertyUnavailableReason(null);
       setRoutePropertyLoading(false);
       if (targetRoute.view) {
-        setActiveView(targetRoute.view);
+        setActiveView(prev => (prev === targetRoute.view ? prev : targetRoute.view));
       }
     }
   };
 
   useEffect(() => {
     resolveCurrentRoute(currentRoute).catch(err => console.warn("Failed to resolve current route:", err));
-  }, [currentRoute, activeAccountId, currentRole]);
+  }, [currentRoute]);
 
   useEffect(() => {
     const unsubscribe = subscribeUserNotifications(
@@ -1078,8 +1138,8 @@ export default function App() {
     const currentAccount = accounts.find(account => account.id === activeAccountId) || accounts[0];
     const studentViews = ['saved', 'messages', 'inspections', 'student-dash'];
     if (isLoggedIn && currentRole === 'student' && studentViews.includes(activeView) && !hasCompleteStudentProfile(currentAccount)) {
-      setActiveView('onboarding');
-      pushViewUrl('onboarding', true);
+      setActiveView('complete-profile');
+      pushViewUrl('complete-profile', true);
       setToastNotice('Complete your profile to continue to the student dashboard.');
       return;
     }
@@ -1118,6 +1178,8 @@ export default function App() {
     localStorage.removeItem('campora_is_logged_in');
     localStorage.removeItem('dormiqa_user_accounts');
     localStorage.removeItem('dormiqa_active_account_id');
+    localStorage.removeItem('dormiqa_pending_agent_registration');
+    setPendingAgentRegistration(null);
     setAccounts([]);
     setActiveAccountId('');
     setToastNotice(`Successfully signed out of ${currentAcc?.name || 'account'}`);
@@ -1534,9 +1596,16 @@ export default function App() {
                           setToastNotice('Email verified. Complete your business verification to start listing properties');
                         }
                       } else {
-                        setActiveView('search');
-                        pushViewUrl('search', true);
-                        setToastNotice('Email verified. Welcome to Dormiqa!');
+                        const isStudentComplete = hasCompleteStudentProfile(userAccount);
+                        if (!isStudentComplete) {
+                          setActiveView('complete-profile');
+                          pushViewUrl('complete-profile', true);
+                          setToastNotice('Email verified! Please complete your student profile.');
+                        } else {
+                          setActiveView('search');
+                          pushViewUrl('search', true);
+                          setToastNotice('Email verified. Welcome to Dormiqa!');
+                        }
                       }
                       setTimeout(() => setToastNotice(null), 4000);
                     } else {
@@ -1708,18 +1777,25 @@ export default function App() {
                     setTimeout(() => setToastNotice(null), 4000);
                   }
                 } else if (!isSignup) {
-                  // RETURNING STUDENT SIGN IN -> Directly to Student Discover (search) page
+                  // RETURNING STUDENT SIGN IN -> Check if profile complete
                   setCurrentRole('student');
-                  setActiveView('search');
-                  pushViewUrl('search', true);
-                  setToastNotice(`Welcome back, ${newAccount.name}!`);
+                  const isStudentComplete = hasCompleteStudentProfile(newAccount);
+                  if (!isStudentComplete) {
+                    setActiveView('complete-profile');
+                    pushViewUrl('complete-profile', true);
+                    setToastNotice('Please complete your profile to continue.');
+                  } else {
+                    setActiveView('search');
+                    pushViewUrl('search', true);
+                    setToastNotice(`Welcome back, ${newAccount.name}!`);
+                  }
                   setTimeout(() => setToastNotice(null), 4000);
                 } else {
-                  // NEW STUDENT SIGNUP -> Directly to Student Discover page
+                  // NEW STUDENT SIGNUP -> Route to Complete Profile page
                   setCurrentRole('student');
-                  setActiveView('search');
-                  pushViewUrl('search', true);
-                  setToastNotice('Email verified. Welcome to Dormiqa!');
+                  setActiveView('complete-profile');
+                  pushViewUrl('complete-profile', true);
+                  setToastNotice('Welcome to Dormiqa! Please complete your student profile.');
                   setTimeout(() => setToastNotice(null), 4000);
                 }
               }}

@@ -9,8 +9,8 @@ if (!fs.existsSync(PREVIEW_DIR)) {
 }
 
 const sampleEmail = 'student.uniosun@gmail.com';
-const sampleConfirmUrl = 'https://dormiqa.com/auth/confirmed?token_hash=sample_signup_token_12345&type=signup';
-const sampleResetUrl = 'https://dormiqa.com/auth/reset-password#access_token=sample_recovery_token_67890&type=recovery';
+const sampleConfirmUrl = 'https://dormiqa.site/auth/confirmed?token_hash=sample_signup_token_12345&type=signup';
+const sampleResetUrl = 'https://dormiqa.site/reset-password#access_token=sample_recovery_token_67890&type=recovery';
 
 function renderFile(templateName: string, outputFile: string, replacements: Record<string, string>) {
   const filePath = path.join(TEMPLATES_DIR, templateName);

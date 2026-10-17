@@ -24,7 +24,7 @@ const smtpUser = process.env.SMTP_USER?.trim();
 const smtpPass = process.env.SMTP_PASS?.trim();
 const fromName = process.env.EMAIL_FROM_NAME?.trim() || 'Dormiqa';
 const fromAddress = process.env.EMAIL_FROM_ADDRESS?.trim();
-const appBaseUrl = process.env.APP_BASE_URL?.trim() || 'https://dormiqa.com';
+const appBaseUrl = process.env.APP_BASE_URL?.trim() || 'https://dormiqa.site';
 
 const rawAllowedOrigins = process.env.ALLOWED_REDIRECT_ORIGINS?.trim();
 const TEMPLATES_DIR = path.resolve(process.cwd(), 'supabase', 'templates');
@@ -63,6 +63,7 @@ async function main() {
   const baseOrigins = new Set<string>([
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'https://dormiqa.site',
     'https://dormiqa.com',
     'https://ais-pre-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app',
     'https://ais-dev-fefwxhetjb6pmq5nyypsjp-417290327349.europe-west2.run.app'
@@ -89,19 +90,24 @@ async function main() {
     });
   }
 
-  // For each allowed origin, include <origin>/**, <origin>/auth/reset-password, <origin>/auth/confirmed, and <origin>
+  // Exact production redirect routes required by DORMIQA flows
   const redirectUrlsSet = new Set<string>();
-  // Explicitly ensure development wildcard
   redirectUrlsSet.add('http://localhost:3000/**');
   redirectUrlsSet.add('http://localhost:3000');
+  redirectUrlsSet.add('http://localhost:3000/reset-password');
   redirectUrlsSet.add('http://localhost:3000/auth/reset-password');
   redirectUrlsSet.add('http://localhost:3000/auth/confirmed');
+  redirectUrlsSet.add('http://localhost:3000/business-verification');
+  redirectUrlsSet.add('http://localhost:3000/complete-profile');
 
   baseOrigins.forEach((orig) => {
     const cleanOrig = orig.replace(/\/+$/, '');
     redirectUrlsSet.add(`${cleanOrig}/**`);
+    redirectUrlsSet.add(`${cleanOrig}/reset-password`);
     redirectUrlsSet.add(`${cleanOrig}/auth/reset-password`);
     redirectUrlsSet.add(`${cleanOrig}/auth/confirmed`);
+    redirectUrlsSet.add(`${cleanOrig}/business-verification`);
+    redirectUrlsSet.add(`${cleanOrig}/complete-profile`);
     redirectUrlsSet.add(cleanOrig);
   });
 

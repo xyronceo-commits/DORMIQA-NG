@@ -9,7 +9,7 @@ export interface ParsedRoute {
   adminTab?: 'agents' | 'properties' | 'students' | 'analytics' | 'access';
 }
 
-const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
+export const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
   '/': 'landing',
   '/search': 'search',
   '/discover': 'search',
@@ -241,6 +241,7 @@ export function pushPropertyUrl(propertyId: string, replace = false) {
       window.history.pushState({ type: 'property', propertyId }, '', targetPath);
     }
   }
+  window.dispatchEvent(new Event('dormiqa-route-change'));
 }
 
 /**
@@ -282,6 +283,7 @@ export function pushViewUrl(view: string, replace = false, subTab?: string) {
       window.history.pushState({ type: 'view', view, subTab }, '', targetPath);
     }
   }
+  window.dispatchEvent(new Event('dormiqa-route-change'));
 }
 
 /**
