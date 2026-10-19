@@ -181,8 +181,8 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
     setLocalError(null);
 
     const cleanCode = otpCode.trim().replace(/\D/g, '');
-    if (cleanCode.length < 6) {
-      setLocalError('Please enter the complete 6-digit one-time password.');
+    if (cleanCode.length < 6 || cleanCode.length > 8) {
+      setLocalError('Please enter the complete verification code (6 to 8 digits).');
       return;
     }
 
@@ -334,25 +334,27 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
                 Enter Verification Code
               </h3>
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                Enter the 6-digit code sent to <span className="font-semibold text-black dark:text-white">{email}</span>
+                Enter the verification code sent to <span className="font-semibold text-black dark:text-white">{email}</span>
               </p>
             </div>
 
             <div>
               <input
                 type="text"
-                maxLength={6}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={8}
                 autoFocus
-                placeholder="000000"
+                placeholder="Verification code"
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                className="w-full py-3.5 text-center text-xl tracking-[0.4em] font-mono font-bold bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-2xl text-black dark:text-white focus:outline-none focus:border-emerald-500 shadow-inner"
+                className="w-full py-3.5 text-center text-xl tracking-[0.3em] font-mono font-bold bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-2xl text-black dark:text-white focus:outline-none focus:border-emerald-500 shadow-inner"
               />
             </div>
 
             <button
               type="submit"
-              disabled={isSubmitting || otpCode.length < 6}
+              disabled={isSubmitting || otpCode.trim().length < 6}
               className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
             >
               {isSubmitting ? (

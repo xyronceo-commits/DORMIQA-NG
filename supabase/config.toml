@@ -40,3 +40,7 @@ content_path = "./supabase/templates/confirm-signup.html"
 [auth.email.template.recovery]
 subject = "Reset your Dormiqa password"
 content_path = "./supabase/templates/reset-password.html"
+
+[auth.email.template.magic_link]
+subject = "Your Dormiqa Admin Verification Code"
+content_path = "./supabase/templates/magic-link.html"

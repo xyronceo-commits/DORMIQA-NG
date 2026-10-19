@@ -1,0 +1,12 @@
+DORMIQA Admin Portal - One-Time Verification Code
+
+A sign-in request was initiated for your administrator account on the DORMIQA Admin Portal.
+
+Your Verification Code:
+{{ .Token }}
+
+Enter this code into the Dormiqa Admin sign-in screen. This verification code is valid for 1 hour and can only be used once.
+
+Security Notice: Never share this code with anyone. Dormiqa staff will never ask for your verification code. If you did not request this sign-in, please ignore this email.
+
+(c) 2026 DORMIQA. Verified Student Accommodation Platform.

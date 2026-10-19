@@ -834,7 +834,8 @@ export async function requestAdminOtp(email: string): Promise<{ success: boolean
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.message || 'Failed to send admin verification code.');
+    const errorMsg = data.message || data.error || (res.status === 403 ? 'Admin access is restricted to verified administrators.' : `Authentication provider error (HTTP ${res.status}).`);
+    throw new Error(errorMsg);
   }
   return data;
 }

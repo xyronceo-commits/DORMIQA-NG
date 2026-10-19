@@ -1841,15 +1841,25 @@ export async function createExpressApp() {
       });
 
       if (otpError) {
-        console.warn('[ADMIN OTP] Supabase signInWithOtp notice:', otpError.message);
-        if ((otpError as any).status === 429) {
+        console.warn('[ADMIN OTP] Supabase signInWithOtp error:', otpError.message, 'status:', (otpError as any).status);
+        const errStatus = typeof (otpError as any).status === 'number' ? (otpError as any).status : 400;
+        const rawMsg = otpError.message || 'Authentication provider error.';
+        
+        // Check for provider rate limits (e.g. "For security purposes, you can only request this after X seconds.")
+        if (errStatus === 429 || rawMsg.toLowerCase().includes('rate limit') || rawMsg.toLowerCase().includes('seconds')) {
           return res.status(429).json({
             success: false,
             error: 'RateLimitExceeded',
-            message: 'Provider rate limit reached. Please wait 60 seconds before requesting again.'
+            message: rawMsg,
+            retryAfterSeconds: 60
           });
         }
-        return res.status(500).json({ success: false, error: 'AuthError', message: 'Failed to dispatch OTP code. Please try again.' });
+
+        return res.status(errStatus >= 400 && errStatus < 600 ? errStatus : 400).json({
+          success: false,
+          error: otpError.name || 'AuthError',
+          message: rawMsg
+        });
       }
 
       // Update rate limiter
@@ -1863,12 +1873,16 @@ export async function createExpressApp() {
       console.log(`[ADMIN OTP] Secure OTP sent to verified administrator: ${cleanEmail}`);
       return res.json({
         success: true,
-        message: 'A 6-digit verification code has been sent to your administrator email address.',
+        message: 'A verification code has been sent to your administrator email address.',
         cooldownSeconds: 60
       });
     } catch (err: any) {
       console.error('[ADMIN OTP] Unexpected error dispatching OTP:', err);
-      return res.status(500).json({ success: false, error: 'ServerError', message: 'Failed to send verification code.' });
+      return res.status(500).json({
+        success: false,
+        error: 'ServerError',
+        message: err?.message || 'Failed to dispatch verification code.'
+      });
     }
   });
 
