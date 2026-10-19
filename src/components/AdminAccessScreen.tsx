@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Shield, ShieldAlert, Loader2, ArrowLeft, Lock, Mail, KeyRound, CheckCircle2, RotateCw } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { requestAdminOtp, startAdminSession } from '../services/api';
@@ -28,6 +28,10 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
   const [infoNotice, setInfoNotice] = useState<string | null>(null);
   const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
   const [showResetModal, setShowResetModal] = useState(false);
+
+  // Request guards to prevent concurrent calls or double submissions
+  const isRequestingOtpRef = useRef(false);
+  const isVerifyingOtpRef = useRef(false);
 
   // Active countdown timer for OTP resend cooldown
   useEffect(() => {
@@ -149,9 +153,11 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
     );
   }
 
-  // Step 1: Request OTP for authorized admin email
+  // Step 1: Request OTP for authorized admin email (Guarded against duplicate calls)
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isRequestingOtpRef.current || isSubmitting) return;
+
     setLocalError(null);
     setInfoNotice(null);
 
@@ -161,23 +167,34 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
       return;
     }
 
+    isRequestingOtpRef.current = true;
     setIsSubmitting(true);
+
     try {
       const response = await requestAdminOtp(cleanEmail);
-      setIsSubmitting(false);
       setOtpStage('otp');
       setCooldownSeconds(response.cooldownSeconds || 60);
-      setInfoNotice(response.message || `A verification code was sent to ${cleanEmail}.`);
+      setInfoNotice(response.message || `A verification code was sent to ${cleanEmail}. Check your inbox.`);
     } catch (err: any) {
+      console.warn('[ADMIN OTP REQUEST] Supabase notice:', err?.message);
+      const msg = err?.message || 'Unable to send OTP. Please verify your administrator email.';
+      if (msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('security') || msg.includes('429')) {
+        const secMatch = msg.match(/after (\d+) seconds/i);
+        const waitSec = secMatch ? parseInt(secMatch[1], 10) : 60;
+        setCooldownSeconds(waitSec);
+      }
+      setLocalError(msg);
+    } finally {
+      isRequestingOtpRef.current = false;
       setIsSubmitting(false);
-      console.warn('[ADMIN OTP REQUEST] Notice:', err.message);
-      setLocalError(err.message || 'Unable to send OTP. Please verify your administrator email.');
     }
   };
 
-  // Step 2: Validate OTP code & start 12-hour session
+  // Step 2: Validate OTP code & start 12-hour session (Guarded against double submission)
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isVerifyingOtpRef.current || isSubmitting) return;
+
     setLocalError(null);
 
     const cleanCode = otpCode.trim().replace(/\D/g, '');
@@ -187,6 +204,7 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
     }
 
     const cleanEmail = email.trim().toLowerCase();
+    isVerifyingOtpRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -208,33 +226,49 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
       // 2. Register trusted 12-hour administrative session on the server
       await startAdminSession(data.session.access_token);
 
-      setIsSubmitting(false);
       // Trigger App.tsx admin verification check
       if (onAdminSuccess) {
         onAdminSuccess();
       }
     } catch (err: any) {
+      console.warn('[ADMIN OTP VERIFY] Verification error:', err?.message);
+      setLocalError(err?.message || 'Invalid or expired verification code. Please request a new one.');
+    } finally {
+      isVerifyingOtpRef.current = false;
       setIsSubmitting(false);
-      console.warn('[ADMIN OTP VERIFY] Verification error:', err.message);
-      setLocalError(err.message || 'Invalid or expired verification code. Please request a new one.');
     }
   };
 
-  // Resend OTP code with rate limit cooldown
+  // Resend OTP code with rate limit cooldown and request guard
   const handleResendOtp = async () => {
-    if (cooldownSeconds > 0 || isSubmitting) return;
+    if (cooldownSeconds > 0 || isSubmitting || isRequestingOtpRef.current) return;
     setLocalError(null);
+
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setLocalError('Please enter a valid administrator email address.');
+      return;
+    }
+
+    isRequestingOtpRef.current = true;
     setIsSubmitting(true);
 
     try {
-      const cleanEmail = email.trim().toLowerCase();
       const response = await requestAdminOtp(cleanEmail);
-      setIsSubmitting(false);
       setCooldownSeconds(response.cooldownSeconds || 60);
       setInfoNotice('A fresh verification code has been dispatched to your email.');
     } catch (err: any) {
+      console.warn('[ADMIN OTP RESEND] Supabase notice:', err?.message);
+      const msg = err?.message || 'Failed to resend code. Please try again in a moment.';
+      if (msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('security') || msg.includes('429')) {
+        const secMatch = msg.match(/after (\d+) seconds/i);
+        const waitSec = secMatch ? parseInt(secMatch[1], 10) : 60;
+        setCooldownSeconds(waitSec);
+      }
+      setLocalError(msg);
+    } finally {
+      isRequestingOtpRef.current = false;
       setIsSubmitting(false);
-      setLocalError(err.message || 'Failed to resend code. Please try again in a moment.');
     }
   };
 
