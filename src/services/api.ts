@@ -827,26 +827,56 @@ async function getAdminAuthHeaders(explicitToken?: string): Promise<Record<strin
 
 export async function requestAdminOtp(email: string): Promise<{ success: boolean; message: string; cooldownSeconds?: number; retryAfterSeconds?: number }> {
   const cleanEmail = email.trim().toLowerCase();
-  const { error } = await supabase.auth.signInWithOtp({
-    email: cleanEmail,
-    options: {
-      shouldCreateUser: false,
-    },
-  });
+  
+  try {
+    const res = await apiFetch(`${API_BASE}/admin/auth/request-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: cleanEmail }),
+    });
 
-  if (error) {
-    const rawMsg = error.message || 'Failed to dispatch verification code.';
-    if (rawMsg.toLowerCase().includes('signups not allowed') || (error as any).status === 422) {
-      throw new Error('Admin access is restricted to verified administrators.');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data.message || data.error || (res.status === 403 ? 'Admin access is restricted to verified administrators.' : `Authentication provider error (HTTP ${res.status}).`);
+      throw new Error(msg);
     }
-    throw new Error(rawMsg);
-  }
 
-  return {
-    success: true,
-    message: `A verification code was sent to ${cleanEmail}. Check your inbox.`,
-    cooldownSeconds: 60,
-  };
+    return {
+      success: true,
+      message: data.message || `A verification code was sent to ${cleanEmail}. Check your inbox.`,
+      cooldownSeconds: data.cooldownSeconds || 60,
+      retryAfterSeconds: data.retryAfterSeconds,
+    };
+  } catch (apiErr: any) {
+    // If backend endpoint is unreachable or network error, fallback to direct Supabase client call
+    const isNetworkError = apiErr?.message?.includes('Failed to fetch') || 
+                           apiErr?.message?.includes('NetworkError') ||
+                           apiErr?.message?.includes('HTTP 404');
+                           
+    if (isNetworkError) {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: cleanEmail,
+        options: {
+          shouldCreateUser: false,
+        },
+      });
+
+      if (error) {
+        const rawMsg = error.message || 'Failed to dispatch verification code.';
+        if (rawMsg.toLowerCase().includes('signups not allowed') || (error as any).status === 422) {
+          throw new Error('Admin access is restricted to verified administrators.');
+        }
+        throw new Error(rawMsg);
+      }
+
+      return {
+        success: true,
+        message: `A verification code was sent to ${cleanEmail}. Check your inbox.`,
+        cooldownSeconds: 60,
+      };
+    }
+    throw apiErr;
+  }
 }
 
 export async function startAdminSession(explicitToken?: string): Promise<{ success: boolean; sessionId?: string; expiresAt?: number; remainingMs?: number }> {
