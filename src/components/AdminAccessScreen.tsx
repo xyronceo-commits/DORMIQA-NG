@@ -284,7 +284,7 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
             Dormiqa Admin
           </h2>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
-            Authorized administrator portal — OTP authentication
+            Authorized administrator portal — 8-digit OTP & 12-hour session security
           </p>
         </div>
 
@@ -320,12 +320,12 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  placeholder="admin@dormiqa.site"
+                  placeholder="buildsafe247@gmail.com"
                   className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs text-black dark:text-white focus:outline-none focus:border-emerald-500 font-medium"
                 />
               </div>
               <p className="mt-1.5 text-[10px] text-neutral-500 dark:text-neutral-400">
-                A one-time code will be dispatched to your email for authentication.
+                An 8-digit verification code will be dispatched to your email for authentication.
               </p>
             </div>
 
@@ -337,12 +337,12 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Verifying Administrator...</span>
+                  <span>Dispatching Code...</span>
                 </>
               ) : (
                 <>
                   <KeyRound className="w-4 h-4" />
-                  <span>Send One-Time Password</span>
+                  <span>Send 8-Digit Verification Code</span>
                 </>
               )}
             </button>
@@ -357,7 +357,7 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
           </form>
         )}
 
-        {/* STAGE 2: 6-Digit OTP Code Verification */}
+        {/* STAGE 2: 8-Digit Sign-In OTP Code Verification */}
         {otpStage === 'otp' && (
           <form onSubmit={handleVerifyOtp} className="pt-2 space-y-4 text-left">
             <div className="text-center space-y-1">
@@ -365,10 +365,10 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
                 <KeyRound className="w-5 h-5" />
               </div>
               <h3 className="text-sm font-bold text-black dark:text-white">
-                Enter Verification Code
+                Enter 8-Digit Verification Code
               </h3>
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                Enter the verification code sent to <span className="font-semibold text-black dark:text-white">{email}</span>
+                Enter the 8-digit OTP sent to <span className="font-semibold text-black dark:text-white">{email}</span>
               </p>
             </div>
 
@@ -379,10 +379,10 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
                 pattern="[0-9]*"
                 maxLength={8}
                 autoFocus
-                placeholder="Verification code"
+                placeholder="00000000"
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                className="w-full py-3.5 text-center text-xl tracking-[0.3em] font-mono font-bold bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-2xl text-black dark:text-white focus:outline-none focus:border-emerald-500 shadow-inner"
+                className="w-full py-3.5 text-center text-xl tracking-[0.4em] font-mono font-bold bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-2xl text-black dark:text-white focus:outline-none focus:border-emerald-500 shadow-inner"
               />
             </div>
 
@@ -394,10 +394,10 @@ export const AdminAccessScreen: React.FC<AdminAccessScreenProps> = ({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Establishing Secure Session...</span>
+                  <span>Verifying Session...</span>
                 </>
               ) : (
-                <span>Verify & Access Admin Portal</span>
+                <span>Verify & Access Admin Dashboard</span>
               )}
             </button>
 

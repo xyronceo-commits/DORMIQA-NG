@@ -896,61 +896,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Tab Selection Navigation Bar */}
         <div className="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 overflow-x-auto pb-0">
           <button
-            onClick={() => { setActiveTab('agents'); setStatusFilter('pending'); }}
+            onClick={() => { setActiveTab('agents'); setStatusFilter('all'); }}
             className={`py-3 px-4 text-xs sm:text-sm font-extrabold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-              activeTab === 'agents'
+              activeTab === 'agents' && statusFilter !== 'pending'
                 ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400'
                 : 'border-transparent text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
             }`}
           >
-            <ShieldCheck className="w-4 h-4" />
-            <span>Agent Verification</span>
-            {stats.pendingAgents > 0 && (
-              <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-amber-500 text-white font-black">
-                {stats.pendingAgents}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => { setActiveTab('pending-listings'); setSearchTerm(''); }}
-            className={`py-3 px-4 text-xs sm:text-sm font-extrabold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-              activeTab === 'pending-listings'
-                ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400'
-                : 'border-transparent text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
-            }`}
-          >
-            <Building2 className="w-4 h-4 text-emerald-600" />
-            <span>Newly Added Listings</span>
-            {pendingListings.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-emerald-600 text-white font-black">
-                {pendingListings.length}
-              </span>
-            )}
+            <Users className="w-4 h-4" />
+            <span>Agents</span>
+            <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-bold">
+              {stats.verifiedAgents + stats.pendingAgents}
+            </span>
           </button>
 
           <button
             onClick={() => { setActiveTab('properties'); setStatusFilter('all'); }}
             className={`py-3 px-4 text-xs sm:text-sm font-extrabold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-              activeTab === 'properties'
+              activeTab === 'properties' || activeTab === 'pending-listings'
                 ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400'
                 : 'border-transparent text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
             }`}
           >
-            <FileCheck className="w-4 h-4" />
-            <span>All Accommodation Listings</span>
+            <Building2 className="w-4 h-4 text-emerald-600" />
+            <span>Listings</span>
+            {pendingListings.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-emerald-600 text-white font-black">
+                {pendingListings.length} pending
+              </span>
+            )}
           </button>
 
           <button
-            onClick={() => setActiveTab('students')}
+            onClick={() => { setActiveTab('agents'); setStatusFilter('pending'); }}
             className={`py-3 px-4 text-xs sm:text-sm font-extrabold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-              activeTab === 'students'
+              activeTab === 'agents' && statusFilter === 'pending'
                 ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400'
                 : 'border-transparent text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
             }`}
           >
-            <GraduationCap className="w-4 h-4" />
-            <span>Student Overview</span>
+            <ShieldCheck className="w-4 h-4 text-amber-500" />
+            <span>Business Verifications</span>
+            {stats.pendingAgents > 0 && (
+              <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-amber-500 text-white font-black">
+                {stats.pendingAgents}
+              </span>
+            )}
           </button>
 
           <button
@@ -974,7 +965,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             }`}
           >
             <Key className="w-4 h-4 text-amber-500" />
-            <span>Admin Access Control</span>
+            <span>Add Other Admins</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('students')}
+            className={`py-3 px-4 text-xs sm:text-sm font-extrabold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === 'students'
+                ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400'
+                : 'border-transparent text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200'
+            }`}
+          >
+            <GraduationCap className="w-4 h-4" />
+            <span>Students</span>
           </button>
         </div>
 

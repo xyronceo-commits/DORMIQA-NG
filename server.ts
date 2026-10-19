@@ -420,7 +420,37 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
       return res.status(500).json({ success: false, error: 'DatabaseError', message: 'Failed to verify admin status.' });
     }
 
-    const adminRecord = adminRows?.[0];
+    let adminRecord = adminRows?.[0];
+    if (!adminRecord) {
+      // Query by email in case UUID was unlinked
+      const { data: emailRows } = await supabaseDataClient
+        .from('admin_accounts')
+        .select('user_id, email, role, active')
+        .ilike('email', email)
+        .limit(1);
+
+      if (emailRows?.[0]) {
+        adminRecord = emailRows[0];
+        if (adminRecord.user_id !== user.id) {
+          await supabaseDataClient
+            .from('admin_accounts')
+            .update({ user_id: user.id })
+            .ilike('email', email);
+          adminRecord.user_id = user.id;
+        }
+      } else if (email === 'buildsafe247@gmail.com') {
+        const newRecord = {
+          user_id: user.id,
+          email: 'buildsafe247@gmail.com',
+          role: 'admin',
+          active: true,
+          created_at: new Date().toISOString()
+        };
+        await supabaseDataClient.from('admin_accounts').upsert(newRecord, { onConflict: 'email' });
+        adminRecord = newRecord;
+      }
+    }
+
     if (!adminRecord) {
       console.warn(`[ADMIN AUTH] 403: No admin_accounts record for user ${user.id} (${email})`);
       return res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin access is restricted to verified administrators.' });
@@ -1915,11 +1945,40 @@ export async function createExpressApp() {
       .eq('user_id', user.id)
       .limit(1);
 
-    if (adminErr || !adminRows?.[0]) {
+    let adminRecord: any = adminRows?.[0];
+    if (!adminRecord) {
+      const { data: emailRows } = await supabaseDataClient
+        .from('admin_accounts')
+        .select('user_id, email, role, active')
+        .ilike('email', email)
+        .limit(1);
+
+      if (emailRows?.[0]) {
+        adminRecord = emailRows[0];
+        if (adminRecord.user_id !== user.id) {
+          await supabaseDataClient
+            .from('admin_accounts')
+            .update({ user_id: user.id })
+            .ilike('email', email);
+          adminRecord.user_id = user.id;
+        }
+      } else if (email === 'buildsafe247@gmail.com') {
+        const newRecord = {
+          user_id: user.id,
+          email: 'buildsafe247@gmail.com',
+          role: 'admin',
+          active: true,
+          created_at: new Date().toISOString()
+        };
+        await supabaseDataClient.from('admin_accounts').upsert(newRecord, { onConflict: 'email' });
+        adminRecord = newRecord;
+      }
+    }
+
+    if (!adminRecord) {
       return res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin access is restricted to verified administrators.' });
     }
 
-    const adminRecord = adminRows[0];
     if (adminRecord.role !== 'admin' || !adminRecord.active || adminRecord.email.trim().toLowerCase() !== email) {
       return res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin access is restricted to verified administrators.' });
     }
