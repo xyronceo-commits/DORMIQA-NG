@@ -11,14 +11,29 @@ export const ref = (storageRef: any, path: string) => ({
 });
 
 export const uploadBytes = async (storageRef: any, file: Blob | File, _options?: Record<string, any>): Promise<{ path: string }> => {
+  // 1. Verify user authenticated session is available immediately before uploading
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) {
+    throw new Error('Authentication required: sign in before uploading listing media.');
+  }
+
   const fileName = file instanceof File ? file.name : 'file';
-  const targetPath = storageRef?.path || `uploads/${Date.now()}_${fileName}`;
+  const targetPath = storageRef?.path || `listings/${Date.now()}_${fileName}`;
+  const shouldUpsert = Boolean(_options?.upsert);
+
   const { error } = await supabase.storage.from(storageRef?.bucket || 'listing-media').upload(targetPath, file, {
-    upsert: true,
+    upsert: shouldUpsert,
     contentType: _options?.contentType,
   });
 
   if (error) {
+    const errorDetails = error as any;
+    console.warn('[STORAGE UPLOAD] Storage operation error:', {
+      status: errorDetails?.status,
+      statusCode: errorDetails?.statusCode,
+      code: errorDetails?.code,
+      message: errorDetails?.message || (error instanceof Error ? error.message : String(error)),
+    });
     throw error;
   }
 
@@ -33,7 +48,7 @@ export const getDownloadURL = async (storageRef: any): Promise<string> => {
 
 export const uploadBytesResumable = (storageRef: any, file: Blob | File, options?: Record<string, any>) => {
   const snapshot: any = {
-    path: storageRef?.path || `uploads/${Date.now()}_${file instanceof File ? file.name : 'file'}`,
+    path: storageRef?.path || `listings/${Date.now()}_${file instanceof File ? file.name : 'file'}`,
     ref: storageRef,
     bytesTransferred: 0,
     totalBytes: file.size || 0,
@@ -66,7 +81,9 @@ export const uploadBytesResumable = (storageRef: any, file: Blob | File, options
           xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
           xhr.setRequestHeader('apikey', SUPABASE_ANON_KEY || '');
           xhr.setRequestHeader('Content-Type', options?.contentType || file.type || 'application/octet-stream');
-          xhr.setRequestHeader('x-upsert', 'true');
+          if (options?.upsert) {
+            xhr.setRequestHeader('x-upsert', 'true');
+          }
 
           xhr.upload.onprogress = (event) => {
             snapshot.bytesTransferred = event.loaded;

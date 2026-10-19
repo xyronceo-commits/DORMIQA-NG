@@ -311,6 +311,77 @@ function parseJwtPayload(token: string): any {
   return {};
 }
 
+// Maximum 12-hour admin session lifetime in milliseconds
+export const ADMIN_SESSION_MAX_LIFETIME_MS = 12 * 60 * 60 * 1000;
+
+export interface AdminServerSession {
+  sessionId: string;
+  userId: string;
+  email: string;
+  createdAt: number;
+  expiresAt: number;
+  revoked: boolean;
+}
+
+export const adminActiveSessions = new Map<string, AdminServerSession>();
+
+export async function getAdminSession(userId: string): Promise<AdminServerSession | null> {
+  try {
+    const { data } = await supabaseDataClient
+      .from('app_documents')
+      .select('data')
+      .eq('collection', 'admin_sessions')
+      .eq('id', userId)
+      .limit(1);
+    const docData = data?.[0]?.data as AdminServerSession | undefined;
+    if (docData && typeof docData.expiresAt === 'number') {
+      adminActiveSessions.set(userId, docData);
+      return docData;
+    }
+  } catch (err) {
+    console.warn('[ADMIN SESSIONS] Error restoring admin session from DB:', err);
+  }
+  return adminActiveSessions.get(userId) || null;
+}
+
+export async function saveAdminSession(session: AdminServerSession): Promise<void> {
+  adminActiveSessions.set(session.userId, session);
+  try {
+    await supabaseDataClient
+      .from('app_documents')
+      .upsert({
+        collection: 'admin_sessions',
+        id: session.userId,
+        data: session
+      });
+  } catch (err) {
+    console.warn('[ADMIN SESSIONS] Error saving admin session to DB:', err);
+  }
+}
+
+export async function revokeAdminSession(userId: string): Promise<void> {
+  const existing = adminActiveSessions.get(userId);
+  if (existing) {
+    existing.revoked = true;
+    adminActiveSessions.set(userId, existing);
+  }
+  try {
+    await supabaseDataClient
+      .from('app_documents')
+      .upsert({
+        collection: 'admin_sessions',
+        id: userId,
+        data: {
+          ...(existing || { userId }),
+          revoked: true,
+          revokedAt: Date.now()
+        }
+      });
+  } catch (err) {
+    console.warn('[ADMIN SESSIONS] Error revoking admin session in DB:', err);
+  }
+}
+
 function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers['authorization'];
   const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
@@ -325,8 +396,7 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
   void supabaseDataClient.auth.getUser(token).then(async ({ data, error }) => {
     if (error || !data.user) {
       console.warn('[ADMIN AUTH] 401: getUser failed:', error?.message);
-      res.status(401).json({ success: false, error: 'Unauthorized', message: 'Your Supabase session is invalid or expired.' });
-      return;
+      return res.status(401).json({ success: false, error: 'Unauthorized', message: 'Your Supabase session is invalid or expired.' });
     }
 
     const user = data.user;
@@ -335,8 +405,7 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
 
     if (!emailConfirmed) {
       console.warn(`[ADMIN AUTH] 403: Email unconfirmed for user ${user.id} (${email})`);
-      res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin email verification is required.' });
-      return;
+      return res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin email verification is required.' });
     }
 
     // Query trusted public.admin_accounts table by authenticated user's UUID
@@ -348,35 +417,59 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
 
     if (adminQueryError) {
       console.error('[ADMIN AUTH] Database query error on admin_accounts:', adminQueryError.message);
-      res.status(500).json({ success: false, error: 'DatabaseError', message: 'Failed to verify admin status.' });
-      return;
+      return res.status(500).json({ success: false, error: 'DatabaseError', message: 'Failed to verify admin status.' });
     }
 
     const adminRecord = adminRows?.[0];
     if (!adminRecord) {
       console.warn(`[ADMIN AUTH] 403: No admin_accounts record for user ${user.id} (${email})`);
-      res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin access is restricted to verified administrators.' });
-      return;
+      return res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin access is restricted to verified administrators.' });
     }
 
     if (adminRecord.role !== 'admin' || !adminRecord.active) {
       console.warn(`[ADMIN AUTH] 403: Record not active or invalid role for user ${user.id}: role=${adminRecord.role}, active=${adminRecord.active}`);
-      res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin access is inactive or not authorized.' });
-      return;
+      return res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin access is inactive or not authorized.' });
     }
 
     if (adminRecord.email.trim().toLowerCase() !== email) {
       console.warn(`[ADMIN AUTH] 403: Email mismatch: stored=${adminRecord.email} vs auth=${email}`);
-      res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin email mismatch.' });
-      return;
+      return res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin email mismatch.' });
     }
 
-    console.log(`[ADMIN AUTH] Authorized user ${user.id} (${adminRecord.email})`);
+    // 2. Enforce maximum 12-hour session lifetime from trusted server-side record
+    const now = Date.now();
+    let adminSession = await getAdminSession(user.id);
+
+    // Fallback: If session record not found (e.g. valid Supabase session from earlier login), initialize it with 12h lifetime
+    if (!adminSession) {
+      adminSession = {
+        sessionId: crypto.randomUUID(),
+        userId: user.id,
+        email: adminRecord.email,
+        createdAt: now,
+        expiresAt: now + ADMIN_SESSION_MAX_LIFETIME_MS,
+        revoked: false
+      };
+      await saveAdminSession(adminSession);
+    }
+
+    if (adminSession.revoked || now >= adminSession.expiresAt) {
+      await revokeAdminSession(user.id);
+      console.warn(`[ADMIN AUTH] 401: Admin session expired for ${user.id} (${email}). now=${now}, expiresAt=${adminSession.expiresAt}`);
+      return res.status(401).json({
+        success: false,
+        expired: true,
+        error: 'SessionExpired',
+        message: 'Your admin session has expired. Sign in again to continue.'
+      });
+    }
+
     (req as any).adminUser = {
       id: user.id,
       email: adminRecord.email,
       role: 'SUPER_ADMIN'
     };
+    (req as any).adminSession = adminSession;
     (req as any).adminEmail = adminRecord.email;
     next();
   }).catch((err) => {
@@ -445,11 +538,17 @@ export async function createExpressApp() {
   app.use(express.json({ limit: '2mb' }));
   app.use(securityHeadersMiddleware);
 
-  app.use('/api/admin', requireAdminAuth, (req, res, next) => {
-    if (/^\/(administrators|emails)(\/|$)/.test(req.path)) {
-      return res.status(404).json({ success: false, error: 'Not Found', message: 'Admin access is restricted.' });
+  app.use('/api/admin', (req, res, next) => {
+    // Allow unauthenticated OTP request, session start, and authorized email pre-check endpoints without pre-existing session
+    if (req.path === '/auth/request-otp' || req.path === '/auth/start-session' || req.path === '/check-authorized') {
+      return next();
     }
-    next();
+    return requireAdminAuth(req, res, () => {
+      if (/^\/(administrators|emails)(\/|$)/.test(req.path)) {
+        return res.status(404).json({ success: false, error: 'Not Found', message: 'Admin access is restricted.' });
+      }
+      next();
+    });
   });
 
   // General Rate Limiting (120 requests per minute per IP)
@@ -1669,7 +1768,173 @@ export async function createExpressApp() {
 
   // --- SECURE ADMIN CONTROLS & AUTHENTICATION ENDPOINTS ---
 
-  // Check whether an email is an authorized administrator
+  // Rate limiting for Admin OTP requests (5 per 15 min per IP; 60s cooldown per email)
+  const adminOtpEmailLimiter = new Map<string, { lastSentTime: number; count: number; windowStart: number }>();
+  const adminOtpIpLimiter = createRateLimiter(5, 15 * 60 * 1000, new Map());
+
+  // 1. Admin Sign-In With OTP: Request OTP (Strict verification before sending)
+  app.post('/api/admin/auth/request-otp', adminOtpIpLimiter, async (req, res) => {
+    const { email } = req.body || {};
+    const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return res.status(400).json({ success: false, error: 'BadRequest', message: 'A valid administrator email address is required.' });
+    }
+
+    // Cooldown and rate limits per email
+    const now = Date.now();
+    const emailLimiter = adminOtpEmailLimiter.get(cleanEmail);
+    if (emailLimiter) {
+      if (now - emailLimiter.lastSentTime < 60000) {
+        const waitSec = Math.ceil((60000 - (now - emailLimiter.lastSentTime)) / 1000);
+        return res.status(429).json({
+          success: false,
+          error: 'RateLimitExceeded',
+          message: `Please wait ${waitSec} seconds before requesting a new OTP code.`,
+          retryAfterSeconds: waitSec
+        });
+      }
+      if (now - emailLimiter.windowStart < 15 * 60 * 1000) {
+        if (emailLimiter.count >= 5) {
+          const waitMin = Math.ceil((15 * 60 * 1000 - (now - emailLimiter.windowStart)) / 60000);
+          return res.status(429).json({
+            success: false,
+            error: 'RateLimitExceeded',
+            message: `Too many OTP requests. Please wait ${waitMin} minutes before trying again.`,
+            retryAfterSeconds: Math.ceil((15 * 60 * 1000 - (now - emailLimiter.windowStart)) / 1000)
+          });
+        }
+      } else {
+        emailLimiter.count = 0;
+        emailLimiter.windowStart = now;
+      }
+    }
+
+    // Server-side admin verification: Verify that the email belongs to an authorised, active admin account BEFORE sending OTP!
+    const { data: adminRows, error: adminErr } = await supabaseDataClient
+      .from('admin_accounts')
+      .select('user_id, email, role, active')
+      .ilike('email', cleanEmail)
+      .limit(1);
+
+    if (adminErr) {
+      console.error('[ADMIN OTP] Database error querying admin_accounts:', adminErr.message);
+      return res.status(500).json({ success: false, error: 'DatabaseError', message: 'Failed to verify administrator status.' });
+    }
+
+    const admin = adminRows?.[0];
+    if (!admin || admin.role !== 'admin' || !admin.active) {
+      console.warn(`[ADMIN OTP] Access denied for unlisted or inactive email: ${cleanEmail}`);
+      // Deny access without revealing unnecessary account information
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        message: 'Admin access is restricted to verified administrators.'
+      });
+    }
+
+    // Send OTP using Supabase Auth
+    try {
+      const { error: otpError } = await supabaseDataClient.auth.signInWithOtp({
+        email: cleanEmail,
+        options: { shouldCreateUser: false }
+      });
+
+      if (otpError) {
+        console.warn('[ADMIN OTP] Supabase signInWithOtp notice:', otpError.message);
+        if ((otpError as any).status === 429) {
+          return res.status(429).json({
+            success: false,
+            error: 'RateLimitExceeded',
+            message: 'Provider rate limit reached. Please wait 60 seconds before requesting again.'
+          });
+        }
+        return res.status(500).json({ success: false, error: 'AuthError', message: 'Failed to dispatch OTP code. Please try again.' });
+      }
+
+      // Update rate limiter
+      if (emailLimiter) {
+        emailLimiter.lastSentTime = now;
+        emailLimiter.count += 1;
+      } else {
+        adminOtpEmailLimiter.set(cleanEmail, { lastSentTime: now, count: 1, windowStart: now });
+      }
+
+      console.log(`[ADMIN OTP] Secure OTP sent to verified administrator: ${cleanEmail}`);
+      return res.json({
+        success: true,
+        message: 'A 6-digit verification code has been sent to your administrator email address.',
+        cooldownSeconds: 60
+      });
+    } catch (err: any) {
+      console.error('[ADMIN OTP] Unexpected error dispatching OTP:', err);
+      return res.status(500).json({ success: false, error: 'ServerError', message: 'Failed to send verification code.' });
+    }
+  });
+
+  // 2. Start / Register 12-Hour Admin Session (Called after successful client verifyOtp)
+  app.post('/api/admin/auth/start-session', async (req, res) => {
+    const authHeader = req.headers['authorization'];
+    const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7).trim()
+      : null;
+
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'Unauthorized', message: 'A valid Supabase session token is required.' });
+    }
+
+    const { data, error } = await supabaseDataClient.auth.getUser(token);
+    if (error || !data.user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized', message: 'Invalid or expired session token.' });
+    }
+
+    const user = data.user;
+    const email = typeof user.email === 'string' ? user.email.trim().toLowerCase() : '';
+    if (!user.email_confirmed_at) {
+      return res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin email verification is required.' });
+    }
+
+    // Verify admin in trusted admin_accounts table
+    const { data: adminRows, error: adminErr } = await supabaseDataClient
+      .from('admin_accounts')
+      .select('user_id, email, role, active')
+      .eq('user_id', user.id)
+      .limit(1);
+
+    if (adminErr || !adminRows?.[0]) {
+      return res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin access is restricted to verified administrators.' });
+    }
+
+    const adminRecord = adminRows[0];
+    if (adminRecord.role !== 'admin' || !adminRecord.active || adminRecord.email.trim().toLowerCase() !== email) {
+      return res.status(403).json({ success: false, error: 'Forbidden', message: 'Admin access is restricted to verified administrators.' });
+    }
+
+    // Create fresh 12-hour session (absolute deadline)
+    const now = Date.now();
+    const sessionRecord: AdminServerSession = {
+      sessionId: crypto.randomUUID(),
+      userId: user.id,
+      email: adminRecord.email,
+      createdAt: now,
+      expiresAt: now + ADMIN_SESSION_MAX_LIFETIME_MS,
+      revoked: false
+    };
+
+    await saveAdminSession(sessionRecord);
+    console.log(`[ADMIN SESSION] Established 12-hour session for ${adminRecord.email}. Expires at ${new Date(sessionRecord.expiresAt).toISOString()}`);
+
+    res.json({
+      success: true,
+      sessionId: sessionRecord.sessionId,
+      createdAt: sessionRecord.createdAt,
+      expiresAt: sessionRecord.expiresAt,
+      maxLifetimeMs: ADMIN_SESSION_MAX_LIFETIME_MS,
+      remainingMs: ADMIN_SESSION_MAX_LIFETIME_MS
+    });
+  });
+
+  // Check whether an email is an authorized administrator (pre-check query)
   app.post('/api/admin/check-authorized', async (req, res) => {
     const { email } = req.body || {};
     const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
@@ -1678,20 +1943,18 @@ export async function createExpressApp() {
       return res.status(400).json({ authorized: false, message: 'Please enter a valid administrator email address.' });
     }
 
-    if (cleanEmail === 'buildsafe247@gmail.com') {
-      return res.json({ authorized: true, role: 'SUPER_ADMIN' });
+    const { data: adminRows } = await supabaseDataClient
+      .from('admin_accounts')
+      .select('user_id, email, role, active')
+      .ilike('email', cleanEmail)
+      .limit(1);
+
+    const admin = adminRows?.[0];
+    if (!admin || admin.role !== 'admin' || !admin.active) {
+      return res.json({ authorized: false, message: "Admin access is restricted to verified administrators." });
     }
 
-    if (firestoreDb && authorizedAdminMap.size <= 1) {
-      await syncAdminEmailsFromFirestore();
-    }
-
-    const admin = authorizedAdminMap.get(cleanEmail);
-    if (!admin || admin.status === 'disabled') {
-      return res.json({ authorized: false, message: "This email doesn't have administrator access." });
-    }
-
-    return res.json({ authorized: true, role: admin.role });
+    return res.json({ authorized: true, role: 'SUPER_ADMIN' });
   });
 
   // Admin Verification & Session Login.
@@ -1699,14 +1962,19 @@ export async function createExpressApp() {
     res.json({ success: true, authorized: true, email: ADMIN_EMAIL, role: 'SUPER_ADMIN' });
   });
 
-  // Check Admin Session
+  // Check Admin Session with 12-Hour Expiry Verification
   app.get('/api/admin/check-session', requireAdminAuth, (req, res) => {
     const adminUser = (req as any).adminUser;
+    const adminSession = (req as any).adminSession as AdminServerSession | undefined;
+    const remainingMs = Math.max(0, (adminSession?.expiresAt || 0) - Date.now());
     res.json({
       authenticated: true,
       email: adminUser?.email || ADMIN_EMAIL,
       role: adminUser?.role || 'SUPER_ADMIN',
-      userId: adminUser?.id
+      userId: adminUser?.id,
+      createdAt: adminSession?.createdAt,
+      expiresAt: adminSession?.expiresAt,
+      remainingMs
     });
   });
 
@@ -1918,9 +2186,13 @@ export async function createExpressApp() {
     });
   });
 
-  // Admin Logout
-  app.post('/api/admin/logout', requireAdminAuth, (_req, res) => {
-    res.json({ success: true, message: 'Sign out of the Supabase session to end administrator access.' });
+  // Admin Logout: Invalidate server session
+  app.post('/api/admin/logout', requireAdminAuth, async (req, res) => {
+    const adminUser = (req as any).adminUser;
+    if (adminUser?.id) {
+      await revokeAdminSession(adminUser.id);
+    }
+    res.json({ success: true, message: 'Admin session terminated.' });
   });
 
   // Admin Stats (Real Firestore Data)

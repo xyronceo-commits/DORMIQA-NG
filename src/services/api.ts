@@ -813,10 +813,9 @@ export async function submitReport(data: Partial<Report>): Promise<Report> {
   return reportRecord;
 }
 
-async function getAdminAuthHeaders(): Promise<Record<string, string>> {
+async function getAdminAuthHeaders(explicitToken?: string): Promise<Record<string, string>> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
+    const token = explicitToken || (await supabase.auth.getSession()).data?.session?.access_token;
     return {
       'Content-Type': 'application/json',
       ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -826,21 +825,88 @@ async function getAdminAuthHeaders(): Promise<Record<string, string>> {
   }
 }
 
-export async function checkAdminSession(): Promise<{ authenticated: boolean; email?: string; role?: AdminRole; userId?: string }> {
+export async function requestAdminOtp(email: string): Promise<{ success: boolean; message: string; cooldownSeconds?: number; retryAfterSeconds?: number }> {
+  const cleanEmail = email.trim().toLowerCase();
+  const res = await apiFetch(`${API_BASE}/admin/auth/request-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: cleanEmail }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || 'Failed to send admin verification code.');
+  }
+  return data;
+}
+
+export async function startAdminSession(explicitToken?: string): Promise<{ success: boolean; sessionId?: string; expiresAt?: number; remainingMs?: number }> {
+  const headers = await getAdminAuthHeaders(explicitToken);
+  const res = await apiFetch(`${API_BASE}/admin/auth/start-session`, {
+    method: 'POST',
+    headers,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || 'Failed to initialize administrative session.');
+  }
+  return data;
+}
+
+export async function checkAdminSession(explicitToken?: string): Promise<{
+  authenticated: boolean;
+  expired?: boolean;
+  email?: string;
+  role?: AdminRole;
+  userId?: string;
+  createdAt?: number;
+  expiresAt?: number;
+  remainingMs?: number;
+  message?: string;
+}> {
   try {
-    const authHeaders = await getAdminAuthHeaders();
-    const data = await safeFetchJson<{ authenticated: boolean; email?: string; role?: AdminRole; userId?: string }>(`${API_BASE}/admin/check-session`, {
+    const authHeaders = await getAdminAuthHeaders(explicitToken);
+    const res = await apiFetch(`${API_BASE}/admin/check-session`, {
       headers: authHeaders
     });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 401 && data.expired) {
+      return {
+        authenticated: false,
+        expired: true,
+        message: data.message || 'Your admin session has expired. Sign in again to continue.'
+      };
+    }
+
+    if (!res.ok) {
+      return { authenticated: false, message: data.message };
+    }
+
     return {
       authenticated: Boolean(data.authenticated),
       email: data.email,
       role: data.role || 'ADMIN',
-      userId: data.userId
+      userId: data.userId,
+      createdAt: data.createdAt,
+      expiresAt: data.expiresAt,
+      remainingMs: data.remainingMs,
     };
-  } catch (err) {
+  } catch (err: any) {
     console.warn('[ADMIN API] checkAdminSession error:', err);
     return { authenticated: false };
+  }
+}
+
+export async function logoutAdminSession(): Promise<boolean> {
+  try {
+    const headers = await getAdminAuthHeaders();
+    await apiFetch(`${API_BASE}/admin/logout`, {
+      method: 'POST',
+      headers
+    }).catch(() => {});
+    return true;
+  } catch {
+    return false;
   }
 }
 

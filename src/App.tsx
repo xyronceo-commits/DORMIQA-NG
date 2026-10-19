@@ -81,9 +81,8 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { AdminAccessScreen } from './components/AdminAccessScreen';
 import { InfoPagesModal } from './components/InfoPagesModal';
 import { ComingSoonPage } from './components/ComingSoonPage';
-import { ListingGridSkeleton, ListItemRowSkeleton, DashboardSkeleton, ChatDrawerSkeleton } from './components/SkeletonLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { checkAdminSession } from './services/api';
+import { checkAdminSession, logoutAdminSession } from './services/api';
 import { 
   auth, 
   saveUserToFirestore, 
@@ -408,9 +407,20 @@ export default function App() {
         return;
       }
 
-      // 5. Verify backend session authorization
-      const serverCheck = await checkAdminSession();
+      // 5. Verify backend session authorization & 12-hour maximum lifetime
+      const serverCheck = await checkAdminSession(session.access_token);
       if (!isMounted || generation !== verificationGeneration) return;
+
+      if (serverCheck.expired) {
+        console.warn('[ADMIN AUTH] Admin session reached maximum 12-hour lifetime.');
+        await supabase.auth.signOut().catch(() => {});
+        setIsAdminAuthenticated(false);
+        setAdminEmail(authEmail);
+        setAdminAuthStatus('SESSION_EXPIRED');
+        setToastNotice('Your admin session has expired. Sign in again to continue.');
+        return;
+      }
+
       if (!serverCheck.authenticated) {
         console.warn('[ADMIN AUTH] Backend session check rejected the admin session.');
         setAdminEmail(authEmail);
@@ -424,6 +434,19 @@ export default function App() {
       setAdminRole('SUPER_ADMIN');
       setAdminAuthStatus('AUTHORIZED');
       setCurrentRole('admin');
+
+      // Schedule automatic logout when the absolute 12-hour server session deadline is reached
+      if (typeof serverCheck.remainingMs === 'number' && serverCheck.remainingMs > 0) {
+        if (redirectTimer) clearTimeout(redirectTimer);
+        redirectTimer = setTimeout(async () => {
+          if (!isMounted) return;
+          console.warn('[ADMIN AUTH] 12-hour admin session expired.');
+          await supabase.auth.signOut().catch(() => {});
+          setIsAdminAuthenticated(false);
+          setAdminAuthStatus('SESSION_EXPIRED');
+          setToastNotice('Your admin session has expired. Sign in again to continue.');
+        }, serverCheck.remainingMs);
+      }
     };
 
     const startVerification = () => {
@@ -2163,7 +2186,8 @@ export default function App() {
                   currentAdminRole={adminRole}
                   onRefresh={loadListingsData}
                   onAdminLogout={async () => {
-                    await supabase.auth.signOut();
+                    await logoutAdminSession();
+                    await supabase.auth.signOut().catch(() => {});
                     setIsAdminAuthenticated(false);
                     setAdminAuthStatus('SIGNED_OUT');
                     setCurrentRole('student');
