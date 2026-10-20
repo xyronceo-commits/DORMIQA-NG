@@ -1520,8 +1520,8 @@ export default function App() {
       )}
       
       {/* Global Navbar for Public/Student Pages without embedded header */}
-      {(currentRole !== 'student' || ['landing', 'onboarding', 'coming-soon'].includes(activeView)) && 
-       !['agent-dash', 'agent-landing', 'admin-dash'].includes(activeView) && (
+      {(currentRole !== 'student' || ['landing', 'coming-soon'].includes(activeView)) && 
+       !['agent-dash', 'agent-landing', 'admin-dash', 'onboarding', 'reset-password', 'complete-profile', 'auth-confirmed', 'business-verification', 'universities'].includes(activeView) && (
         <Navbar
           activeView={activeView as any}
           setActiveView={navigateView as any}
@@ -2152,6 +2152,12 @@ export default function App() {
                   setListings(prev => prev.map(l => l.id === updatedListing.id ? updatedListing : l));
                   if (detailListing?.id === updatedListing.id) {
                     setDetailListing(updatedListing);
+                  }
+                }}
+                onListingDelete={(deletedId) => {
+                  setListings(prev => prev.filter(l => l.id !== deletedId));
+                  if (detailListing?.id === deletedId) {
+                    setDetailListing(null);
                   }
                 }}
               />

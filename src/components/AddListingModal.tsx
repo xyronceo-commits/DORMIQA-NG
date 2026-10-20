@@ -89,7 +89,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploadStatusText, setUploadStatusText] = useState<string>('');
-  const [submissionResult, setSubmissionResult] = useState<'pending' | 'needs_changes' | null>(null);
+  const [submissionResult, setSubmissionResult] = useState<'published' | 'pending' | 'needs_changes' | null>(null);
 
   const selectedUni = universities.find(u => u.id === universityId);
 
@@ -303,12 +303,12 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
       // Non-blocking asynchronous notification dispatch
       sendNotification({
         userId: agentId,
-        title: 'Listing submitted for review',
-        body: `Your listing "${hostelName}" is awaiting administrator review.`,
+        title: 'Listing published',
+        body: `Your listing "${hostelName}" has been published and is now live on Dormiqa.`,
         type: 'system'
       }).catch(() => {});
 
-      setSubmissionResult('pending');
+      setSubmissionResult('published');
       onSuccess(created);
 
     } catch (err: any) {
@@ -845,32 +845,32 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         )}
 
         {/* ==========================================
-            STEP 9: SUBMIT & VERIFICATION RESULT
+            STEP 9: SUBMIT & PUBLISH RESULT
            ========================================== */}
         {currentStep === 9 && (
           <div className="space-y-4 text-center">
-            {submissionResult === 'pending' ? (
+            {submissionResult === 'published' ? (
               <div className="p-6 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 rounded-3xl space-y-3">
                 <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
                 <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-200">
-                  Your listing was submitted for review.
+                  Your listing has been published!
                 </h3>
                 <p className="text-xs text-emerald-800 dark:text-emerald-300 font-medium max-w-md mx-auto">
-                  It will appear to students after it is approved.
+                  Your hostel is now live and immediately visible to students on the discovery page. You can manage room vacancies, pricing, or details anytime from your dashboard.
                 </p>
                 <button
                   type="button"
                   onClick={onClose}
                   className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl cursor-pointer"
                 >
-                  Close
+                  View in Agent Dashboard
                 </button>
               </div>
             ) : submitting ? (
               <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl space-y-4 text-white text-center shadow-lg">
                 <Loader2 className="w-10 h-10 text-emerald-400 animate-spin mx-auto" />
                 <div>
-                  <h3 className="text-base font-extrabold text-white">Submitting listing</h3>
+                  <h3 className="text-base font-extrabold text-white">Publishing listing</h3>
                   <p className="text-xs text-slate-300 mt-1 font-semibold">{uploadStatusText || 'Uploading media files...'}</p>
                 </div>
 
@@ -895,7 +895,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                   STEP 9: Publish Hostel Listing
                 </h2>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
-                  Submit your listing for administrator review.
+                  Save and automatically publish your hostel listing. It will be visible to students immediately.
                 </p>
 
                 {validationError && (
@@ -917,7 +917,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                   disabled={submitting}
                   className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
                 >
-                  <span>Submit for review</span>
+                  <span>Publish Listing Immediately</span>
                 </button>
               </div>
             )}
@@ -925,7 +925,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         )}
 
         {/* Wizard Controls Bottom Bar */}
-        {submissionResult !== 'pending' && (
+        {submissionResult !== 'published' && (
           <div className="mt-8 pt-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
             <button
               type="button"

@@ -424,6 +424,43 @@ export async function updateListingStatusAndSales(
   return updated;
 }
 
+export async function deleteListing(listingId: string): Promise<boolean> {
+  const cleanId = listingId.trim();
+  let serverSuccess = false;
+
+  try {
+    const res = await apiFetch(`${API_BASE}/listings/${encodeURIComponent(cleanId)}`, {
+      method: 'DELETE',
+    });
+    if (res.ok) {
+      serverSuccess = true;
+    }
+  } catch (err) {
+    console.warn('Backend DELETE /api/listings/:id failed, using Firestore fallback:', err);
+  }
+
+  // Also ensure removal in Firestore
+  try {
+    const { doc, deleteDoc, updateDoc } = await import('firebase/firestore');
+    const { db } = await import('./firebase');
+    const docRef = doc(db, 'listings', cleanId);
+    try {
+      await deleteDoc(docRef);
+    } catch {
+      await updateDoc(docRef, { status: 'removed', verificationStatus: 'removed' });
+    }
+    serverSuccess = true;
+  } catch (fsErr) {
+    console.warn('Firestore direct delete failed:', fsErr);
+  }
+
+  // Invalidate public listing caches
+  clientCache.invalidate('listings_query:');
+  clientCache.invalidate(`listing_detail:${cleanId}`);
+
+  return serverSuccess;
+}
+
 export async function submitListingReview(
   listingId: string, 
   reviewData: { authorName: string; authorAvatar?: string; rating: number; comment: string; universityCourse?: string; tag?: string }

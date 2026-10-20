@@ -163,7 +163,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           phone: normalizedPhone,
           universityId: studentUniId,
           universityName: studentUni,
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+          avatarUrl: '',
           isSignup: true,
           isEmailVerified: false
         };

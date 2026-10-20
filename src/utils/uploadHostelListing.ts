@@ -179,13 +179,13 @@ export async function uploadHostelListing(params: UploadHostelListingParams): Pr
     minLeaseMonths,
     totalBedrooms,
     totalBathrooms,
-    isVerified: false,
+    isVerified: true,
     rating: 4.8,
     reviewCount: 0,
     reviews: [],
     featured: false,
-    status: 'pending',
-    verificationStatus: 'pending',
+    status: 'published',
+    verificationStatus: 'published',
     agentId,
     agent: {
       id: agentId,
@@ -299,19 +299,19 @@ export async function uploadHostelListing(params: UploadHostelListingParams): Pr
     ...draftListing,
     videoUrl: uploadedVideoUrl,
     photos: uploadedPhotoUrls,
-    status: 'pending',
-    verificationStatus: 'pending',
-    isVerified: false
+    status: 'published',
+    verificationStatus: 'published',
+    isVerified: true
   };
 
   try {
     const listingRef = doc(db, 'listings', id);
     await setDoc(listingRef, finalListing, { merge: true });
   } catch (finalErr: any) {
-    console.error('Failed to update listing status to pending_verification:', finalErr);
+    console.error('Failed to update listing status to published:', finalErr);
     throw new UploadHostelListingError(
       'finalizing',
-      `Failed to submit listing for verification: ${finalErr?.message || 'Database error'}`
+      `Failed to publish listing: ${finalErr?.message || 'Database error'}`
     );
   }
 
@@ -325,7 +325,7 @@ export async function uploadHostelListing(params: UploadHostelListingParams): Pr
     onProgress({
       step: 'finalizing',
       progressPercent: 100,
-      message: 'Listing successfully submitted for verification!'
+      message: 'Listing successfully published and live!'
     });
   }
 

@@ -27,10 +27,12 @@ import {
  Send
 } from 'lucide-react';
 import { User, University } from '../types';
-import { auth, sendPasswordReset, saveUserToFirestore } from '../services/firebase';
+import { auth, sendPasswordReset, saveUserToFirestore, validateAndNormalizePhoneNumber } from '../services/firebase';
+import { supabase } from '../services/supabase';
 import { ThemeToggle } from './ThemeToggle';
 import { UniversitySelector } from './UniversitySelector';
 import { DeleteAccountModal } from './DeleteAccountModal';
+import { UserAvatar } from './UserAvatar';
 
 interface AgentProfilePageProps {
  user?: Partial<User> | null;
@@ -42,6 +44,7 @@ interface AgentProfilePageProps {
  onSignOut: () => void;
  onDeleteAccount?: () => void;
  onOpenInfoPage?: (docId: string) => void;
+ onProfileUpdated?: (updated: User) => void;
 }
 
 export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
@@ -53,7 +56,8 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
  onNavigateSection,
  onSignOut,
  onDeleteAccount,
- onOpenInfoPage
+ onOpenInfoPage,
+ onProfileUpdated
 }) => {
  // Modal states for the 5 General items
  const [activeModal, setActiveModal] = useState<'profile' | 'security' | 'notifications' | 'language' | null>(null);
@@ -66,6 +70,18 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
  const [profileUniId, setProfileUniId] = useState(user?.universityId || 'uniosun');
  const [profileLocation, setProfileLocation] = useState(user?.universityName || 'Osun State University (UNIOSUN)');
  const [profileToast, setProfileToast] = useState('');
+ const [isSaving, setIsSaving] = useState(false);
+
+ // Synchronize state whenever user prop updates from authoritative database
+ React.useEffect(() => {
+  if (user) {
+   if (user.name) setProfileName(user.name);
+   if (user.phone) setProfilePhone(user.phone);
+   if (user.agencyName) setProfileAgency(user.agencyName);
+   if (user.universityId) setProfileUniId(user.universityId);
+   if (user.universityName) setProfileLocation(user.universityName);
+  }
+ }, [user]);
 
  // Security State
  const [resetSent, setResetSent] = useState(false);
@@ -89,7 +105,6 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
 
  const email = user?.email || auth.currentUser?.email || 'dormiqa.ng@gmail.com';
  const isVerified = user?.isVerifiedAgent || user?.businessVerificationStatus === 'approved';
- const avatarUrl = user?.avatarUrl || auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80';
 
  const handleSaveProfile = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -98,27 +113,59 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
    setProfileToast('Authentication required to save profile.');
    return;
   }
+
+  const phoneVal = validateAndNormalizePhoneNumber(profilePhone);
+  if (!phoneVal.isValid) {
+   setProfileToast(phoneVal.error || 'Please enter a valid phone number.');
+   return;
+  }
+
+  setIsSaving(true);
   const updatedUserData: User = {
+   ...(user as any),
    id: currentUid,
-   name: profileName,
-   phone: profilePhone,
-   agencyName: profileAgency,
+   name: profileName.trim(),
+   phone: phoneVal.normalized,
+   agencyName: profileAgency.trim(),
    universityId: profileUniId,
    universityName: profileLocation,
    email: user?.email || auth.currentUser?.email || '',
-   role: (user?.role as 'agent' | 'student' | 'admin') || 'agent',
+   role: 'agent',
    isVerifiedAgent: Boolean(user?.isVerifiedAgent || user?.businessVerificationStatus === 'approved'),
    businessVerificationStatus: user?.businessVerificationStatus || 'none',
-   avatarUrl: user?.avatarUrl || auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80',
+   avatarUrl: user?.avatarUrl || '', // fixed to default person icon, prohibited from change
    createdAt: user?.createdAt || new Date().toISOString().split('T')[0]
   };
+
   try {
    await saveUserToFirestore(updatedUserData);
-   setProfileToast('Profile details updated and saved.');
+
+   // Synchronize to Supabase Auth metadata for permanent session consistency
+   try {
+    await supabase.auth.updateUser({
+     data: {
+      full_name: profileName.trim(),
+      name: profileName.trim(),
+      phone: phoneVal.normalized,
+      agency_name: profileAgency.trim(),
+      university_id: profileUniId,
+      university_name: profileLocation
+     }
+    });
+   } catch (metaErr) {
+    console.warn('Supabase auth metadata update error:', metaErr);
+   }
+
+   setProfileToast('Profile details updated and saved permanently.');
+   if (onProfileUpdated) {
+    onProfileUpdated(updatedUserData);
+   }
    setTimeout(() => setProfileToast(''), 3000);
    setTimeout(() => setActiveModal(null), 1200);
   } catch (err: any) {
    setProfileToast('Error saving profile to database: ' + (err?.message || 'Failed'));
+  } finally {
+   setIsSaving(false);
   }
  };
 
@@ -144,10 +191,11 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
      ========================================== */}
    <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 shadow-xs flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
     <div className="relative shrink-0">
-     <img
-      src={avatarUrl}
-      alt={name}
-      className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500 shadow-xs"
+     <UserAvatar
+      user={user as any}
+      name={name}
+      size="xl"
+      className="border-2 border-emerald-500 shadow-xs"
      />
      {isVerified && (
       <div className="absolute -bottom-1.5 -right-1.5 bg-emerald-600 text-white p-1 rounded-full shadow-xs" title="Verified Agent">

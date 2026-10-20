@@ -1204,7 +1204,13 @@ export async function createExpressApp() {
       result = result.filter(l => l.agentId === String(agentId));
       if (status) result = result.filter(l => l.status === status);
     } else {
-      result = result.filter(l => l.status === 'approved' && l.universityId === 'uniosun');
+      result = result.filter(l => {
+        const s = (l as any).status;
+        const vs = (l as any).verificationStatus;
+        const isLive = s === 'published' || s === 'approved';
+        const isNotBlocked = s !== 'rejected' && s !== 'removed' && s !== 'banned' && vs !== 'rejected' && vs !== 'removed';
+        return isLive && isNotBlocked;
+      });
     }
 
     const cached = getServerCache<Listing[]>(cacheKey);
@@ -1285,7 +1291,9 @@ export async function createExpressApp() {
     if (!listing) {
       return res.status(404).json({ error: 'Listing not found' });
     }
-    if (listing.status !== 'approved' || listing.universityId !== 'uniosun') {
+    const isLive = (listing.status as any) === 'published' || (listing.status as any) === 'approved';
+    const isRestricted = (listing.status as any) === 'rejected' || (listing.status as any) === 'removed' || (listing.status as any) === 'banned';
+    if (!isLive || isRestricted) {
       const authorization = req.headers.authorization || '';
       const accessToken = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
       const { data, error } = accessToken
@@ -1421,9 +1429,9 @@ export async function createExpressApp() {
       totalBathrooms: 1,
       agentId,
       agent,
-      isVerified: false,
-      status: 'pending',
-      verificationStatus: 'pending',
+      isVerified: true,
+      status: 'published',
+      verificationStatus: 'published',
       rating: 5.0,
       reviewCount: 0,
       reviews: [],
@@ -1449,7 +1457,8 @@ export async function createExpressApp() {
   // Update listing unit status and sales information (Agent)
   app.patch('/api/listings/:id/status-and-sales', requireSupabaseUser, async (req, res) => {
     const userId = (req as any).supabaseUser.id as string;
-    const listing = (await getFirestoreListings()).find(l => l.id === req.params.id);
+    const listings = await getFirestoreListings();
+    const listing = listings.find(l => l.id === req.params.id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
     if (listing.agentId !== userId) return res.status(403).json({ error: 'You can only update your own listing.' });
 
@@ -1460,7 +1469,6 @@ export async function createExpressApp() {
       description,
       photos,
       videoUrl,
-      resubmitForVerification,
       unitStatus, 
       vacanciesCount, 
       unitStatusNote, 
@@ -1486,10 +1494,10 @@ export async function createExpressApp() {
       listing.videoUrl = videoUrl.trim();
     }
 
-    if (resubmitForVerification === true) {
-      listing.status = 'pending';
-      listing.verificationStatus = 'pending';
-      listing.rejectionReason = undefined;
+    // Preservation rule: ordinary edits keep listing published unless already restricted by admin
+    if (listing.status !== 'rejected' && listing.status !== 'banned' && listing.status !== 'removed') {
+      listing.status = 'published';
+      (listing as any).verificationStatus = 'published';
     }
 
     if (unitStatus !== undefined) listing.unitStatus = unitStatus;
@@ -1516,6 +1524,51 @@ export async function createExpressApp() {
     res.json(listing);
   });
 
+  // Delete listing (Agent can delete only their own listing, Admin can delete any)
+  app.delete('/api/listings/:id', requireSupabaseUser, async (req, res) => {
+    const userId = (req as any).supabaseUser.id as string;
+    const listings = await getFirestoreListings();
+    const listing = listings.find(l => l.id === req.params.id);
+    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+    
+    // Check ownership or admin status
+    const isOwner = listing.agentId === userId || (listing as any).userId === userId;
+    let isAdmin = false;
+    try {
+      const { data: adminRows } = await supabaseDataClient
+        .from('admin_accounts')
+        .select('role, active')
+        .eq('user_id', userId)
+        .limit(1);
+      if (adminRows?.[0]?.role === 'admin' && adminRows?.[0]?.active) {
+        isAdmin = true;
+      }
+    } catch {}
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'You can only delete your own listings.' });
+    }
+
+    // Mark as removed in memory and delete from Firestore
+    listing.status = 'removed';
+    (listing as any).verificationStatus = 'removed';
+    (listing as any).removedAt = new Date().toISOString();
+    (listing as any).removedBy = userId;
+
+    if (firestoreDb) {
+      try {
+        await deleteDoc(doc(firestoreDb, 'listings', listing.id));
+      } catch (err) {
+        console.warn('Failed to delete doc, updating status to removed:', err);
+        await setDoc(doc(firestoreDb, 'listings', listing.id), { status: 'removed', verificationStatus: 'removed' }, { merge: true });
+      }
+    }
+
+    // Invalidate caches
+    invalidateServerListingsCache(req.params.id);
+    res.json({ success: true, message: `Listing "${listing.title}" has been deleted.` });
+  });
+
   // Submit student star-rating review for listing
   app.post('/api/listings/:id/reviews', requireSupabaseUser, async (req, res) => {
     const user = (req as any).supabaseUser;
@@ -1528,13 +1581,13 @@ export async function createExpressApp() {
 
     const newReview = {
       id: `rev_${Date.now()}`,
-      authorName: user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Verified Student',
-      authorAvatar: user.user_metadata?.avatar_url || '',
+      authorName: req.body.authorName ? sanitizeInputString(req.body.authorName, 100) : (user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Verified Student'),
+      authorAvatar: req.body.authorAvatar || user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80',
       rating,
-      date: 'Just now',
+      date: new Date().toISOString().split('T')[0],
       comment: sanitizeInputString(req.body.comment, 1000),
-      universityCourse: 'Student',
-      tag: 'Verified Inspection Tour'
+      universityCourse: req.body.universityCourse ? sanitizeInputString(req.body.universityCourse, 100) : 'Student Resident',
+      tag: req.body.tag ? sanitizeInputString(req.body.tag, 100) : 'Verified Inspection Tour'
     };
 
     listing.reviews = [newReview, ...(listing.reviews || [])];
@@ -1611,7 +1664,8 @@ export async function createExpressApp() {
     }
     const { listingId } = req.body;
     const listing = (await getFirestoreListings()).find((item) => item.id === listingId);
-    if (!listing || listing.status !== 'approved') return res.status(404).json({ error: 'Approved listing not found.' });
+    const isListingLive = (listing?.status as any) === 'published' || (listing?.status as any) === 'approved';
+    if (!listing || !isListingLive) return res.status(404).json({ error: 'Listing not found or no longer available.' });
     const studentId = user.id;
     const agentId = listing.agentId;
     const snapshot = await getDocs(collection(firestoreDb, 'conversations'));
@@ -2279,7 +2333,7 @@ export async function createExpressApp() {
       verifiedAgents: users.filter(u => u.role === 'agent' && u.isVerifiedAgent).length,
       pendingAgents: users.filter(u => u.role === 'agent' && !u.isVerifiedAgent && u.status !== 'rejected').length,
       totalListings: listings.length,
-      approvedListings: listings.filter(l => l.status === 'approved').length,
+      approvedListings: listings.filter(l => l.status === 'approved' || l.status === 'published').length,
       pendingListings: listings.filter(l => l.status === 'pending').length,
       totalInspections: inspections.length,
       pendingReviews: listings.filter(l => l.status === 'pending').length + users.filter(u => u.role === 'agent' && !u.isVerifiedAgent && u.status !== 'rejected').length
@@ -2651,7 +2705,7 @@ export async function createExpressApp() {
       },
       listingsStats: {
         total: listings.length,
-        approved: listings.filter(l => l.status === 'approved').length,
+        approved: listings.filter(l => l.status === 'approved' || l.status === 'published').length,
         pending: listings.filter(l => l.status === 'pending').length,
         banned: listings.filter(l => l.status === 'banned' || l.status === 'rejected').length
       }

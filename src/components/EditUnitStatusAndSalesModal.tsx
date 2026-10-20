@@ -193,6 +193,11 @@ export const EditUnitStatusAndSalesModal: React.FC<EditUnitStatusAndSalesModalPr
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (photos.length < 1) {
+      setErrorMessage('A clear front-of-building photo is compulsory.');
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage(null);
     setSuccessNotice(null);

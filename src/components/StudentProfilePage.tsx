@@ -20,10 +20,12 @@ import {
   X
 } from 'lucide-react';
 import { User, University } from '../types';
-import { auth, saveUserToFirestore, saveStudentProfileToFirestore, validateAndNormalizePhoneNumber } from '../services/firebase';
+import { auth, saveStudentProfileToFirestore, validateAndNormalizePhoneNumber } from '../services/firebase';
+import { supabase } from '../services/supabase';
 import { ThemeToggle } from './ThemeToggle';
 import { UniversitySelector } from './UniversitySelector';
 import { DeleteAccountModal } from './DeleteAccountModal';
+import { UserAvatar } from './UserAvatar';
 
 interface StudentProfilePageProps {
   user?: User;
@@ -35,6 +37,7 @@ interface StudentProfilePageProps {
   onSignOut: () => void;
   onDeleteAccount?: () => void;
   onGoBack: () => void;
+  onProfileUpdated?: (updated: User) => void;
 }
 
 export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
@@ -46,19 +49,29 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
   onNavigateView,
   onSignOut,
   onDeleteAccount,
-  onGoBack
+  onGoBack,
+  onProfileUpdated
 }) => {
   const [activeModal, setActiveModal] = useState<'profile' | 'security' | 'notifications' | 'terms' | 'privacy' | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const [studentName, setStudentName] = useState(user?.name || auth.currentUser?.displayName || 'Student Account');
-  const [studentPhone, setStudentPhone] = useState(user?.phone || user?.phoneNumber || '');
+  const [studentPhone, setStudentPhone] = useState(user?.phone || (user as any)?.phoneNumber || '');
   const [studentUniId, setStudentUniId] = useState(user?.universityId || 'uniosun');
   const [studentUniversity, setStudentUniversity] = useState(user?.universityName || 'Osun State University (UNIOSUN)');
   const [profileToast, setProfileToast] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  const photo = user?.avatarUrl || auth.currentUser?.photoURL || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80";
+  // Synchronize state whenever user prop updates from the authoritative database
+  React.useEffect(() => {
+    if (user) {
+      if (user.name) setStudentName(user.name);
+      if (user.phone || (user as any).phoneNumber) setStudentPhone(user.phone || (user as any).phoneNumber || '');
+      if (user.universityId) setStudentUniId(user.universityId);
+      if (user.universityName) setStudentUniversity(user.universityName);
+    }
+  }, [user]);
+
   const name = studentName;
   const university = studentUniversity;
   const email = user?.email || auth.currentUser?.email || '';
@@ -79,22 +92,53 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
 
     setIsSaving(true);
     try {
+      const updatedUser: User = {
+        ...(user || {} as User),
+        id: currentUid,
+        name: studentName.trim(),
+        email: email,
+        phone: phoneVal.normalized,
+        universityId: studentUniId,
+        universityName: studentUniversity,
+        role: 'student',
+        isEmailVerified: user?.isEmailVerified ?? true,
+        avatarUrl: user?.avatarUrl || '', // fixed to neutral person icon, protected from modification
+        createdAt: user?.createdAt || new Date().toISOString().split('T')[0]
+      };
+
       await saveStudentProfileToFirestore({
         uid: currentUid,
-        name: studentName,
+        name: studentName.trim(),
         email: email,
-        photoURL: photo,
         phoneNumber: phoneVal.normalized,
         universityId: studentUniId,
         universityName: studentUniversity,
         profileCompleted: true
       });
 
-      setProfileToast('Profile details updated and saved.');
+      // Synchronize to Supabase Auth metadata for permanent cross-session consistency
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            full_name: studentName.trim(),
+            name: studentName.trim(),
+            phone: phoneVal.normalized,
+            university_id: studentUniId,
+            university_name: studentUniversity
+          }
+        });
+      } catch (metaErr) {
+        console.warn('Supabase auth metadata update error:', metaErr);
+      }
+
+      setProfileToast('Profile details updated and saved permanently.');
+      if (onProfileUpdated) {
+        onProfileUpdated(updatedUser);
+      }
       setTimeout(() => setProfileToast(''), 3000);
       setTimeout(() => setActiveModal(null), 1200);
     } catch (err: any) {
-      setProfileToast('Save failed: ' + (err?.message || 'Error'));
+      setProfileToast('Save failed: ' + (err?.message || 'Error saving changes'));
     } finally {
       setIsSaving(false);
     }
@@ -127,10 +171,11 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
         {/* PROFILE HEADER CARD */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-neutral-200 dark:border-slate-800 p-6 flex flex-col items-center text-center space-y-3 shadow-2xs">
           <div className="relative">
-            <img
-              src={photo}
-              alt=""
-              className="w-20 h-20 rounded-full object-cover border-2 border-emerald-500 shadow-sm"
+            <UserAvatar
+              user={user}
+              name={name}
+              size="xl"
+              className="border-2 border-emerald-500 shadow-xs"
             />
             <span className="absolute bottom-0 right-0 bg-emerald-500 text-white p-1 rounded-full border-2 border-white dark:border-slate-900">
               <CheckCircle2 className="w-3.5 h-3.5" />

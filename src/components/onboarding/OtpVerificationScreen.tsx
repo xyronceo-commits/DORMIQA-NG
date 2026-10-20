@@ -98,6 +98,7 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
       newDigits[i] = pasted[i] || '';
     }
     setDigits(newDigits);
+
     const targetIdx = Math.min(pasted.length, 7);
     inputRefs.current[targetIdx]?.focus();
 
@@ -139,12 +140,12 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
   const error = localError || externalErrorMessage;
 
   return (
-    <div className="min-h-screen bg-white text-neutral-900 flex flex-col justify-between font-sans">
-      {/* Top Header with Brand Logo (No URL path breadcrumbs) */}
-      <header className="w-full max-w-xl mx-auto px-5 py-3.5 flex items-center justify-between border-b border-neutral-100">
-        <div className="flex items-center gap-2.5">
-          <DormiqaLogo className="w-6 h-6 shrink-0" />
-          <span className="text-base font-black tracking-tight text-neutral-900">DORMIQA</span>
+    <div className="h-[100dvh] max-h-[100dvh] bg-white text-neutral-900 flex flex-col justify-between font-sans overflow-y-auto">
+      {/* Top Header */}
+      <header className="w-full max-w-md mx-auto px-4 py-2.5 sm:py-3.5 flex items-center justify-between border-b border-neutral-100 shrink-0">
+        <div className="flex items-center gap-2">
+          <DormiqaLogo className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
+          <span className="text-sm sm:text-base font-black tracking-tight text-neutral-900">DORMIQA</span>
         </div>
 
         <button
@@ -158,13 +159,13 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
       </header>
 
       {/* Main Container */}
-      <main className="w-full max-w-md mx-auto px-5 pt-4 pb-6 flex flex-col justify-center flex-1">
-        <div className="space-y-1.5 mb-5 text-center">
-          <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto mb-2 border border-emerald-100">
-            <Mail className="w-5 h-5" />
+      <main className="w-full max-w-md mx-auto px-4 py-3 sm:py-4 flex flex-col justify-center flex-1 min-h-0">
+        <div className="space-y-1 mb-3 text-center">
+          <div className="w-9 h-9 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto mb-1.5 border border-emerald-100">
+            <Mail className="w-4 h-4" />
           </div>
 
-          <h1 className="text-xl sm:text-2xl font-extrabold text-neutral-900 tracking-tight">
+          <h1 className="text-lg sm:text-xl font-black text-neutral-900 tracking-tight leading-snug">
             Enter 8-digit verification code
           </h1>
 
@@ -176,7 +177,7 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
+          <div className="mb-3 p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
             <span className="leading-snug font-medium">{error}</span>
           </div>
@@ -184,15 +185,15 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
 
         {/* Resend Success Alert */}
         {resendSuccess && (
-          <div className="mb-4 p-3 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2">
+          <div className="mb-3 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 mt-0.5" />
             <span className="leading-snug font-medium">A fresh 8-digit code has been sent to your email.</span>
           </div>
         )}
 
         {/* Form with 8 Digit Boxes */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-8 gap-1.5 sm:gap-2 justify-center">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-8 gap-1 sm:gap-1.5 justify-center">
             {digits.map((digit, idx) => (
               <input
                 key={idx}
@@ -209,7 +210,7 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
                 onPaste={handlePaste}
                 disabled={isLoading}
                 aria-label={`Digit ${idx + 1}`}
-                className="w-full h-11 sm:h-12 text-center text-base sm:text-lg font-bold text-neutral-900 bg-white border border-neutral-300 rounded-md focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors disabled:opacity-50"
+                className="w-full h-10 sm:h-11 text-center text-base sm:text-lg font-bold text-neutral-900 bg-white border border-neutral-300 rounded-lg focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors disabled:opacity-50"
               />
             ))}
           </div>
@@ -217,7 +218,7 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
           <button
             type="submit"
             disabled={isLoading || digits.join('').length < 6}
-            className="w-full py-3 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-none"
+            className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
           >
             {isLoading ? (
               <>
@@ -234,9 +235,9 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
         </form>
 
         {/* Resend Code Section */}
-        <div className="mt-5 text-center space-y-2">
-          <p className="text-xs text-neutral-500">
-            Didn't receive the email code? Check your spam/junk folder.
+        <div className="mt-3 text-center space-y-1.5">
+          <p className="text-[11px] sm:text-xs text-neutral-500">
+            Didn't receive the email code? Check spam folder.
           </p>
 
           <button
@@ -255,7 +256,7 @@ export const OtpVerificationScreen: React.FC<OtpVerificationScreenProps> = ({
         </div>
       </main>
 
-      <footer className="w-full max-w-xl mx-auto px-5 py-4 text-center border-t border-neutral-100 text-[11px] text-neutral-400">
+      <footer className="w-full max-w-md mx-auto px-4 py-2.5 text-center border-t border-neutral-100 text-[10px] sm:text-xs text-neutral-400 shrink-0">
         DORMIQA Secure Account Verification
       </footer>
     </div>

@@ -33,27 +33,28 @@ export function normalizeListing(data: any, docId?: string): Listing {
     totalReviews: typeof rawAgent.totalReviews === 'number' ? rawAgent.totalReviews : 1
   };
 
-  // Property / Listing verification: status or explicit isVerified flag
+  // Property / Listing status: publish-first with post-publication moderation
   const rawStatus = data?.status || data?.verificationStatus;
-  let status: 'pending' | 'approved' | 'rejected' | 'banned' | 'changes_requested' | 'removed' = 'pending';
+  let status: 'published' | 'pending' | 'approved' | 'rejected' | 'banned' | 'changes_requested' | 'removed' = 'published';
 
-  if (rawStatus === 'approved' || rawStatus === 'verified') {
-    status = 'approved';
-  } else if (rawStatus === 'rejected') {
+  if (rawStatus === 'rejected') {
     status = 'rejected';
   } else if (rawStatus === 'banned') {
     status = 'banned';
-  } else if (rawStatus === 'changes_requested') {
-    status = 'changes_requested';
   } else if (rawStatus === 'removed') {
     status = 'removed';
-  } else if (data?.isVerified === true) {
+  } else if (rawStatus === 'changes_requested') {
+    status = 'changes_requested';
+  } else if (rawStatus === 'approved' || rawStatus === 'verified') {
     status = 'approved';
+  } else if (rawStatus === 'pending') {
+    // Under publish-first workflow, valid agent submissions are published
+    status = 'published';
   } else {
-    status = 'pending';
+    status = 'published';
   }
 
-  const isListingVerified = status === 'approved';
+  const isListingVerified = status === 'approved' || status === 'published' || data?.isVerified === true;
 
   return {
     ...(data || {}),

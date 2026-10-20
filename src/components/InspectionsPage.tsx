@@ -7,7 +7,7 @@ import { ListItemRowSkeleton } from './SkeletonLoader';
 interface InspectionsPageProps {
  inspections: Inspection[];
  allListings?: Listing[];
- onOpenListing: (listing: Listing) => void;
+ onOpenListing: (listing: Listing, openReview?: boolean) => void;
  onStartChat: (agentId: string, listingId: string) => void;
  onGoBack: () => void;
  isLoading?: boolean;
@@ -220,6 +220,19 @@ export const InspectionsPage: React.FC<InspectionsPageProps> = ({
           >
            <MessageSquare className="w-3.5 h-3.5" />
            Message Agent
+          </button>
+
+          <button
+           type="button"
+           onClick={() => {
+            const target = allListings?.find(l => l.id === insp.listingId);
+            if (target) onOpenListing(target);
+           }}
+           className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
+           title="Leave review and rating for this booked property"
+          >
+           <Star className="w-3.5 h-3.5 fill-white" />
+           Review
           </button>
 
           <button

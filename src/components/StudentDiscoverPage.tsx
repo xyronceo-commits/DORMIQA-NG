@@ -124,22 +124,24 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
                        item.universityName?.toLowerCase().includes(currentUniversity.name.toLowerCase()) ||
                        item.universityName?.toLowerCase().includes(currentUniversity.code.toLowerCase());
       
-      const isApprovedStatus = (item.status === 'published' || 
-                                item.status === 'approved' || 
-                                item.verificationStatus === 'published' || 
-                                item.verificationStatus === 'approved') &&
-                               item.status !== 'draft' &&
-                               item.status !== 'uploading' &&
-                               item.status !== 'upload_failed' &&
-                               item.status !== 'incomplete' &&
-                               item.status !== 'rejected' &&
-                               item.status !== 'banned' &&
-                               item.status !== 'removed';
+      // Consistent single source of truth for listing visibility:
+      // Real listings that are published/valid, and not rejected, removed, banned, or draft.
+      const isVisibleListing = 
+        item.status !== 'rejected' &&
+        item.status !== 'banned' &&
+        item.status !== 'removed' &&
+        item.status !== 'draft' &&
+        item.status !== 'uploading' &&
+        item.status !== 'upload_failed' &&
+        item.status !== 'incomplete' &&
+        item.verificationStatus !== 'rejected' &&
+        item.verificationStatus !== 'banned' &&
+        item.verificationStatus !== 'removed';
 
-      // Real listings only
+      // Real listings only (compulsory front photo)
       const hasFrontPhoto = Boolean(item.photos && Array.isArray(item.photos) && item.photos.length > 0 && item.photos[0]);
 
-      return matchUni && isApprovedStatus && hasFrontPhoto;
+      return matchUni && isVisibleListing && hasFrontPhoto;
     });
   }, [listings, currentUniversity]);
 

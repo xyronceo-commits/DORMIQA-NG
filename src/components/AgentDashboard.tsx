@@ -8,7 +8,7 @@ import {
   Building2, 
   CheckCircle2, 
   Clock, 
-  User as UserIcon,
+  User as UserIcon, 
   AlertCircle,
   Activity,
   MapPin,
@@ -18,10 +18,13 @@ import {
   Menu,
   Shield,
   Search,
-  ChevronRight
+  ChevronRight,
+  MoreVertical,
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { Listing, Inspection, Conversation, User, University } from '../types';
-import { updateInspectionStatus, fetchInspections, fetchConversations, updateListingStatusAndSales } from '../services/api';
+import { updateInspectionStatus, fetchInspections, fetchConversations, updateListingStatusAndSales, deleteListing } from '../services/api';
 import { sendNotification } from '../services/notificationService';
 import { auth, db } from '../services/firebase';
 import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -46,6 +49,7 @@ interface AgentDashboardProps {
   onSignOut: () => void;
   onDeleteAccount: (accountId: string) => void;
   onListingUpdate?: (updatedListing: Listing) => void;
+  onListingDelete?: (listingId: string) => void;
   onOpenListingDetail?: (listing: Listing) => void;
   onOpenNotificationCenter?: () => void;
   onOpenAdminAccess?: () => void;
@@ -66,6 +70,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
   onSignOut,
   onDeleteAccount,
   onListingUpdate,
+  onListingDelete,
   onOpenListingDetail,
   onOpenNotificationCenter,
   onOpenAdminAccess,
@@ -75,6 +80,24 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
   const [localInspections, setLocalInspections] = useState(inspections);
   const [localConversations, setLocalConversations] = useState(conversations);
   const [selectedListingForEdit, setSelectedListingForEdit] = useState<Listing | null>(null);
+  
+  // Compact 3-dot overflow menu & delete confirmation states
+  const [openMenuListingId, setOpenMenuListingId] = useState<string | null>(null);
+  const [confirmDeleteListing, setConfirmDeleteListing] = useState<Listing | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Close overflow menu when clicking outside
+  useEffect(() => {
+    const handleDocClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.listing-action-menu-container')) {
+        setOpenMenuListingId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleDocClick);
+    return () => document.removeEventListener('mousedown', handleDocClick);
+  }, []);
 
   const [propertyAvailability, setPropertyAvailability] = useState<Record<string, 'vacant' | 'occupied' | 'under_renovation' | 'remaining'>>(() => {
     const map: Record<string, 'vacant' | 'occupied' | 'under_renovation' | 'remaining'> = {};
@@ -211,6 +234,34 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
   const agentListings = allListings.filter(l => Boolean(currentAgentUid && (l.agentId === currentAgentUid || (l as any).userId === currentAgentUid)));
   const agentInspections = localInspections.filter(i => Boolean(currentAgentUid && i.agentId === currentAgentUid));
   const agentConversations = localConversations.filter(c => Boolean(currentAgentUid && c.agentId === currentAgentUid));
+
+  const handleDeleteListing = async (target: Listing) => {
+    if (isDeleting) return;
+    if (target.agentId !== currentAgentUid && (target as any).userId !== currentAgentUid) {
+      setActionFeedback({ type: 'error', message: 'You can only delete listings that you own.' });
+      setConfirmDeleteListing(null);
+      return;
+    }
+
+    setIsDeleting(true);
+    setActionFeedback(null);
+
+    try {
+      await deleteListing(target.id);
+      setLiveAgentListings(prev => prev.filter(l => l.id !== target.id));
+      if (onListingDelete) {
+        onListingDelete(target.id);
+      }
+      setActionFeedback({ type: 'success', message: `Listing "${target.title}" was successfully deleted.` });
+      setConfirmDeleteListing(null);
+    } catch (err: any) {
+      console.error('Failed to delete listing:', err);
+      setActionFeedback({ type: 'error', message: err?.message || 'Failed to delete listing. Please try again.' });
+    } finally {
+      setIsDeleting(false);
+      setTimeout(() => setActionFeedback(null), 4000);
+    }
+  };
 
   // Statistics calculations
   const totalHostels = agentListings.length;
@@ -592,18 +643,73 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                       </span>
                     </div>
 
-                    <div>
-                      <h3 className="text-base font-black text-neutral-900 dark:text-white">{item.title}</h3>
-                      <p className="text-xs text-neutral-500 flex items-center gap-1 mt-1">
-                        <MapPin className="w-3.5 h-3.5 text-neutral-400" />
-                        <span>{item.address}</span>
-                      </p>
-                      {(item.status === 'rejected' || item.verificationStatus === 'rejected') && item.rejectionReason && (
-                        <div className="mt-2 p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-[11px] font-medium">
-                          <strong>Rejection Reason:</strong> {item.rejectionReason}
-                        </div>
-                      )}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-0.5 flex-1 min-w-0">
+                        <h3 className="text-base font-black text-neutral-900 dark:text-white truncate" title={item.title}>
+                          {item.title}
+                        </h3>
+                        <p className="text-xs text-neutral-500 flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                          <span className="truncate">{item.address}</span>
+                        </p>
+                      </div>
+
+                      {/* Compact Three-Dot Overflow Menu (⋮) */}
+                      <div className="relative listing-action-menu-container shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuListingId(prev => prev === item.id ? null : item.id);
+                          }}
+                          aria-label="Listing management options"
+                          title="Listing options"
+                          className="p-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer border border-transparent hover:border-neutral-200 dark:hover:border-neutral-700"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+
+                        {/* Overflow Dropdown */}
+                        {openMenuListingId === item.id && (
+                          <div 
+                            onClick={(e) => e.stopPropagation()}
+                            className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-neutral-900 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-800 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100"
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuListingId(null);
+                                setSelectedListingForEdit(item);
+                              }}
+                              className="w-full px-3 py-2 text-left text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center gap-2 cursor-pointer transition-colors"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Edit listing</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuListingId(null);
+                                setConfirmDeleteListing(item);
+                              }}
+                              className="w-full px-3 py-2 text-left text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 flex items-center gap-2 cursor-pointer transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete listing</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
+
+                    {(item.status === 'rejected' || item.verificationStatus === 'rejected') && item.rejectionReason && (
+                      <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-[11px] font-medium">
+                        <strong>Rejection Reason:</strong> {item.rejectionReason}
+                      </div>
+                    )}
 
                     <div className="p-3 bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl text-xs space-y-1">
                       <div className="flex justify-between">
@@ -613,41 +719,30 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                       <div className="flex justify-between items-center">
                         <span className="text-neutral-500">Status:</span>
                         <span className={`font-extrabold text-[11px] px-2 py-0.5 rounded-md ${
-                          item.status === 'approved' || item.verificationStatus === 'approved' || item.isVerified
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                            : item.status === 'rejected' || item.verificationStatus === 'rejected'
+                          item.status === 'rejected' || item.verificationStatus === 'rejected'
                             ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
-                            : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                            : item.status === 'removed'
+                            ? 'bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
+                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
                         }`}>
-                          {item.status === 'approved' || item.verificationStatus === 'approved' || item.isVerified
-                            ? 'Approved / Active ✓'
-                            : item.status === 'rejected' || item.verificationStatus === 'rejected'
-                            ? 'Rejected'
-                            : 'Pending Review ⏳'}
+                          {item.status === 'rejected' || item.verificationStatus === 'rejected'
+                            ? 'Rejected ✕'
+                            : item.status === 'removed'
+                            ? 'Removed'
+                            : 'Published / Active ✓'}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div>
                       <button
+                        type="button"
                         onClick={() => onOpenListingDetail && onOpenListingDetail(item)}
-                        className="flex-1 py-2 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 border border-neutral-200/80 dark:border-neutral-700 shadow-2xs"
+                        className="w-full py-2 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 border border-neutral-200/80 dark:border-neutral-700 shadow-2xs"
                         title="View Property Details"
                       >
                         <Eye className="w-3.5 h-3.5" />
-                        <span>View</span>
-                      </button>
-                      <button
-                        onClick={() => setSelectedListingForEdit(item)}
-                        className={`flex-1 py-2 font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 shadow-xs border ${
-                          item.status === 'rejected' || item.verificationStatus === 'rejected'
-                            ? 'bg-rose-600 hover:bg-rose-500 text-white border-rose-600'
-                            : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600'
-                        }`}
-                        title={item.status === 'rejected' || item.verificationStatus === 'rejected' ? 'Correct & Resubmit for Verification' : 'Edit Property & Pricing'}
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        <span>{item.status === 'rejected' || item.verificationStatus === 'rejected' ? 'Correct & Resubmit' : 'Edit'}</span>
+                        <span>View Listing Details</span>
                       </button>
                     </div>
                   </div>
@@ -748,6 +843,80 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
             }
           }}
         />
+      )}
+
+      {/* Listing Delete Confirmation Modal */}
+      {confirmDeleteListing && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in"
+          onClick={() => !isDeleting && setConfirmDeleteListing(null)}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-neutral-900 rounded-3xl border border-rose-200 dark:border-rose-900/60 p-6 shadow-2xl space-y-4 animate-in zoom-in-95"
+          >
+            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950/80 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-neutral-900 dark:text-white">
+                  Delete Property Listing?
+                </h3>
+                <p className="text-xs text-neutral-500">
+                  This will remove the listing from public discovery.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl border border-neutral-200 dark:border-neutral-700 space-y-1 text-xs">
+              <p className="font-extrabold text-neutral-900 dark:text-white">{confirmDeleteListing.title}</p>
+              <p className="text-neutral-500 flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-neutral-400" /> {confirmDeleteListing.address}
+              </p>
+            </div>
+
+            <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+              Are you sure you want to delete this property? Once deleted, students will no longer be able to discover or book tours for this accommodation.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setConfirmDeleteListing(null)}
+                className="px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 text-xs font-bold cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => handleDeleteListing(confirmDeleteListing)}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-extrabold text-xs shadow-md cursor-pointer transition-all flex items-center gap-1.5"
+              >
+                {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span>{isDeleting ? 'Deleting...' : 'Delete Listing'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action Feedback Toast */}
+      {actionFeedback && (
+        <div className={`fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-2xl border text-xs font-bold flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 ${
+          actionFeedback.type === 'success' 
+            ? 'bg-neutral-900 text-white border-emerald-500/50' 
+            : 'bg-rose-900 text-white border-rose-500/50'
+        }`}>
+          {actionFeedback.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+          )}
+          <span>{actionFeedback.message}</span>
+        </div>
       )}
 
     </div>
