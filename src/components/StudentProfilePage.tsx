@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   Save,
   Check,
-  X
+  X,
+  Edit3
 } from 'lucide-react';
 import { User, University } from '../types';
 import { auth, saveStudentProfileToFirestore, validateAndNormalizePhoneNumber } from '../services/firebase';
@@ -191,6 +192,15 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
             <p className="text-xs text-neutral-600 dark:text-slate-300 font-medium pt-1">{university}</p>
             <p className="text-xs text-neutral-400 dark:text-slate-500">{email}</p>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setActiveModal('profile')}
+            className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            <span>Edit Profile</span>
+          </button>
         </div>
 
         {/* SECTION 1: MY DORMIQA */}

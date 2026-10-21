@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { Listing, User, AuthorizedAdmin, AdminRole } from '../types';
 import { ThemeToggle } from './ThemeToggle';
+import { UserAvatar } from './UserAvatar';
 import { 
   fetchAdminStats, 
   fetchAdminAgents, 
@@ -1150,10 +1151,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   >
                     {/* Agent Identity & Business info */}
                     <div className="flex items-start gap-4">
-                      <img 
-                        src={agent.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'} 
-                        alt={agent.name}
-                        className="w-14 h-14 rounded-2xl object-cover shrink-0 border border-neutral-200 dark:border-neutral-700" 
+                      <UserAvatar
+                        user={{ name: agent.name, avatarUrl: agent.avatarUrl }}
+                        name={agent.name}
+                        size="lg"
+                        className="w-14 h-14 rounded-2xl shrink-0"
                       />
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1906,10 +1908,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* Header */}
             <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-4">
               <div className="flex items-center gap-3">
-                <img 
-                  src={selectedAgent.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'} 
-                  alt={selectedAgent.name}
-                  className="w-12 h-12 rounded-2xl object-cover border border-neutral-200 dark:border-neutral-700" 
+                <UserAvatar
+                  user={{ name: selectedAgent.name, avatarUrl: selectedAgent.avatarUrl }}
+                  name={selectedAgent.name}
+                  size="md"
+                  className="w-12 h-12 rounded-2xl"
                 />
                 <div>
                   <div className="flex items-center gap-2">

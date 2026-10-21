@@ -16,6 +16,7 @@ import { Listing, University, Campus, PropertyType } from '../types';
 import { ListingCard } from './ListingCard';
 import { ListingGridSkeleton } from './SkeletonLoader';
 import { DormiqaLogo } from './DormiqaLogo';
+import { UserAvatar } from './UserAvatar';
 
 interface StudentDiscoverPageProps {
   listings: Listing[];
@@ -285,10 +286,11 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
               className="flex items-center gap-2 p-0.5 rounded-full hover:ring-2 hover:ring-neutral-200 transition-all cursor-pointer border border-neutral-200"
               title={userName}
             >
-              <img
-                src={userAvatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80"}
-                alt=""
-                className="w-7 h-7 rounded-full object-cover"
+              <UserAvatar
+                user={{ name: userName, avatarUrl: userAvatar }}
+                name={userName}
+                size="xs"
+                className="w-7 h-7"
               />
             </button>
           </div>

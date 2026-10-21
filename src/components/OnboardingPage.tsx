@@ -495,12 +495,12 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
   // 4. Clean Production Auth Form
   return (
-    <div className="min-h-screen bg-white text-neutral-900 flex flex-col justify-between font-sans">
+    <div className="h-[100dvh] max-h-[100dvh] bg-white text-neutral-900 flex flex-col justify-between font-sans overflow-y-auto">
       {/* Top Header with Brand Logo (No URL path breadcrumbs) */}
-      <header className="w-full max-w-xl mx-auto px-5 py-3.5 flex items-center justify-between border-b border-neutral-100">
-        <div className="flex items-center gap-2.5">
-          <DormiqaLogo className="w-6 h-6 shrink-0" />
-          <span className="text-base font-black tracking-tight text-neutral-900">DORMIQA</span>
+      <header className="w-full max-w-md mx-auto px-4 py-2 sm:py-3 flex items-center justify-between border-b border-neutral-100 shrink-0">
+        <div className="flex items-center gap-2">
+          <DormiqaLogo className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
+          <span className="text-sm sm:text-base font-black tracking-tight text-neutral-900">DORMIQA</span>
         </div>
 
         <button
@@ -513,12 +513,12 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
       </header>
 
       {/* Main Container - Compact vertical spacing so users do not need to scroll */}
-      <main className="w-full max-w-md mx-auto px-5 pt-4 pb-6 flex flex-col justify-start flex-1">
-        <div className="space-y-1 mb-4 text-center">
-          <h1 className="text-xl sm:text-2xl font-extrabold text-neutral-900 tracking-tight">
+      <main className="w-full max-w-md mx-auto px-4 py-2 sm:py-3.5 flex flex-col justify-center flex-1 min-h-0">
+        <div className="space-y-0.5 mb-2.5 sm:mb-3 text-center">
+          <h1 className="text-lg sm:text-xl font-black text-neutral-900 tracking-tight leading-snug">
             {authMode === 'signup' ? 'Create Account' : 'Sign In'}
           </h1>
-          <p className="text-xs text-neutral-600">
+          <p className="text-[11px] sm:text-xs text-neutral-600">
             {selectedRole === 'student'
               ? 'Find verified lodges near your campus gates.'
               : 'Manage student lodge listings and bookings.'}
@@ -526,14 +526,14 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
         </div>
 
         {/* Clean Segmented Role Switcher */}
-        <div className="grid grid-cols-2 p-1 bg-neutral-100 rounded-lg mb-4">
+        <div className="grid grid-cols-2 p-0.5 bg-neutral-100 rounded-lg mb-2.5">
           <button
             type="button"
             onClick={() => {
               setSelectedRole('student');
               setAuthError(null);
             }}
-            className={`py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+            className={`py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
               selectedRole === 'student'
                 ? 'bg-white text-neutral-900 shadow-xs'
                 : 'text-neutral-500 hover:text-neutral-900'
@@ -547,7 +547,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
               setSelectedRole('agent');
               setAuthError(null);
             }}
-            className={`py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+            className={`py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
               selectedRole === 'agent'
                 ? 'bg-white text-neutral-900 shadow-xs'
                 : 'text-neutral-500 hover:text-neutral-900'
@@ -559,7 +559,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
         {/* Reset Success Notice */}
         {resetSuccessNotice && (
-          <div className="mb-4 p-3 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+          <div className="mb-2.5 p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
             <span className="leading-snug font-semibold">{resetSuccessNotice}</span>
           </div>
@@ -567,7 +567,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
         {/* Error Alert */}
         {authError && (
-          <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
+          <div className="mb-2.5 p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
             <span className="leading-snug font-medium">{authError}</span>
           </div>
@@ -575,44 +575,44 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
         {/* Form: Student */}
         {selectedRole === 'student' ? (
-          <form onSubmit={handleStudentSubmit} className="space-y-3.5">
+          <form onSubmit={handleStudentSubmit} className="space-y-2 sm:space-y-2.5">
             {authMode === 'signup' && (
               <>
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                  <label className="block text-[11px] sm:text-xs font-semibold text-neutral-700 mb-0.5">
                     Full Name <span className="text-emerald-700">*</span>
                   </label>
                   <div className="relative">
-                    <User className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       required
                       value={studentName}
                       onChange={(e) => setStudentName(e.target.value)}
                       placeholder="e.g. Ibrahim Adeyemi"
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                      className="w-full pl-8 sm:pl-9 pr-3 py-1.5 sm:py-2 bg-white border border-neutral-300 rounded-lg text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                  <label className="block text-[11px] sm:text-xs font-semibold text-neutral-700 mb-0.5">
                     Mobile or WhatsApp Phone
                   </label>
                   <div className="relative">
-                    <Phone className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="tel"
                       value={studentPhone}
                       onChange={(e) => setStudentPhone(e.target.value)}
                       placeholder="08012345678"
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                      className="w-full pl-8 sm:pl-9 pr-3 py-1.5 sm:py-2 bg-white border border-neutral-300 rounded-lg text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                  <label className="block text-[11px] sm:text-xs font-semibold text-neutral-700 mb-0.5">
                     Preferred Higher Institution <span className="text-emerald-700">*</span>
                   </label>
                   <UniversitySelector
@@ -628,25 +628,25 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-neutral-700 mb-1">
+              <label className="block text-[11px] sm:text-xs font-semibold text-neutral-700 mb-0.5">
                 Email Address <span className="text-emerald-700">*</span>
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
                   required
                   value={studentEmail}
                   onChange={(e) => setStudentEmail(e.target.value)}
                   placeholder="student@example.com"
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                  className="w-full pl-8 sm:pl-9 pr-3 py-1.5 sm:py-2 bg-white border border-neutral-300 rounded-lg text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
                 />
               </div>
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-neutral-700">
+              <div className="flex items-center justify-between mb-0.5">
+                <label className="block text-[11px] sm:text-xs font-semibold text-neutral-700">
                   Password <span className="text-emerald-700">*</span>
                 </label>
                 {authMode === 'signin' && (
@@ -656,14 +656,14 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                       setResetModalEmail(studentEmail);
                       setShowResetModal(true);
                     }}
-                    className="text-xs text-emerald-700 font-semibold hover:underline cursor-pointer"
+                    className="text-[11px] text-emerald-700 font-semibold hover:underline cursor-pointer"
                   >
                     Forgot password?
                   </button>
                 )}
               </div>
               <div className="relative">
-                <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
@@ -671,14 +671,14 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   value={studentPassword}
                   onChange={(e) => setStudentPassword(e.target.value)}
                   placeholder="At least 6 characters"
-                  className="w-full pl-9 pr-10 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                  className="w-full pl-8 sm:pl-9 pr-9 py-1.5 sm:py-2 bg-white border border-neutral-300 rounded-lg text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-700 cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 cursor-pointer p-1"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
@@ -686,7 +686,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-none mt-2"
+              className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs mt-1"
             >
               {isLoading ? (
                 <>
@@ -700,55 +700,55 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
           </form>
         ) : (
           /* Form: Agent */
-          <form onSubmit={handleAgentSubmit} className="space-y-3.5">
+          <form onSubmit={handleAgentSubmit} className="space-y-2 sm:space-y-2.5">
             {authMode === 'signup' && (
               <>
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                  <label className="block text-[11px] sm:text-xs font-semibold text-neutral-700 mb-0.5">
                     Full Legal Name <span className="text-emerald-700">*</span>
                   </label>
                   <div className="relative">
-                    <User className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       required
                       value={agentName}
                       onChange={(e) => setAgentName(e.target.value)}
                       placeholder="e.g. Babatunde Lawal"
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                      className="w-full pl-8 sm:pl-9 pr-3 py-1.5 sm:py-2 bg-white border border-neutral-300 rounded-lg text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                  <label className="block text-[11px] sm:text-xs font-semibold text-neutral-700 mb-0.5">
                     Agency or Property Name
                   </label>
                   <div className="relative">
-                    <Building className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Building className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       value={agencyName}
                       onChange={(e) => setAgencyName(e.target.value)}
                       placeholder="e.g. Oke-Baale Lodge Caretakers"
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                      className="w-full pl-8 sm:pl-9 pr-3 py-1.5 sm:py-2 bg-white border border-neutral-300 rounded-lg text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                  <label className="block text-[11px] sm:text-xs font-semibold text-neutral-700 mb-0.5">
                     Direct WhatsApp / Phone <span className="text-emerald-700">*</span>
                   </label>
                   <div className="relative">
-                    <Phone className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="tel"
                       required
                       value={agentPhoneWA}
                       onChange={(e) => setAgentPhoneWA(e.target.value)}
                       placeholder="08098765432"
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                      className="w-full pl-8 sm:pl-9 pr-3 py-1.5 sm:py-2 bg-white border border-neutral-300 rounded-lg text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
                     />
                   </div>
                 </div>
@@ -756,25 +756,25 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-neutral-700 mb-1">
+              <label className="block text-[11px] sm:text-xs font-semibold text-neutral-700 mb-0.5">
                 Email Address <span className="text-emerald-700">*</span>
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
                   required
                   value={agentEmail}
                   onChange={(e) => setAgentEmail(e.target.value)}
                   placeholder="agent@example.com"
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                  className="w-full pl-8 sm:pl-9 pr-3 py-1.5 sm:py-2 bg-white border border-neutral-300 rounded-lg text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
                 />
               </div>
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-neutral-700">
+              <div className="flex items-center justify-between mb-0.5">
+                <label className="block text-[11px] sm:text-xs font-semibold text-neutral-700">
                   Password <span className="text-emerald-700">*</span>
                 </label>
                 {authMode === 'signin' && (
@@ -784,14 +784,14 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                       setResetModalEmail(agentEmail);
                       setShowResetModal(true);
                     }}
-                    className="text-xs text-emerald-700 font-semibold hover:underline cursor-pointer"
+                    className="text-[11px] text-emerald-700 font-semibold hover:underline cursor-pointer"
                   >
                     Forgot password?
                   </button>
                 )}
               </div>
               <div className="relative">
-                <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
@@ -799,14 +799,14 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   value={agentPassword}
                   onChange={(e) => setAgentPassword(e.target.value)}
                   placeholder="At least 6 characters"
-                  className="w-full pl-9 pr-10 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                  className="w-full pl-8 sm:pl-9 pr-9 py-1.5 sm:py-2 bg-white border border-neutral-300 rounded-lg text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 text-neutral-400 hover:text-neutral-700 cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 cursor-pointer p-1"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
@@ -814,7 +814,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-none mt-2"
+              className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs mt-1"
             >
               {isLoading ? (
                 <>
@@ -829,7 +829,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
         )}
 
         {/* Switcher: Create Account vs Sign In */}
-        <div className="mt-6 text-center text-xs text-neutral-600">
+        <div className="mt-3 sm:mt-4 text-center text-xs text-neutral-600">
           {authMode === 'signup' ? (
             <p>
               Already have an account?{' '}
@@ -839,7 +839,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   setAuthMode('signin');
                   setAuthError(null);
                 }}
-                className="text-emerald-700 font-semibold hover:underline cursor-pointer ml-1"
+                className="text-emerald-700 font-bold hover:underline cursor-pointer ml-1"
               >
                 Sign In
               </button>
@@ -853,7 +853,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   setAuthMode('signup');
                   setAuthError(null);
                 }}
-                className="text-emerald-700 font-semibold hover:underline cursor-pointer ml-1"
+                className="text-emerald-700 font-bold hover:underline cursor-pointer ml-1"
               >
                 Create Account
               </button>
@@ -862,7 +862,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
         </div>
       </main>
 
-      <footer className="w-full max-w-xl mx-auto px-6 py-4 text-center border-t border-neutral-100 text-xs text-neutral-400">
+      <footer className="w-full max-w-md mx-auto px-4 py-2 sm:py-2.5 text-center border-t border-neutral-100 text-[10px] sm:text-[11px] text-neutral-400 shrink-0">
         DORMIQA Nigeria • Verified Student Housing Platform
       </footer>
 

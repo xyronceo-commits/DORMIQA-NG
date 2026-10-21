@@ -620,6 +620,16 @@ export default function App() {
     setIsInfoModalOpen(true);
   };
 
+  const handleProfileUpdated = (updatedUser: User) => {
+    setAccounts((prev) => {
+      const exists = prev.some((a) => a.id === updatedUser.id);
+      if (exists) {
+        return prev.map((a) => (a.id === updatedUser.id ? { ...a, ...updatedUser } : a));
+      }
+      return [...prev, updatedUser];
+    });
+  };
+
   // Track last handled auth UID to prevent repeat bounce-back on tab focus / token refresh
   const lastHandledAuthUidRef = useRef<string | null>(null);
   const hasRoutedInitialAuthRef = useRef<boolean>(false);
@@ -735,7 +745,7 @@ export default function App() {
         businessVerificationStatus: profile?.businessVerificationStatus || (profile?.isVerifiedAgent ? 'approved' : 'none'),
         businessVerificationDetails: profile?.businessVerificationDetails,
         rejectionReason: profile?.rejectionReason,
-        avatarUrl: profile?.avatarUrl || fbUser.photoURL || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
+        avatarUrl: profile?.avatarUrl || fbUser.photoURL || '',
         createdAt: profile?.createdAt || new Date().toISOString().split('T')[0]
       };
 
@@ -1657,7 +1667,7 @@ export default function App() {
                         isVerifiedAgent: isApproved,
                         isEmailVerified: true,
                         businessVerificationStatus: profileInfo.businessVerificationStatus,
-                        avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
+                        avatarUrl: '',
                         createdAt: new Date().toISOString().split('T')[0]
                       };
 
@@ -1733,7 +1743,7 @@ export default function App() {
                           phone: updatedUser.phone || '',
                           universityId: updatedUser.universityId || 'uniosun',
                           universityName: updatedUser.universityName || 'Osun State University (UNIOSUN)',
-                          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+                          avatarUrl: '',
                           isEmailVerified: true,
                           createdAt: new Date().toISOString()
                         }];
@@ -1813,7 +1823,7 @@ export default function App() {
                   name: userData.name || currentEmail.split('@')[0] || (userData.role === 'agent' ? 'Agent' : 'Student'),
                   email: currentEmail,
                   role: userData.role,
-                  avatarUrl: userData.avatarUrl || auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
+                  avatarUrl: userData.avatarUrl || auth.currentUser?.photoURL || '',
                   phone: userData.phone || '',
                   universityId: userData.universityId || 'uniosun',
                   universityName: userData.universityName || 'Osun State University (UNIOSUN)',
@@ -2024,6 +2034,7 @@ export default function App() {
               onSignOut={handleSignOut}
               onDeleteAccount={() => handleDeleteAccount(activeAccountId)}
               onGoBack={() => navigateView('search')}
+              onProfileUpdated={handleProfileUpdated}
             />
           </ErrorBoundary>
         )}
@@ -2160,6 +2171,7 @@ export default function App() {
                     setDetailListing(null);
                   }
                 }}
+                onProfileUpdated={handleProfileUpdated}
               />
             </ErrorBoundary>
           );

@@ -19,6 +19,7 @@ import { generateGoogleCalendarUrl, downloadIcsFile } from '../utils/calendar';
 import { AccountManager } from './AccountManager';
 import { auth } from '../services/firebase';
 import { DashboardSkeleton, ListingGridSkeleton } from './SkeletonLoader';
+import { UserAvatar } from './UserAvatar';
 
 interface StudentDashboardProps {
  savedListings: Listing[];
@@ -72,10 +73,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
    {/* Student Profile Banner */}
    <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
     <div className="flex items-center gap-4">
-     <img
-      src={activeUser?.avatarUrl || auth.currentUser?.photoURL || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"}
-      alt=""
-      className="w-16 h-16 rounded-full object-cover border-2 border-emerald-400"
+     <UserAvatar
+      user={activeUser}
+      name={activeUser?.name}
+      size="xl"
+      className="border-2 border-emerald-400"
      />
      <div>
       <div className="flex items-center gap-2">

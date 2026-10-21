@@ -40,6 +40,7 @@ import { updateListingSeo, updateDocumentSeo } from '../utils/seo';
 import { getCanonicalPropertyUrl, sharePropertyListing } from '../utils/routing';
 import { auth } from '../services/firebase';
 import { EditUnitStatusAndSalesModal } from './EditUnitStatusAndSalesModal';
+import { UserAvatar } from './UserAvatar';
 
 interface ListingDetailModalProps {
  listing: Listing | null;
@@ -615,10 +616,11 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
      <div className="p-5 bg-black text-white rounded-2xl space-y-4 border border-neutral-800">
       <div className="flex items-center justify-between">
        <div className="flex items-center gap-3">
-        <img
-         src={listing.agent.avatarUrl}
-         alt={listing.agent.name}
-         className="w-12 h-12 rounded-full object-cover border-2 border-emerald-400"
+        <UserAvatar
+         user={{ name: listing.agent.name, avatarUrl: listing.agent.avatarUrl }}
+         name={listing.agent.name}
+         size="lg"
+         className="border-2 border-emerald-400"
         />
         <div>
          <div className="flex items-center gap-1.5">
@@ -819,7 +821,12 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
          <div key={rev.id} className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/90 space-y-2.5 hover:border-neutral-300 transition-colors">
           <div className="flex items-center justify-between">
            <div className="flex items-center gap-2.5">
-            <img src={rev.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'} alt="" className="w-9 h-9 rounded-full object-cover border border-neutral-300 shrink-0" />
+            <UserAvatar
+              user={{ name: rev.authorName, avatarUrl: rev.authorAvatar }}
+              name={rev.authorName}
+              size="sm"
+              className="w-9 h-9 border border-neutral-300"
+             />
             <div>
              <div className="flex items-center gap-2">
               <p className="text-xs font-bold text-neutral-900">{rev.authorName}</p>

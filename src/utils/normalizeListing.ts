@@ -11,7 +11,7 @@ export function normalizeListing(data: any, docId?: string): Listing {
   const agentId = data?.agentId || data?.userId || rawAgent.id || 'agent_default';
   const agentName = data?.agentName || rawAgent.name || 'Verified Caretaker';
   const agentPhone = data?.agentPhone || rawAgent.phone || '';
-  const agentAvatar = data?.agentAvatar || rawAgent.avatarUrl || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80';
+  const agentAvatar = data?.agentAvatar || rawAgent.avatarUrl || '';
   
   // Agent verification: check explicit agent fields or user/business status
   const isAgentVerified = Boolean(

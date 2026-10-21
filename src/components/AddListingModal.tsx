@@ -282,7 +282,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         agentId,
         agentName: auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Verified Agent',
         agentAgencyName: 'Verified Accommodation Management',
-        agentAvatarUrl: auth.currentUser?.photoURL || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
+        agentAvatarUrl: auth.currentUser?.photoURL || '',
         agentEmail: auth.currentUser?.email || '',
         videoSource: videoFile || (videoPreviewUrl || undefined),
         photos,

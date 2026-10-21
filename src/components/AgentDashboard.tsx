@@ -54,6 +54,7 @@ interface AgentDashboardProps {
   onOpenNotificationCenter?: () => void;
   onOpenAdminAccess?: () => void;
   onOpenInfoPage?: (docId: string) => void;
+  onProfileUpdated?: (updated: User) => void;
 }
 
 export const AgentDashboard: React.FC<AgentDashboardProps> = ({
@@ -74,7 +75,8 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
   onOpenListingDetail,
   onOpenNotificationCenter,
   onOpenAdminAccess,
-  onOpenInfoPage
+  onOpenInfoPage,
+  onProfileUpdated
 }) => {
   const [activeNav, setActiveNav] = useState<AgentNavView>('home');
   const [localInspections, setLocalInspections] = useState(inspections);
@@ -816,6 +818,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
             onSignOut={onSignOut}
             onDeleteAccount={() => onDeleteAccount(activeAccountId)}
             onOpenInfoPage={onOpenInfoPage}
+            onProfileUpdated={onProfileUpdated}
           />
         )}
 

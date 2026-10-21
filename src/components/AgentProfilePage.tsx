@@ -24,7 +24,8 @@ import {
  KeyRound,
  Smartphone,
  Phone,
- Send
+ Send,
+ Edit3
 } from 'lucide-react';
 import { User, University } from '../types';
 import { auth, sendPasswordReset, saveUserToFirestore, validateAndNormalizePhoneNumber } from '../services/firebase';
@@ -231,6 +232,17 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
       <Mail className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
       <span>{email}</span>
      </p>
+
+     <div className="pt-2">
+      <button
+       type="button"
+       onClick={() => setActiveModal('profile')}
+       className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+      >
+       <Edit3 className="w-3.5 h-3.5" />
+       <span>Edit Profile</span>
+      </button>
+     </div>
     </div>
    </div>
 

@@ -85,12 +85,12 @@ export const CompleteProfilePage: React.FC<CompleteProfilePageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-white text-neutral-900 flex flex-col justify-between font-sans">
+    <div className="h-[100dvh] max-h-[100dvh] bg-white text-neutral-900 flex flex-col justify-between font-sans overflow-y-auto">
       {/* Top Header with Brand Logo (No URL path breadcrumbs) */}
-      <header className="w-full max-w-xl mx-auto px-5 py-3.5 flex items-center justify-between border-b border-neutral-100">
-        <div className="flex items-center gap-2.5">
-          <DormiqaLogo className="w-6 h-6 shrink-0" />
-          <span className="text-base font-black tracking-tight text-neutral-900">DORMIQA</span>
+      <header className="w-full max-w-md mx-auto px-4 py-2 sm:py-3 flex items-center justify-between border-b border-neutral-100 shrink-0">
+        <div className="flex items-center gap-2">
+          <DormiqaLogo className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
+          <span className="text-sm sm:text-base font-black tracking-tight text-neutral-900">DORMIQA</span>
         </div>
 
         <button
@@ -103,63 +103,63 @@ export const CompleteProfilePage: React.FC<CompleteProfilePageProps> = ({
       </header>
 
       {/* Main Container */}
-      <main className="w-full max-w-md mx-auto px-5 pt-4 pb-6 flex flex-col justify-start flex-1">
-        <div className="space-y-1 mb-4">
-          <h1 className="text-xl sm:text-2xl font-extrabold text-neutral-900 tracking-tight">
+      <main className="w-full max-w-md mx-auto px-4 py-2 sm:py-3.5 flex flex-col justify-center flex-1 min-h-0">
+        <div className="space-y-0.5 mb-2.5 sm:mb-3 text-center sm:text-left">
+          <h1 className="text-lg sm:text-xl font-black text-neutral-900 tracking-tight leading-snug">
             Complete student profile
           </h1>
-          <p className="text-xs text-neutral-600 leading-relaxed">
+          <p className="text-[11px] sm:text-xs text-neutral-600 leading-relaxed">
             Enter your details so verified caretakers can coordinate your lodge inspections.
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
+          <div className="mb-2.5 p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
             <span className="leading-snug font-medium">{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3.5">
+        <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-2.5">
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 mb-1">
+            <label className="block text-[11px] sm:text-xs font-semibold text-neutral-700 mb-0.5">
               Full Name <span className="text-emerald-700">*</span>
             </label>
             <div className="relative">
-              <UserIcon className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Babatunde Adeyemi"
-                className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                className="w-full pl-8 sm:pl-9 pr-3 py-1.5 sm:py-2 bg-white border border-neutral-300 rounded-lg text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 mb-1">
+            <label className="block text-[11px] sm:text-xs font-semibold text-neutral-700 mb-0.5">
               WhatsApp or Mobile Phone <span className="text-emerald-700">*</span>
             </label>
             <div className="relative">
-              <Phone className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="tel"
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="08012345678"
-                className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-neutral-300 rounded-lg text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
+                className="w-full pl-8 sm:pl-9 pr-3 py-1.5 sm:py-2 bg-white border border-neutral-300 rounded-lg text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-colors"
               />
             </div>
-            <p className="text-[11px] text-neutral-500 mt-1">
+            <p className="text-[10px] sm:text-[11px] text-neutral-500 mt-0.5">
               Used strictly for caretaker inspection appointment confirmations.
             </p>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 mb-1">
+            <label className="block text-[11px] sm:text-xs font-semibold text-neutral-700 mb-0.5">
               University Campus <span className="text-emerald-700">*</span>
             </label>
             <UniversitySelector
@@ -172,7 +172,7 @@ export const CompleteProfilePage: React.FC<CompleteProfilePageProps> = ({
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-none mt-2"
+            className="w-full py-2.5 sm:py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs mt-1"
           >
             {isSubmitting ? (
               <>
@@ -186,7 +186,7 @@ export const CompleteProfilePage: React.FC<CompleteProfilePageProps> = ({
         </form>
       </main>
 
-      <footer className="w-full max-w-xl mx-auto px-6 py-4 text-center border-t border-neutral-100 text-xs text-neutral-400">
+      <footer className="w-full max-w-md mx-auto px-4 py-2 sm:py-2.5 text-center border-t border-neutral-100 text-[10px] sm:text-[11px] text-neutral-400 shrink-0">
         DORMIQA Nigeria • Osun State University Launch Campus
       </footer>
     </div>

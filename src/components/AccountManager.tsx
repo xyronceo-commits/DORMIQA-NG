@@ -17,6 +17,7 @@ import { User, UserRole } from '../types';
 import { resendVerificationEmail, checkEmailVerified, saveUserToFirestore, auth } from '../services/firebase';
 import { EmailVerificationCard } from './EmailVerificationCard';
 import { DeleteAccountModal } from './DeleteAccountModal';
+import { UserAvatar } from './UserAvatar';
 
 interface AccountManagerProps {
   accounts: User[];
@@ -56,10 +57,11 @@ export const AccountManager: React.FC<AccountManagerProps> = ({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-neutral-100 pb-6">
           <div className="flex items-center gap-4">
             <div className="relative shrink-0">
-              <img
-                src={activeAccount?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'}
-                alt=""
-                className="w-16 h-16 rounded-full object-cover border-2 border-black dark:border-white shadow-xs"
+              <UserAvatar
+                user={activeAccount}
+                name={activeAccount?.name}
+                size="xl"
+                className="border-2 border-black dark:border-white shadow-xs"
               />
               {(activeAccount?.isVerifiedAgent || activeAccount?.isAvatarLocked || activeAccount?.role === 'agent') && (
                 <div className="absolute -bottom-1 -right-1 bg-black text-emerald-400 p-1.5 rounded-full border border-emerald-500 shadow-xs" title="Verified Identity Photo (Locked)">

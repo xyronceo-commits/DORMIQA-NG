@@ -90,7 +90,7 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
             isEmailVerified: true,
             businessVerificationStatus: profile?.businessVerificationStatus || (isApproved ? 'approved' : 'none'),
             businessVerificationDetails: profile?.businessVerificationDetails,
-            avatarUrl: profile?.avatarUrl || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
+            avatarUrl: profile?.avatarUrl || '',
             createdAt: profile?.createdAt || new Date().toISOString().split('T')[0]
           };
           setUnverifiedEmail(null);
@@ -163,7 +163,7 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
           isVerifiedAgent: false,
           isEmailVerified: false,
           businessVerificationStatus: 'none',
-          avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
+          avatarUrl: '',
           createdAt: new Date().toISOString().split('T')[0]
         };
 
@@ -218,7 +218,7 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
         isEmailVerified: isVerified,
         businessVerificationStatus: existingProfile?.businessVerificationStatus || 'none',
         businessVerificationDetails: existingProfile?.businessVerificationDetails,
-        avatarUrl: existingProfile?.avatarUrl || activeUser?.photoURL || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
+        avatarUrl: existingProfile?.avatarUrl || activeUser?.photoURL || '',
         createdAt: existingProfile?.createdAt || new Date().toISOString().split('T')[0]
       };
 
@@ -240,7 +240,7 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
           isVerifiedAgent: false,
           isEmailVerified: false,
           businessVerificationStatus: 'none',
-          avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
+          avatarUrl: '',
           createdAt: new Date().toISOString().split('T')[0]
         };
         onAgentAuthenticated(pendingAgent);
@@ -482,7 +482,7 @@ export const AgentPortalLanding: React.FC<AgentPortalLandingProps> = ({
                         isEmailVerified: true,
                         businessVerificationStatus: profile?.businessVerificationStatus || 'none',
                         businessVerificationDetails: profile?.businessVerificationDetails,
-                        avatarUrl: profile?.avatarUrl || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80',
+                        avatarUrl: profile?.avatarUrl || '',
                         createdAt: profile?.createdAt || new Date().toISOString().split('T')[0]
                       };
                       setUnverifiedEmail(null);
