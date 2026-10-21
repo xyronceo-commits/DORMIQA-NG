@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import crypto from 'crypto';
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
@@ -2710,6 +2711,31 @@ export async function createExpressApp() {
         banned: listings.filter(l => l.status === 'banned' || l.status === 'rejected').length
       }
     });
+  });
+
+  // Explicit Sitemap & Robots.txt delivery with exact content types
+  app.get('/sitemap.xml', (_req, res) => {
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    const sitemapPath = fs.existsSync(path.join(process.cwd(), 'public', 'sitemap.xml'))
+      ? path.join(process.cwd(), 'public', 'sitemap.xml')
+      : path.join(process.cwd(), 'dist', 'sitemap.xml');
+    if (fs.existsSync(sitemapPath)) {
+      res.sendFile(sitemapPath);
+    } else {
+      res.status(404).send('Sitemap not found');
+    }
+  });
+
+  app.get('/robots.txt', (_req, res) => {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    const robotsPath = fs.existsSync(path.join(process.cwd(), 'public', 'robots.txt'))
+      ? path.join(process.cwd(), 'public', 'robots.txt')
+      : path.join(process.cwd(), 'dist', 'robots.txt');
+    if (fs.existsSync(robotsPath)) {
+      res.sendFile(robotsPath);
+    } else {
+      res.status(404).send('Robots file not found');
+    }
   });
 
   return app;

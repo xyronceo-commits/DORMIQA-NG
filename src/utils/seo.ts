@@ -14,12 +14,12 @@ interface PageSeoParams {
  */
 export function updateDocumentSeo(params: PageSeoParams) {
   const siteName = 'Dormiqa';
-  const defaultDescription = 'Dormiqa helps students discover trusted accommodation around their university and connect with verified agents.';
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://dormiqa.ng';
+  const defaultDescription = 'Discover verified student accommodation in Nigeria with Dormiqa, initially serving students around Osun State University (UNIOSUN) in Osogbo.';
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://dormiqa.site';
 
   const title = params.title 
     ? `${params.title} | ${siteName}`
-    : `${siteName} — Find Trusted Accommodation`;
+    : 'Dormiqa — Find Trusted Student Accommodation in Nigeria';
 
   const description = params.description || defaultDescription;
   const canonicalUrl = params.canonicalUrl || (typeof window !== 'undefined' ? window.location.href : baseUrl);

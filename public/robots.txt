@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /
+Allow: /universities
+Allow: /agent-portal
+Allow: /sitemap.xml
+
+# Disallow authenticated dashboards and private administrative paths
+Disallow: /admin
+Disallow: /admin/
+Disallow: /admin-dashboard
+Disallow: /student-dashboard
+Disallow: /agent-dashboard
+Disallow: /business-verification
+Disallow: /complete-profile
+Disallow: /auth/
+Disallow: /reset-password
+Disallow: /saved
+Disallow: /messages
+Disallow: /chats
+Disallow: /api/
+
+Sitemap: https://dormiqa.site/sitemap.xml
