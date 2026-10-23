@@ -294,6 +294,7 @@ export default function App() {
   const [adminEmail, setAdminEmail] = useState<string>('');
   const [adminRole, setAdminRole] = useState<AdminRole>('ADMIN');
   const [onboardingInitialEmail, setOnboardingInitialEmail] = useState<string>('');
+  const [onboardingIntentRole, setOnboardingIntentRole] = useState<'agent' | undefined>(undefined);
 
   // Initial cleanup of stale session entries
   useEffect(() => {
@@ -1766,13 +1767,14 @@ export default function App() {
                 onSearchUniversity={handleSelectUniversity}
                 onOpenAgentPortal={() => {
                   if (!isLoggedIn) {
+                    setOnboardingIntentRole('agent');
                     setActiveView('onboarding');
                   } else {
                     setCurrentRole('agent');
                     setActiveView('agent-dash');
                   }
                 }}
-                onOpenOnboarding={() => setActiveView('onboarding')}
+                onOpenOnboarding={() => { setOnboardingIntentRole(undefined); setActiveView('onboarding'); }}
                 onOpenAllUniversities={() => navigateView('universities')}
               />
             )}
@@ -1807,7 +1809,9 @@ export default function App() {
           <ErrorBoundary sectionName="Auth Gateway">
             <OnboardingPage
               universities={universities}
+              key={onboardingIntentRole || 'default'}
               initialEmail={onboardingInitialEmail}
+              initialRole={onboardingIntentRole}
               onCompleteOnboarding={(userData) => {
                 const currentUid = auth.currentUser?.uid || (userData as any).id || (userData as any).uid || (auth.currentUser as any)?.id || `usr_${Date.now()}`;
 
@@ -2235,13 +2239,14 @@ export default function App() {
         onSelectUniversity={handleSelectUniversity}
         onOpenAgentPortal={() => {
           if (!isLoggedIn) {
+            setOnboardingIntentRole('agent');
             setActiveView('onboarding');
           } else {
             setCurrentRole('agent');
             setActiveView('agent-dash');
           }
         }}
-        onOpenOnboarding={() => setActiveView('onboarding')}
+        onOpenOnboarding={() => { setOnboardingIntentRole(undefined); setActiveView('onboarding'); }}
         onOpenInfoPage={handleOpenInfoPage}
       />
 

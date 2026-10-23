@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   X, 
   Building2, 
@@ -18,11 +18,10 @@ import {
   Loader2
 } from 'lucide-react';
 import { University, PropertyType, Listing } from '../types';
-import { createListing } from '../services/api';
 import { sendNotification } from '../services/notificationService';
 import { auth } from '../services/firebase';
-import { uploadOrCompressPropertyPhoto, uploadPropertyVideo } from '../utils/imageUpload';
-import { uploadHostelListing, UploadHostelListingError } from '../utils/uploadHostelListing';
+import { validatePropertyPhoto, validatePropertyVideo } from '../utils/imageUpload';
+import { uploadHostelListing, UploadHostelListingError, STEP_LABELS } from '../utils/uploadHostelListing';
 
 interface AddListingModalProps {
   universities: University[];
@@ -37,6 +36,12 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
   onSuccess,
   agentId
 }) => {
+  // One id for the whole submission: retries resume the same record instead of creating duplicates.
+  const listingIdRef = useRef<string>(
+    `lst_${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`}`
+  );
+  const submitLockRef = useRef(false);
+
   // Wizard Step Control (1 to 9)
   const [currentStep, setCurrentStep] = useState<number>(1);
 
@@ -140,6 +145,16 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
     const remainingSlots = 3 - photos.length;
     const selectedFiles = Array.from(files).slice(0, remainingSlots);
 
+    for (const file of selectedFiles) {
+      try {
+        validatePropertyPhoto(file);
+      } catch (err: any) {
+        setValidationError(err?.message || 'This photo cannot be used.');
+        e.target.value = '';
+        return;
+      }
+    }
+
     selectedFiles.forEach((file: File) => {
       setPhotos(prev => {
         if (prev.length >= 3) return prev;
@@ -166,8 +181,10 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 50 * 1024 * 1024) {
-      setValidationError('Video must be 50 MB or less.');
+    try {
+      validatePropertyVideo(file);
+    } catch (err: any) {
+      setValidationError(err?.message || 'This video cannot be used.');
       e.target.value = '';
       return;
     }
@@ -239,27 +256,27 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
 
   // Final Submit Handler (Step 9)
   const handleSubmitListing = async () => {
-    if (submitting) return; // Prevent duplicate submissions
+    if (submitLockRef.current) return; // ref lock: state updates are async, a double-click could slip past `submitting`
+    submitLockRef.current = true;
 
     setSubmitting(true);
     setValidationError(null);
     setUploadProgress(0);
-    setUploadStatusText('Preparing property media for submission...');
-
-    if (photos.length === 0) {
-      setValidationError('Add a clear photo of the front of the hostel.');
-      setSubmitting(false);
-      return;
-    }
-
-    if (!selectedUni || (selectedUni.id !== 'uniosun' && selectedUni.status !== 'active' && selectedUni.isActive !== true)) {
-      setValidationError('New listings are currently available only for UNIOSUN.');
-      setSubmitting(false);
-      return;
-    }
+    setUploadStatusText('Checking your listing...');
 
     try {
+      if (photos.length === 0) {
+        setValidationError('Add a clear photo of the front of the hostel.');
+        return;
+      }
+
+      if (!selectedUni || (selectedUni.id !== 'uniosun' && selectedUni.status !== 'active' && selectedUni.isActive !== true)) {
+        setValidationError('New listings are currently available only for UNIOSUN.');
+        return;
+      }
+
       const created = await uploadHostelListing({
+        listingId: listingIdRef.current,
         hostelName,
         universityId,
         universityName: selectedUni?.name || 'Campus',
@@ -292,29 +309,24 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         }
       });
 
-      setSubmitting(false);
-
-      if (created.status === 'banned') {
-        setSubmissionResult('needs_changes');
-        setValidationError('Property listing flag: Duplicate details detected. Please review listing and resubmit.');
-        return;
-      }
-
-      // Non-blocking asynchronous notification dispatch
+      // Agents cannot publish: the listing is now awaiting administrator approval.
       sendNotification({
         userId: agentId,
-        title: 'Listing published',
-        body: `Your listing "${hostelName}" has been published and is now live on Dormiqa.`,
+        title: 'Listing submitted for review',
+        body: `Your listing "${hostelName}" was submitted. It will appear to students once an administrator approves it.`,
         type: 'system'
       }).catch(() => {});
 
-      setSubmissionResult('published');
+      setSubmissionResult('pending');
       onSuccess(created);
-
     } catch (err: any) {
-      console.error('Submit Hostel Error:', err);
+      console.error('Submit Hostel Error:', err?.technical || err?.message || err);
+      const stage = err instanceof UploadHostelListingError ? `${STEP_LABELS[err.step]} failed. ` : '';
+      setValidationError(`${stage}${err?.message || 'Listing submission failed.'} Your details are kept - press Retry to continue.`);
+    } finally {
+      // The loading state always exits and the submit lock is always released.
       setSubmitting(false);
-      setValidationError(err?.message || 'Video upload or listing submission failed. Please try again.');
+      submitLockRef.current = false;
     }
   };
 
@@ -849,14 +861,14 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
            ========================================== */}
         {currentStep === 9 && (
           <div className="space-y-4 text-center">
-            {submissionResult === 'published' ? (
+            {submissionResult === 'pending' ? (
               <div className="p-6 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 rounded-3xl space-y-3">
                 <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
                 <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-200">
-                  Your listing has been published!
+                  Your listing has been submitted!
                 </h3>
                 <p className="text-xs text-emerald-800 dark:text-emerald-300 font-medium max-w-md mx-auto">
-                  Your hostel is now live and immediately visible to students on the discovery page. You can manage room vacancies, pricing, or details anytime from your dashboard.
+                  Your photos and details are saved and the listing is awaiting administrator approval. Students will see it on the discovery page once it is approved. You can track its status from your dashboard.
                 </p>
                 <button
                   type="button"
@@ -870,7 +882,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
               <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl space-y-4 text-white text-center shadow-lg">
                 <Loader2 className="w-10 h-10 text-emerald-400 animate-spin mx-auto" />
                 <div>
-                  <h3 className="text-base font-extrabold text-white">Publishing listing</h3>
+                  <h3 className="text-base font-extrabold text-white">Submitting listing</h3>
                   <p className="text-xs text-slate-300 mt-1 font-semibold">{uploadStatusText || 'Uploading media files...'}</p>
                 </div>
 
@@ -882,7 +894,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                 </div>
 
                 <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium px-1">
-                  <span>Direct Storage Upload</span>
+                  <span>{uploadStatusText || 'Uploading'}</span>
                   <span className="font-bold text-emerald-400">{uploadProgress}%</span>
                 </div>
               </div>
@@ -892,10 +904,10 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                   <ShieldCheck className="w-6 h-6" />
                 </div>
                 <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white">
-                  STEP 9: Publish Hostel Listing
+                  STEP 9: Submit Hostel Listing
                 </h2>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
-                  Save and automatically publish your hostel listing. It will be visible to students immediately.
+                  Upload your media and submit your hostel listing. It becomes visible to students after an administrator approves it.
                 </p>
 
                 {validationError && (
@@ -917,7 +929,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                   disabled={submitting}
                   className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
                 >
-                  <span>Publish Listing Immediately</span>
+                  <span>Submit Listing for Review</span>
                 </button>
               </div>
             )}
@@ -925,7 +937,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         )}
 
         {/* Wizard Controls Bottom Bar */}
-        {submissionResult !== 'published' && (
+        {submissionResult !== 'pending' && (
           <div className="mt-8 pt-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
             <button
               type="button"

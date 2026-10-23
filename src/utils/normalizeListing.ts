@@ -33,28 +33,21 @@ export function normalizeListing(data: any, docId?: string): Listing {
     totalReviews: typeof rawAgent.totalReviews === 'number' ? rawAgent.totalReviews : 1
   };
 
-  // Property / Listing status: publish-first with post-publication moderation
+  // Property / Listing status. Moderation state is reported as stored: a pending, draft or
+  // failed-upload listing must never be shown as published/approved/verified.
   const rawStatus = data?.status || data?.verificationStatus;
-  let status: 'published' | 'pending' | 'approved' | 'rejected' | 'banned' | 'changes_requested' | 'removed' = 'published';
-
-  if (rawStatus === 'rejected') {
-    status = 'rejected';
-  } else if (rawStatus === 'banned') {
-    status = 'banned';
-  } else if (rawStatus === 'removed') {
-    status = 'removed';
-  } else if (rawStatus === 'changes_requested') {
-    status = 'changes_requested';
-  } else if (rawStatus === 'approved' || rawStatus === 'verified') {
+  const PRESERVED = ['rejected', 'banned', 'removed', 'changes_requested', 'pending', 'draft', 'uploading', 'upload_failed', 'incomplete', 'flagged'];
+  let status: Listing['status'];
+  if (rawStatus === 'approved' || rawStatus === 'verified') {
     status = 'approved';
-  } else if (rawStatus === 'pending') {
-    // Under publish-first workflow, valid agent submissions are published
-    status = 'published';
+  } else if (PRESERVED.includes(rawStatus)) {
+    status = rawStatus;
   } else {
+    // Legacy documents with no/unknown status keep the historic default.
     status = 'published';
   }
 
-  const isListingVerified = status === 'approved' || status === 'published' || data?.isVerified === true;
+  const isListingVerified = status === 'approved' || status === 'published' || (data?.isVerified === true && status !== 'pending' && !['draft', 'uploading', 'upload_failed', 'incomplete'].includes(status));
 
   return {
     ...(data || {}),
