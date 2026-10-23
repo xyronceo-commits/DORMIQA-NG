@@ -21,7 +21,7 @@ import { User, BusinessVerificationDetails, BusinessVerificationStatus, Universi
 import { saveUserToFirestore, auth, db } from '../services/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { supabase } from '../services/supabase';
-import { uploadOrCompressPropertyPhoto } from '../utils/imageUpload';
+import { uploadAvatarImage } from '../utils/imageUpload';
 
 import { VerificationStatusPage } from './VerificationStatusPage';
 import { UniversitySelector } from './UniversitySelector';
@@ -125,6 +125,17 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
  const handlePortraitUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
   if (e.target.files && e.target.files[0]) {
    const file = e.target.files[0];
+   const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+   if (!allowedTypes.includes(file.type)) {
+    setErrorMessage('Upload a JPEG, PNG, or WebP profile picture.');
+    e.target.value = '';
+    return;
+   }
+   if (file.size > 15 * 1024 * 1024) {
+    setErrorMessage('Profile picture must be under 15 MB.');
+    e.target.value = '';
+    return;
+   }
    setPortraitFileName(file.name);
    const reader = new FileReader();
    reader.onload = (uploadEvent) => {
@@ -160,6 +171,11 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
  const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   setErrorMessage(null);
+
+  if (!portraitPhoto && !existingDetails?.portraitPhotoUrl && !agentData?.avatarUrl) {
+   setErrorMessage('Agents must upload a clear profile picture during business verification for validation.');
+   return;
+  }
 
   if (!agentFullName.trim() || !businessName.trim() || !phone.trim() || !whatsapp.trim()) {
    setErrorMessage('Please complete all required fields (Full Name, Business Name, Direct Phone, WhatsApp Phone).');
@@ -206,13 +222,12 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
    }
 
    let storedPortraitUrl = portraitPhoto || existingDetails?.portraitPhotoUrl || agentData?.avatarUrl || '';
-   if (storedPortraitUrl && !storedPortraitUrl.startsWith('http')) {
+   if (storedPortraitUrl && (!storedPortraitUrl.startsWith('http') || storedPortraitUrl.startsWith('data:'))) {
     try {
-     storedPortraitUrl = await uploadOrCompressPropertyPhoto(storedPortraitUrl, uid, 0);
-    } catch (_) {}
-   }
-   if (!storedPortraitUrl) {
-    storedPortraitUrl = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80';
+     storedPortraitUrl = await uploadAvatarImage(storedPortraitUrl, uid);
+    } catch (avatarErr) {
+     console.warn('Avatar upload exception:', avatarErr);
+    }
    }
 
    const licenseNumber = agentData?.licenseNumber || `DMQ-AGT-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -491,27 +506,36 @@ export const BusinessVerificationPage: React.FC<BusinessVerificationPageProps> =
        <div className="flex items-center justify-between">
         <label className="font-bold text-xs flex items-center gap-1.5 text-emerald-400">
          <Camera className="w-4 h-4 text-emerald-400" />
-         1. Personal Verification Photo (Required)
+         1. Personal Profile Picture (Required for Validation)
         </label>
         <span className="text-[10px] bg-emerald-950 text-emerald-300 font-extrabold px-2 py-0.5 rounded border border-emerald-800/80 flex items-center gap-1">
-         <Lock className="w-3 h-3 text-emerald-400" /> Locked Profile Photo
+         <BadgeCheck className="w-3 h-3 text-emerald-400" /> Profile Picture Validation
         </span>
        </div>
 
        <p className="text-[11px] text-neutral-300 leading-relaxed font-medium">
-        Upload a <strong>clear, well-lit photo of yourself</strong>. Must be unblurred, no dark sunglasses, no face mask, clearly displaying your face.
+        Upload a <strong>clear, well-lit photo of yourself</strong>. This will be your verified agent profile picture shown to students booking inspections.
        </p>
 
        <div className="flex flex-col sm:flex-row items-center gap-4 bg-neutral-950 p-3.5 rounded-xl border border-neutral-800">
         <div className="relative shrink-0">
-         <img
-          src={portraitPhoto || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80'}
-          alt="Agent Identity Verification Face"
-          className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500 shadow-md"
-         />
-         <div className="absolute -bottom-1 -right-1 bg-emerald-600 text-white p-1 rounded-full shadow-xs">
-          <CheckCircle2 className="w-3.5 h-3.5" />
-         </div>
+         {portraitPhoto ? (
+          <img
+           src={portraitPhoto}
+           alt="Agent Identity Verification Face"
+           className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500 shadow-md"
+          />
+         ) : (
+          <div className="w-20 h-20 rounded-2xl bg-neutral-900 border-2 border-dashed border-neutral-700 flex flex-col items-center justify-center text-neutral-400">
+           <Camera className="w-6 h-6 text-neutral-500 mb-1" />
+           <span className="text-[9px] font-bold text-neutral-400">Required</span>
+          </div>
+         )}
+         {portraitPhoto && (
+          <div className="absolute -bottom-1 -right-1 bg-emerald-600 text-white p-1 rounded-full shadow-xs">
+           <CheckCircle2 className="w-3.5 h-3.5" />
+          </div>
+         )}
         </div>
 
         <div className="flex-1 space-y-2 text-center sm:text-left w-full">

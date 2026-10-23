@@ -744,7 +744,16 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                       </div>
                     </div>
 
-                    <div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedListingForEdit(item)}
+                        className="w-full py-2 bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 shadow-2xs"
+                        title="Edit Hostel Details"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
+                        <span>Edit Hostel</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => onOpenListingDetail && onOpenListingDetail(item)}
@@ -752,7 +761,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                         title="View Property Details"
                       >
                         <Eye className="w-3.5 h-3.5" />
-                        <span>View Listing Details</span>
+                        <span>View Details</span>
                       </button>
                     </div>
                   </div>
@@ -849,6 +858,12 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
           isOpen={!!selectedListingForEdit}
           onClose={() => setSelectedListingForEdit(null)}
           onListingUpdated={(updated) => {
+            setLiveAgentListings(prev => prev.map(l => l.id === updated.id ? updated : l));
+            setActionFeedback({
+              type: 'success',
+              message: `Hostel "${updated.title}" updated and saved successfully!`
+            });
+            setTimeout(() => setActionFeedback(null), 4000);
             if (onListingUpdate) {
               onListingUpdate(updated);
             }

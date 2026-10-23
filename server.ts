@@ -1477,13 +1477,15 @@ export async function createExpressApp() {
     res.status(201).json(newListing);
   });
 
-  // Update listing unit status and sales information (Agent)
-  app.patch('/api/listings/:id/status-and-sales', requireSupabaseUser, async (req, res) => {
-    const userId = (req as any).supabaseUser.id as string;
+  // Update listing details, unit status, and sales information (Agent)
+  const handleUpdateListing = async (req: any, res: any) => {
+    const userId = req.supabaseUser.id as string;
     const listings = await getFirestoreListings();
     const listing = listings.find(l => l.id === req.params.id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
-    if (listing.agentId !== userId) return res.status(403).json({ error: 'You can only update your own listing.' });
+    if (listing.agentId !== userId && (listing as any).userId !== userId) {
+      return res.status(403).json({ error: 'You can only update your own listing.' });
+    }
 
     const { 
       title,
@@ -1492,6 +1494,15 @@ export async function createExpressApp() {
       description,
       photos,
       videoUrl,
+      propertyType,
+      facilities,
+      rules,
+      walkingDistanceMinutes,
+      walkingDistanceMeters,
+      genderPreference,
+      totalBedrooms,
+      totalBathrooms,
+      billsIncluded,
       unitStatus, 
       vacanciesCount, 
       unitStatusNote, 
@@ -1502,13 +1513,52 @@ export async function createExpressApp() {
       agencyFeeNote, 
       promoDiscount, 
       salesNote, 
-      isAvailableForSale 
+      isAvailableForSale,
+      resubmitForVerification 
     } = req.body;
 
-    if (title !== undefined) listing.title = sanitizeInputString(title, 150);
+    if (title !== undefined) {
+      listing.title = sanitizeInputString(title, 150);
+      listing.hotelName = sanitizeInputString(title, 150);
+    }
     if (hotelName !== undefined) listing.hotelName = sanitizeInputString(hotelName, 150);
     if (address !== undefined) listing.address = sanitizeInputString(address, 300);
     if (description !== undefined) listing.description = sanitizeInputString(description, 2000);
+
+    if (propertyType !== undefined && typeof propertyType === 'string') {
+      listing.propertyType = propertyType as any;
+    }
+
+    if (Array.isArray(facilities)) {
+      listing.facilities = facilities.map((f: any) => sanitizeInputString(String(f), 60)).filter(Boolean);
+    }
+
+    if (Array.isArray(rules)) {
+      listing.rules = rules.map((r: any) => sanitizeInputString(String(r), 100)).filter(Boolean);
+    }
+
+    if (walkingDistanceMinutes !== undefined) {
+      listing.walkingDistanceMinutes = Math.max(1, Math.min(120, Number(walkingDistanceMinutes) || 10));
+      listing.walkingDistanceMeters = listing.walkingDistanceMinutes * 80;
+    }
+    if (walkingDistanceMeters !== undefined) {
+      listing.walkingDistanceMeters = Math.max(50, Number(walkingDistanceMeters) || 800);
+    }
+
+    if (genderPreference !== undefined && ['any', 'female_only', 'male_only'].includes(genderPreference)) {
+      listing.genderPreference = genderPreference;
+    }
+
+    if (totalBedrooms !== undefined) {
+      listing.totalBedrooms = Math.max(1, Math.min(50, Number(totalBedrooms) || 1));
+    }
+    if (totalBathrooms !== undefined) {
+      listing.totalBathrooms = Math.max(1, Math.min(50, Number(totalBathrooms) || 1));
+    }
+
+    if (billsIncluded !== undefined) {
+      listing.billsIncluded = Boolean(billsIncluded);
+    }
 
     if (Array.isArray(photos)) {
       listing.photos = photos.slice(0, 3).map((p: any) => typeof p === 'string' ? p : '').filter(Boolean);
@@ -1518,13 +1568,17 @@ export async function createExpressApp() {
     }
 
     // Preservation rule: ordinary edits keep listing published unless already restricted by admin
-    if (listing.status !== 'rejected' && listing.status !== 'banned' && listing.status !== 'removed') {
+    if (resubmitForVerification) {
+      listing.status = 'pending';
+      (listing as any).verificationStatus = 'pending';
+      delete (listing as any).rejectionReason;
+    } else if (listing.status !== 'rejected' && listing.status !== 'banned' && listing.status !== 'removed') {
       listing.status = 'published';
       (listing as any).verificationStatus = 'published';
     }
 
     if (unitStatus !== undefined) listing.unitStatus = unitStatus;
-    if (vacanciesCount !== undefined) listing.vacanciesCount = Number(vacanciesCount);
+    if (vacanciesCount !== undefined) listing.vacanciesCount = Math.max(0, Number(vacanciesCount));
     if (unitStatusNote !== undefined) listing.unitStatusNote = sanitizeInputString(unitStatusNote, 300);
     
     if (pricePerYear !== undefined) {
@@ -1542,10 +1596,37 @@ export async function createExpressApp() {
     if (salesNote !== undefined) listing.salesNote = sanitizeInputString(salesNote, 500);
     if (isAvailableForSale !== undefined) listing.isAvailableForSale = Boolean(isAvailableForSale);
 
-    await setDoc(doc(firestoreDb, 'listings', listing.id), listing, { merge: true });
+    (listing as any).updatedAt = new Date().toISOString();
+
+    // 1. Sync to Firestore
+    if (firestoreDb) {
+      try {
+        await setDoc(doc(firestoreDb, 'listings', listing.id), listing, { merge: true });
+      } catch (fsErr) {
+        console.warn('Failed to update listing in Firestore:', fsErr);
+      }
+    }
+
+    // 2. Sync to Supabase app_documents
+    try {
+      await supabaseDataClient
+        .from('app_documents')
+        .upsert({
+          collection: 'listings',
+          id: listing.id,
+          data: listing,
+          updated_at: new Date().toISOString()
+        });
+    } catch (sbErr) {
+      console.warn('Failed to update listing in Supabase app_documents:', sbErr);
+    }
+
     invalidateServerListingsCache(req.params.id);
     res.json(listing);
-  });
+  };
+
+  app.patch('/api/listings/:id/status-and-sales', requireSupabaseUser, handleUpdateListing);
+  app.put('/api/listings/:id', requireSupabaseUser, handleUpdateListing);
 
   // Delete listing (Agent can delete only their own listing, Admin can delete any)
   app.delete('/api/listings/:id', requireSupabaseUser, async (req, res) => {

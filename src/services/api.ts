@@ -1,4 +1,4 @@
-import { Listing, University, Inspection, Conversation, ChatMessage, Report, User, UserRole, AuthorizedAdmin, AdminRole } from '../types';
+import { Listing, PropertyType, University, Inspection, Conversation, ChatMessage, Report, User, UserRole, AuthorizedAdmin, AdminRole } from '../types';
 import { clientCache, CACHE_TTL } from './cache';
 import { supabase } from './supabase';
 import { normalizeListing } from '../utils/normalizeListing';
@@ -376,32 +376,43 @@ export async function createListing(listingData: Partial<Listing>): Promise<List
   return created;
 }
 
+export interface UpdateListingPayload {
+  title?: string;
+  hotelName?: string;
+  address?: string;
+  description?: string;
+  photos?: string[];
+  videoUrl?: string;
+  propertyType?: PropertyType;
+  facilities?: string[];
+  rules?: string[];
+  walkingDistanceMinutes?: number;
+  walkingDistanceMeters?: number;
+  genderPreference?: 'any' | 'female_only' | 'male_only';
+  totalBedrooms?: number;
+  totalBathrooms?: number;
+  billsIncluded?: boolean;
+  resubmitForVerification?: boolean;
+  unitStatus?: 'vacant' | 'occupied' | 'remaining' | 'under_renovation';
+  vacanciesCount?: number;
+  unitStatusNote?: string;
+  pricePerYear?: number;
+  pricePerMonth?: number;
+  pricePerWeek?: number;
+  deposit?: number;
+  agencyFeeNote?: string;
+  promoDiscount?: string;
+  salesNote?: string;
+  isAvailableForSale?: boolean;
+}
+
 export async function updateListingStatusAndSales(
   listingId: string, 
-  updateData: {
-    title?: string;
-    hotelName?: string;
-    address?: string;
-    description?: string;
-    photos?: string[];
-    videoUrl?: string;
-    resubmitForVerification?: boolean;
-    unitStatus?: 'vacant' | 'occupied' | 'remaining' | 'under_renovation';
-    vacanciesCount?: number;
-    unitStatusNote?: string;
-    pricePerYear?: number;
-    pricePerMonth?: number;
-    pricePerWeek?: number;
-    deposit?: number;
-    agencyFeeNote?: string;
-    promoDiscount?: string;
-    salesNote?: string;
-    isAvailableForSale?: boolean;
-  }
+  updateData: UpdateListingPayload
 ): Promise<Listing> {
   let updated: Listing | null = null;
   try {
-    const res = await apiFetch(`${API_BASE}/listings/${listingId}/status-and-sales`, {
+    const res = await apiFetch(`${API_BASE}/listings/${encodeURIComponent(listingId)}/status-and-sales`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updateData)
@@ -439,6 +450,22 @@ export async function updateListingStatusAndSales(
     console.error('Failed to update listing in Firestore:', fsErr);
   }
 
+  // Direct Supabase app_documents sync
+  if (updated) {
+    try {
+      await supabase
+        .from('app_documents')
+        .upsert({
+          collection: 'listings',
+          id: listingId,
+          data: updated,
+          updated_at: new Date().toISOString()
+        });
+    } catch (sbErr) {
+      console.warn('Supabase app_documents sync note:', sbErr);
+    }
+  }
+
   if (!updated) {
     throw new Error('Failed to persist listing updates to database');
   }
@@ -449,6 +476,9 @@ export async function updateListingStatusAndSales(
 
   return updated;
 }
+
+// Alias for general hostel editing
+export const updateListing = updateListingStatusAndSales;
 
 export async function deleteListing(listingId: string): Promise<boolean> {
   const cleanId = listingId.trim();

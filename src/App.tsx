@@ -1774,6 +1774,10 @@ export default function App() {
                     setActiveView('agent-dash');
                   }
                 }}
+                onRegisterAgent={() => {
+                  setOnboardingIntentRole('agent');
+                  setActiveView('onboarding');
+                }}
                 onOpenOnboarding={() => { setOnboardingIntentRole(undefined); setActiveView('onboarding'); }}
                 onOpenAllUniversities={() => navigateView('universities')}
               />
@@ -1940,7 +1944,6 @@ export default function App() {
                           businessVerificationStatus: 'approved',
                           businessVerificationDetails: verificationDetails || a.businessVerificationDetails,
                           avatarUrl: avatarUrl || a.avatarUrl,
-                          isAvatarLocked: true,
                           verificationPhotoUrl: avatarUrl || a.avatarUrl
                         }
                       : a
@@ -2107,7 +2110,6 @@ export default function App() {
                         businessVerificationStatus: 'approved',
                         businessVerificationDetails: verificationDetails || a.businessVerificationDetails,
                         avatarUrl: avatarUrl || a.avatarUrl,
-                        isAvatarLocked: true,
                         verificationPhotoUrl: avatarUrl || a.avatarUrl
                       } : a);
                     }

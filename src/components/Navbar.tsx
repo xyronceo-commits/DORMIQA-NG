@@ -38,6 +38,8 @@ interface NavbarProps {
   onNavigateStudentTab?: (tab: 'inspections' | 'saved' | 'chats' | 'profile') => void;
   onNavigateAgentTab?: (tab: 'schedule' | 'availability' | 'requests' | 'profile') => void;
   onOpenAdminAccess?: () => void;
+  onReplayTour?: () => void;
+  onReplayOnboarding?: () => void;
   studentTab?: 'inspections' | 'saved' | 'chats' | 'profile';
   agentTab?: 'schedule' | 'availability' | 'requests' | 'profile';
 }
@@ -59,6 +61,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigateStudentTab,
   onNavigateAgentTab,
   onOpenAdminAccess,
+  onReplayTour,
+  onReplayOnboarding,
   studentTab,
   agentTab
 }) => {
@@ -639,6 +643,31 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>Switch to {currentRole === 'agent' ? 'Student View' : 'Agent Portal'}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
+
+              <div className="flex items-center gap-3">
+                {onReplayTour && (
+                  <button
+                    onClick={() => {
+                      onReplayTour();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer"
+                  >
+                    Guided Tour
+                  </button>
+                )}
+                {onReplayOnboarding && (
+                  <button
+                    onClick={() => {
+                      onReplayOnboarding();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer"
+                  >
+                    Walkthrough
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

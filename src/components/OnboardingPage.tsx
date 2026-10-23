@@ -127,6 +127,13 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
     }
   }, [initialEmail]);
 
+  useEffect(() => {
+    if (initialRole) {
+      setSelectedRole(initialRole);
+      setStep('auth');
+    }
+  }, [initialRole]);
+
   // Handle Student Email Sign Up / Sign In
   const handleStudentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

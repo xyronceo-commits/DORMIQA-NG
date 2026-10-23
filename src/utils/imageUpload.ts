@@ -222,3 +222,39 @@ export async function uploadPropertyVideo(
   });
   return config.deterministic ? `${url}?v=${Date.now()}` : url;
 }
+
+/**
+ * Uploads a user profile picture (File, Blob, or data: URI) and returns its permanent URL.
+ * Automatically resizes and compresses to a lightweight 500x500 JPEG.
+ * Attempts Supabase Storage upload under `avatars/${uid}/avatar_${Date.now()}.jpg`.
+ * If network or storage is unavailable, gracefully preserves the compressed base64 data URL.
+ */
+export async function uploadAvatarImage(
+  fileOrDataUrl: File | string,
+  uid: string
+): Promise<string> {
+  if (typeof fileOrDataUrl === 'string' && isHttpUrl(fileOrDataUrl) && !fileOrDataUrl.includes('unsplash.com')) {
+    return fileOrDataUrl.trim();
+  }
+  const blob = await compressImageToBlob(fileOrDataUrl, 500, 0.85);
+  const safeUid = (uid || 'user').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const path = `avatars/${safeUid}/avatar_${Date.now()}.jpg`;
+
+  try {
+    const url = await uploadListingMediaObject({
+      path,
+      body: blob,
+      contentType: 'image/jpeg',
+      upsert: true,
+      timeoutMs: 30_000,
+    });
+    return `${url}?v=${Date.now()}`;
+  } catch (err) {
+    console.warn('[AVATAR UPLOAD] Storage upload fallback to compressed data URL:', err);
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  }
+}

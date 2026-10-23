@@ -18,11 +18,14 @@ import {
   Save,
   Check,
   X,
-  Edit3
+  Edit3,
+  Camera,
+  Loader2
 } from 'lucide-react';
 import { User, University } from '../types';
-import { auth, saveStudentProfileToFirestore, validateAndNormalizePhoneNumber } from '../services/firebase';
+import { auth, saveStudentProfileToFirestore, saveUserToFirestore, validateAndNormalizePhoneNumber } from '../services/firebase';
 import { supabase } from '../services/supabase';
+import { uploadAvatarImage } from '../utils/imageUpload';
 import { ThemeToggle } from './ThemeToggle';
 import { UniversitySelector } from './UniversitySelector';
 import { DeleteAccountModal } from './DeleteAccountModal';
@@ -57,9 +60,12 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const [studentName, setStudentName] = useState(user?.name || auth.currentUser?.displayName || 'Student Account');
+  const [studentEmail, setStudentEmail] = useState(user?.email || auth.currentUser?.email || '');
   const [studentPhone, setStudentPhone] = useState(user?.phone || (user as any)?.phoneNumber || '');
   const [studentUniId, setStudentUniId] = useState(user?.universityId || 'uniosun');
   const [studentUniversity, setStudentUniversity] = useState(user?.universityName || 'Osun State University (UNIOSUN)');
+  const [studentAvatar, setStudentAvatar] = useState(user?.avatarUrl || '');
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [profileToast, setProfileToast] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -67,21 +73,56 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
   React.useEffect(() => {
     if (user) {
       if (user.name) setStudentName(user.name);
+      if (user.email) setStudentEmail(user.email);
       if (user.phone || (user as any).phoneNumber) setStudentPhone(user.phone || (user as any).phoneNumber || '');
       if (user.universityId) setStudentUniId(user.universityId);
       if (user.universityName) setStudentUniversity(user.universityName);
+      if (user.avatarUrl !== undefined) setStudentAvatar(user.avatarUrl || '');
     }
   }, [user]);
 
+  const handleStudentAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        setProfileToast('Please upload a JPEG, PNG, or WebP image.');
+        return;
+      }
+      if (file.size > 15 * 1024 * 1024) {
+        setProfileToast('Profile picture must be under 15 MB.');
+        return;
+      }
+      setAvatarUploading(true);
+      const currentUid = auth.currentUser?.uid || user?.id || 'student';
+      try {
+        const url = await uploadAvatarImage(file, currentUid);
+        setStudentAvatar(url);
+        setProfileToast('Photo selected! Click "Save Changes" to save permanently.');
+      } catch (err: any) {
+        console.warn('Student avatar upload note:', err);
+        setProfileToast('Could not process photo: ' + (err?.message || 'Try again'));
+      } finally {
+        setAvatarUploading(false);
+      }
+    }
+  };
+
   const name = studentName;
   const university = studentUniversity;
-  const email = user?.email || auth.currentUser?.email || '';
+  const email = studentEmail;
 
   const handleSaveStudentProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     const currentUid = auth.currentUser?.uid || user?.id;
     if (!currentUid) {
       setProfileToast('Error: Authentication required.');
+      return;
+    }
+
+    const cleanEmail = studentEmail.trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setProfileToast('Please enter a valid email address.');
       return;
     }
 
@@ -97,25 +138,28 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
         ...(user || {} as User),
         id: currentUid,
         name: studentName.trim(),
-        email: email,
+        email: cleanEmail,
         phone: phoneVal.normalized,
         universityId: studentUniId,
         universityName: studentUniversity,
         role: 'student',
         isEmailVerified: user?.isEmailVerified ?? true,
-        avatarUrl: user?.avatarUrl || '', // fixed to neutral person icon, protected from modification
+        avatarUrl: studentAvatar.trim(),
         createdAt: user?.createdAt || new Date().toISOString().split('T')[0]
       };
 
       await saveStudentProfileToFirestore({
         uid: currentUid,
         name: studentName.trim(),
-        email: email,
+        email: cleanEmail,
         phoneNumber: phoneVal.normalized,
         universityId: studentUniId,
         universityName: studentUniversity,
+        avatarUrl: studentAvatar.trim(),
         profileCompleted: true
       });
+
+      await saveUserToFirestore(updatedUser);
 
       // Synchronize to Supabase Auth metadata for permanent cross-session consistency
       try {
@@ -125,12 +169,22 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
             name: studentName.trim(),
             phone: phoneVal.normalized,
             university_id: studentUniId,
-            university_name: studentUniversity
+            university_name: studentUniversity,
+            avatar_url: studentAvatar.trim(),
+            avatarUrl: studentAvatar.trim()
           }
         });
       } catch (metaErr) {
         console.warn('Supabase auth metadata update error:', metaErr);
       }
+
+      try {
+        await supabase
+          .from('app_documents')
+          .update({ data: updatedUser })
+          .eq('collection', 'users')
+          .eq('id', currentUid);
+      } catch (_) {}
 
       setProfileToast('Profile details updated and saved permanently.');
       if (onProfileUpdated) {
@@ -171,14 +225,29 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
         
         {/* PROFILE HEADER CARD */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-neutral-200 dark:border-slate-800 p-6 flex flex-col items-center text-center space-y-3 shadow-2xs">
-          <div className="relative">
+          <div className="relative group">
             <UserAvatar
               user={user}
+              avatarUrl={studentAvatar || user?.avatarUrl}
               name={name}
               size="xl"
               className="border-2 border-emerald-500 shadow-xs"
             />
-            <span className="absolute bottom-0 right-0 bg-emerald-500 text-white p-1 rounded-full border-2 border-white dark:border-slate-900">
+            <label
+              className="absolute inset-0 bg-black/60 rounded-full opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white cursor-pointer transition-opacity text-[10px] font-bold"
+              title="Change Profile Picture"
+            >
+              <Camera className="w-4 h-4 mb-0.5 text-emerald-400" />
+              <span>{avatarUploading ? '...' : 'Change'}</span>
+              <input
+                type="file"
+                accept="image/*"
+                disabled={avatarUploading}
+                onChange={handleStudentAvatarChange}
+                className="hidden"
+              />
+            </label>
+            <span className="absolute bottom-0 right-0 bg-emerald-500 text-white p-1 rounded-full border-2 border-white dark:border-slate-900 pointer-events-none">
               <CheckCircle2 className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -425,13 +494,39 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
             </div>
             <div className="text-xs text-neutral-600 dark:text-slate-300 space-y-4 leading-relaxed">
               {activeModal === 'profile' && (
-                <form onSubmit={handleSaveStudentProfile} className="space-y-3 text-left">
+                <form onSubmit={handleSaveStudentProfile} className="space-y-3.5 text-left">
                   {profileToast && (
                     <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-2">
                       <Check className="w-4 h-4 text-emerald-600" />
                       <span>{profileToast}</span>
                     </div>
                   )}
+
+                  {/* Profile Picture Upload Section */}
+                  <div className="flex items-center gap-3.5 p-3.5 bg-neutral-50 dark:bg-slate-800/60 rounded-2xl border border-neutral-200 dark:border-slate-800">
+                    <UserAvatar
+                      avatarUrl={studentAvatar || user?.avatarUrl}
+                      name={studentName}
+                      size="lg"
+                      className="border-2 border-emerald-500 shadow-xs shrink-0"
+                    />
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-500 dark:text-slate-400 block">
+                        Profile Picture
+                      </span>
+                      <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-2xs">
+                        <Camera className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span>{avatarUploading ? 'Processing...' : 'Upload Profile Photo'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={avatarUploading}
+                          onChange={handleStudentAvatarChange}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
 
                   <div>
                     <label className="text-[11px] font-extrabold uppercase text-neutral-500 dark:text-slate-400 block mb-1">
@@ -452,9 +547,10 @@ export const StudentProfilePage: React.FC<StudentProfilePageProps> = ({
                     </label>
                     <input
                       type="email"
-                      value={email}
-                      disabled
-                      className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-slate-800 bg-neutral-100 dark:bg-slate-800/60 text-neutral-500 dark:text-slate-400 text-xs font-semibold cursor-not-allowed"
+                      value={studentEmail}
+                      onChange={(e) => setStudentEmail(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-slate-800 bg-neutral-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold"
+                      required
                     />
                   </div>
 

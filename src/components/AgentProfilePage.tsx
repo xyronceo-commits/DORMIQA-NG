@@ -25,11 +25,14 @@ import {
  Smartphone,
  Phone,
  Send,
- Edit3
+ Edit3,
+ Camera,
+ Loader2
 } from 'lucide-react';
 import { User, University } from '../types';
 import { auth, sendPasswordReset, saveUserToFirestore, validateAndNormalizePhoneNumber } from '../services/firebase';
 import { supabase } from '../services/supabase';
+import { uploadAvatarImage } from '../utils/imageUpload';
 import { ThemeToggle } from './ThemeToggle';
 import { UniversitySelector } from './UniversitySelector';
 import { DeleteAccountModal } from './DeleteAccountModal';
@@ -72,6 +75,8 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
  const [profileLocation, setProfileLocation] = useState(user?.universityName || 'Osun State University (UNIOSUN)');
  const [profileToast, setProfileToast] = useState('');
  const [isSaving, setIsSaving] = useState(false);
+ const [profileAvatar, setProfileAvatar] = useState<string>(user?.avatarUrl || '');
+ const [avatarUploading, setAvatarUploading] = useState(false);
 
  // Synchronize state whenever user prop updates from authoritative database
  React.useEffect(() => {
@@ -81,8 +86,36 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
    if (user.agencyName) setProfileAgency(user.agencyName);
    if (user.universityId) setProfileUniId(user.universityId);
    if (user.universityName) setProfileLocation(user.universityName);
+   if (user.avatarUrl !== undefined) setProfileAvatar(user.avatarUrl || '');
   }
  }, [user]);
+
+ const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (e.target.files && e.target.files[0]) {
+   const file = e.target.files[0];
+   const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+   if (!allowedTypes.includes(file.type)) {
+    setProfileToast('Please upload a JPEG, PNG, or WebP image.');
+    return;
+   }
+   if (file.size > 15 * 1024 * 1024) {
+    setProfileToast('Profile picture must be under 15 MB.');
+    return;
+   }
+   setAvatarUploading(true);
+   const currentUid = auth.currentUser?.uid || user?.id || 'agent';
+   try {
+    const uploadedUrl = await uploadAvatarImage(file, currentUid);
+    setProfileAvatar(uploadedUrl);
+    setProfileToast('Profile picture selected! Click "Save Changes" to save.');
+   } catch (err: any) {
+    console.warn('Avatar upload note:', err);
+    setProfileToast('Could not process image: ' + (err?.message || 'Try again'));
+   } finally {
+    setAvatarUploading(false);
+   }
+  }
+ };
 
  // Security State
  const [resetSent, setResetSent] = useState(false);
@@ -134,7 +167,7 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
    role: 'agent',
    isVerifiedAgent: Boolean(user?.isVerifiedAgent || user?.businessVerificationStatus === 'approved'),
    businessVerificationStatus: user?.businessVerificationStatus || 'none',
-   avatarUrl: user?.avatarUrl || '', // fixed to default person icon, prohibited from change
+   avatarUrl: profileAvatar.trim(),
    createdAt: user?.createdAt || new Date().toISOString().split('T')[0]
   };
 
@@ -150,12 +183,22 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
       phone: phoneVal.normalized,
       agency_name: profileAgency.trim(),
       university_id: profileUniId,
-      university_name: profileLocation
+      university_name: profileLocation,
+      avatar_url: profileAvatar.trim(),
+      avatarUrl: profileAvatar.trim()
      }
     });
    } catch (metaErr) {
     console.warn('Supabase auth metadata update error:', metaErr);
    }
+
+   try {
+    await supabase
+     .from('app_documents')
+     .update({ data: updatedUserData })
+     .eq('collection', 'users')
+     .eq('id', currentUid);
+   } catch (_) {}
 
    setProfileToast('Profile details updated and saved permanently.');
    if (onProfileUpdated) {
@@ -191,13 +234,28 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
      PROFILE HEADER
      ========================================== */}
    <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 shadow-xs flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
-    <div className="relative shrink-0">
+    <div className="relative shrink-0 group">
      <UserAvatar
+      avatarUrl={profileAvatar || user?.avatarUrl}
       user={user as any}
       name={name}
       size="xl"
       className="border-2 border-emerald-500 shadow-xs"
      />
+     <label
+      className="absolute inset-0 bg-black/60 rounded-full opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white cursor-pointer transition-opacity text-[10px] font-bold"
+      title="Change Profile Picture"
+     >
+      <Camera className="w-4 h-4 mb-0.5 text-emerald-400" />
+      <span>{avatarUploading ? '...' : 'Change'}</span>
+      <input
+       type="file"
+       accept="image/*"
+       disabled={avatarUploading}
+       onChange={handleAvatarFileChange}
+       className="hidden"
+      />
+     </label>
      {isVerified && (
       <div className="absolute -bottom-1.5 -right-1.5 bg-emerald-600 text-white p-1 rounded-full shadow-xs" title="Verified Agent">
        <CheckCircle2 className="w-4 h-4" />
@@ -597,6 +655,32 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
       )}
 
       <form onSubmit={handleSaveProfile} className="space-y-4 text-left">
+       {/* Profile Picture Upload Section */}
+       <div className="flex items-center gap-3.5 p-3.5 bg-neutral-50 dark:bg-neutral-800/50 rounded-2xl border border-neutral-200 dark:border-neutral-800">
+        <UserAvatar
+         avatarUrl={profileAvatar || user?.avatarUrl}
+         name={profileName}
+         size="lg"
+         className="border-2 border-emerald-500 shadow-xs shrink-0"
+        />
+        <div className="flex-1 min-w-0 space-y-1">
+         <span className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block">
+          Profile Picture
+         </span>
+         <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-2xs">
+          <Camera className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span>{avatarUploading ? 'Processing...' : 'Upload New Photo'}</span>
+          <input
+           type="file"
+           accept="image/*"
+           disabled={avatarUploading}
+           onChange={handleAvatarFileChange}
+           className="hidden"
+          />
+         </label>
+        </div>
+       </div>
+
        <div>
         <label className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1">
          Full Name

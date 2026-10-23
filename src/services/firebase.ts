@@ -326,8 +326,7 @@ export const saveStudentProfileToFirestore = async (data: StudentProfilePayload)
   }
 
   const cleanEmail = (data.email || user?.email || '').trim().toLowerCase();
-  // Profile picture is fixed to the neutral person icon and protected from modification
-  const photo = '';
+  const photo = data.avatarUrl || data.photoURL || user?.photoURL || '';
   const phoneVal = data.phoneNumber || data.phone || '';
   const now = new Date().toISOString();
 
@@ -530,7 +529,7 @@ export const saveUserToFirestore = async (userObj: {
       phone: userObj.phone || '',
       agencyName: userObj.agencyName || '',
       isEmailVerified: isVerified,
-      avatarUrl: '', // Profile picture is fixed to default person icon; client modifications prohibited
+      avatarUrl: userObj.avatarUrl !== undefined ? userObj.avatarUrl : (user?.photoURL || ''),
       updatedAt: new Date().toISOString()
     };
 
