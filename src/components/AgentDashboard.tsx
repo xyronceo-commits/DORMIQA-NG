@@ -729,13 +729,17 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                             ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
                             : item.status === 'removed'
                             ? 'bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
+                            : item.status === 'pending' || item.verificationStatus === 'pending'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
                             : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
                         }`}>
                           {item.status === 'rejected' || item.verificationStatus === 'rejected'
                             ? 'Rejected ✕'
                             : item.status === 'removed'
                             ? 'Removed'
-                            : 'Published / Active ✓'}
+                            : item.status === 'pending' || item.verificationStatus === 'pending'
+                            ? 'Pending Verification ⧗'
+                            : 'Approved & Live ✓'}
                         </span>
                       </div>
                     </div>

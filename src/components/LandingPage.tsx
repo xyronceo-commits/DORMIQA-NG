@@ -27,6 +27,7 @@ interface LandingPageProps {
   savedIds?: string[];
   onToggleSave?: (id: string) => void;
   onOpenAgentPortal: () => void;
+  onRegisterAgent?: () => void;
   onOpenOnboarding?: () => void;
   onOpenAllUniversities?: () => void;
 }
@@ -47,6 +48,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   universities,
   onSearchUniversity,
   onOpenAgentPortal,
+  onRegisterAgent,
   onOpenOnboarding,
   onOpenAllUniversities
 }) => {
@@ -439,7 +441,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           <button
-            onClick={onOpenOnboarding || onOpenAgentPortal}
+            onClick={() => {
+              if (onRegisterAgent) {
+                onRegisterAgent();
+              } else {
+                onOpenAgentPortal();
+              }
+            }}
             className="w-full md:w-auto px-5 py-2.5 sm:py-3 bg-white hover:bg-neutral-100 text-neutral-900 font-bold text-xs rounded-xl transition-all shrink-0 cursor-pointer text-center"
           >
             Register as Caretaker / Agent

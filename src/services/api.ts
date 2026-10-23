@@ -201,7 +201,25 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
   const cacheKey = `listing_detail:${cleanId}`;
 
   return clientCache.dedupe(cacheKey, async () => {
-    // 1. Try Backend API with fast 5s timeout
+    // 1. Retrieve the matching record from existing Supabase app_documents table
+    // using both the correct listing collection ('listings') and listing ID
+    try {
+      const { data: docRow, error: sbError } = await supabase
+        .from('app_documents')
+        .select('id, data')
+        .eq('collection', 'listings')
+        .eq('id', cleanId)
+        .maybeSingle();
+
+      if (!sbError && docRow && docRow.data) {
+        const item = normalizeListing(docRow.data, docRow.id || cleanId);
+        return clientCache.set(cacheKey, item, CACHE_TTL.LISTING_DETAIL);
+      }
+    } catch (sbErr) {
+      console.warn('Direct Supabase app_documents query note:', sbErr);
+    }
+
+    // 2. Query Backend API with fast 5s timeout
     let apiFailed = false;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
@@ -209,6 +227,12 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
     try {
       const res = await apiFetch(`${API_BASE}/listings/${encodeURIComponent(cleanId)}`, { signal: controller.signal });
       clearTimeout(timer);
+      if (res.status === 403) {
+        const errorData = await res.json().catch(() => ({}));
+        const unavailableErr: any = new Error(errorData.message || 'This property listing is currently pending verification, removed, or unavailable.');
+        unavailableErr.isUnavailable = true;
+        throw unavailableErr;
+      }
       const parsed = await safeParseResponse<Listing>(res);
       if (parsed.ok && parsed.data) {
         return clientCache.set(cacheKey, parsed.data, CACHE_TTL.LISTING_DETAIL);
@@ -216,12 +240,13 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
       if (res.status === 404) {
         apiFailed = true;
       }
-    } catch (err) {
+    } catch (err: any) {
       clearTimeout(timer);
+      if (err.isUnavailable) throw err;
       apiFailed = true;
     }
 
-    // 2. Query Firestore directly as authoritative lookup
+    // 3. Authoritative fallback: Query Firestore adapter
     try {
       const { doc, getDoc } = await import('firebase/firestore');
       const { db } = await import('./firebase');
@@ -231,8 +256,9 @@ export async function fetchListingById(id: string): Promise<Listing | null> {
         const item = normalizeListing(snap.data(), snap.id);
         return clientCache.set(cacheKey, item, CACHE_TTL.LISTING_DETAIL);
       }
-      return null; // Genuinely not found in Firestore
+      return null; // Genuinely not found
     } catch (firestoreErr: any) {
+      if (firestoreErr.isUnavailable) throw firestoreErr;
       if (apiFailed) {
         throw new Error("Unable to connect to property database. Please check your network connection.");
       }

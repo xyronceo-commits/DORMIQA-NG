@@ -40,8 +40,6 @@ interface NavbarProps {
   onOpenAdminAccess?: () => void;
   studentTab?: 'inspections' | 'saved' | 'chats' | 'profile';
   agentTab?: 'schedule' | 'availability' | 'requests' | 'profile';
-  onReplayTour?: () => void;
-  onReplayOnboarding?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -62,9 +60,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigateAgentTab,
   onOpenAdminAccess,
   studentTab,
-  agentTab,
-  onReplayTour,
-  onReplayOnboarding
+  agentTab
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [uniDropdownOpen, setUniDropdownOpen] = useState(false);
@@ -322,18 +318,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           ) : (
             /* AUTHENTICATED HEADER ACTIONS */
             <>
-              {/* Desktop Guided Tour Button */}
-              {onReplayTour && (
-                <button
-                  onClick={onReplayTour}
-                  className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 transition-colors text-xs font-bold cursor-pointer"
-                  title="Launch Guided Feature Tour"
-                >
-                  <Info className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span>Tour</span>
-                </button>
-              )}
-
               {/* Real-Time Notification Bell Button */}
               <button
                 onClick={onOpenNotifications}
@@ -655,19 +639,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>Switch to {currentRole === 'agent' ? 'Student View' : 'Agent Portal'}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
-
-              {onReplayTour && (
-                <button
-                  onClick={() => {
-                    if (onReplayTour) onReplayTour();
-                    setMobileMenuOpen(false);
-                  }}
-                  className="text-xs font-bold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white flex items-center gap-1 cursor-pointer"
-                >
-                  <Info className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>Replay Guided Tour</span>
-                </button>
-              )}
             </div>
           </div>
         </div>

@@ -1288,20 +1288,42 @@ export async function createExpressApp() {
     const cacheKey = `listing_detail:${listingId}`;
     const cached = getServerCache<Listing>(cacheKey);
     const baseListings = cached ? [] : await getFirestoreListings();
-    const listing = cached || baseListings.find(l => l.id === listingId) || listingsStore.find(l => l.id === listingId);
+    let listing = cached || baseListings.find(l => l.id === listingId) || listingsStore.find(l => l.id === listingId);
+    
+    // Direct document lookup fallback in case list cache has not yet refreshed
+    if (!listing && firestoreDb) {
+      try {
+        const snap = await getDoc(doc(firestoreDb, 'listings', listingId));
+        if (snap.exists()) {
+          listing = { id: snap.id, ...snap.data() } as Listing;
+        }
+      } catch (e) {
+        console.warn('Direct server getDoc error for listing:', e);
+      }
+    }
+
     if (!listing) {
       return res.status(404).json({ error: 'Listing not found' });
     }
-    const isLive = (listing.status as any) === 'published' || (listing.status as any) === 'approved';
-    const isRestricted = (listing.status as any) === 'rejected' || (listing.status as any) === 'removed' || (listing.status as any) === 'banned';
-    if (!isLive || isRestricted) {
+
+    const isLive = (listing.status as any) === 'published' || (listing.status as any) === 'approved' || (listing.verificationStatus as any) === 'approved';
+    const isRestricted = (listing.status as any) === 'rejected' || (listing.status as any) === 'removed' || (listing.status as any) === 'banned' || (listing.status as any) === 'pending' || !isLive;
+    if (isRestricted) {
       const authorization = req.headers.authorization || '';
       const accessToken = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
       const { data, error } = accessToken
         ? await supabaseAuthClient.auth.getUser(accessToken)
         : { data: { user: null }, error: new Error('Missing access token') };
-      if (error || !data.user || data.user.id !== listing.agentId) {
-        return res.status(404).json({ error: 'Listing not found' });
+      
+      const isOwner = Boolean(!error && data.user && data.user.id === listing.agentId);
+      const isAdmin = Boolean(!error && data.user && (data.user.email?.toLowerCase() === 'buildsafe247@gmail.com'));
+      
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ 
+          error: 'Unavailable', 
+          message: 'This property listing is currently pending verification, removed, or unavailable.',
+          status: listing.status || 'pending'
+        });
       }
     }
     if (cached) return res.json(cached);

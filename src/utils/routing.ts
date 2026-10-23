@@ -5,12 +5,13 @@
 export interface ParsedRoute {
   type: 'property' | 'view' | '404';
   propertyId?: string;
+  listingId?: string;
   view?: 'landing' | 'onboarding' | 'agent-landing' | 'business-verification' | 'search' | 'saved' | 'messages' | 'student-dash' | 'agent-dash' | 'admin-dash' | 'coming-soon' | 'universities' | 'reset-password' | 'auth-confirmed' | 'complete-profile';
   adminTab?: 'agents' | 'properties' | 'students' | 'analytics' | 'access';
 }
 
 export const KNOWN_VIEW_PATHS: Record<string, ParsedRoute['view']> = {
-  '/': 'onboarding',
+  '/': 'landing',
   '/search': 'search',
   '/discover': 'search',
   '/explore': 'search',
@@ -182,13 +183,15 @@ export function parseRouteFromUrl(): ParsedRoute {
   // 1. Check for legacy query parameter ?listing= or ?property=
   const queryListingId = urlParams.get('listing') || urlParams.get('property');
   if (queryListingId && queryListingId.trim()) {
-    return { type: 'property', propertyId: queryListingId.trim() };
+    const id = queryListingId.trim();
+    return { type: 'property', propertyId: id, listingId: id };
   }
 
-  // 2. Check path pattern /property/:id or /hostel/:id
-  const propertyMatch = pathname.match(/^\/(property|hostel)\/([^/]+)/i);
-  if (propertyMatch && propertyMatch[2]) {
-    return { type: 'property', propertyId: decodeURIComponent(propertyMatch[2].trim()) };
+  // 2. Check path pattern /listing/:id, /property/:id, or /hostel/:id
+  const listingMatch = pathname.match(/^\/(listing|property|hostel)\/([^/]+)/i);
+  if (listingMatch && listingMatch[2]) {
+    const id = decodeURIComponent(listingMatch[2].trim());
+    return { type: 'property', propertyId: id, listingId: id };
   }
 
   // 3. Check admin routes
@@ -220,29 +223,36 @@ export function parseRouteFromUrl(): ParsedRoute {
   return { type: '404' };
 }
 
-/**
- * Returns canonical public property URL
- */
-export function getCanonicalPropertyUrl(propertyId: string): string {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://dormiqa-ng.vercel.app';
-  return `${origin}/property/${encodeURIComponent(propertyId)}`;
-}
+export const DORMIQA_PRODUCTION_DOMAIN = 'https://dormiqa.site';
 
 /**
- * Pushes or replaces window.history for property route
+ * Returns canonical public property / listing URL using https://dormiqa.site/listing/{listingId}
  */
-export function pushPropertyUrl(propertyId: string, replace = false) {
-  if (typeof window === 'undefined') return;
-  const targetPath = `/property/${encodeURIComponent(propertyId)}`;
+export function getCanonicalListingUrl(listingId: string): string {
+  if (!listingId || !listingId.trim()) return DORMIQA_PRODUCTION_DOMAIN;
+  return `${DORMIQA_PRODUCTION_DOMAIN}/listing/${encodeURIComponent(listingId.trim())}`;
+}
+
+export const getCanonicalPropertyUrl = getCanonicalListingUrl;
+
+/**
+ * Pushes or replaces window.history for listing route (/listing/{listingId})
+ */
+export function pushListingUrl(listingId: string, replace = false) {
+  if (typeof window === 'undefined' || !listingId) return;
+  const cleanId = listingId.trim();
+  const targetPath = `/listing/${encodeURIComponent(cleanId)}`;
   if (window.location.pathname !== targetPath) {
     if (replace) {
-      window.history.replaceState({ type: 'property', propertyId }, '', targetPath);
+      window.history.replaceState({ type: 'property', propertyId: cleanId, listingId: cleanId }, '', targetPath);
     } else {
-      window.history.pushState({ type: 'property', propertyId }, '', targetPath);
+      window.history.pushState({ type: 'property', propertyId: cleanId, listingId: cleanId }, '', targetPath);
     }
   }
   window.dispatchEvent(new Event('dormiqa-route-change'));
 }
+
+export const pushPropertyUrl = pushListingUrl;
 
 /**
  * Pushes or replaces window.history for view route
@@ -287,7 +297,8 @@ export function pushViewUrl(view: string, replace = false, subTab?: string) {
 }
 
 /**
- * Reliable Share Property Utility (Web Share API + Clipboard Fallback)
+ * Reliable Share Property Utility (Web Share API + Clipboard Copy)
+ * Generates https://dormiqa.site/listing/{listingId}
  */
 export async function sharePropertyListing(
   listing: {
@@ -299,9 +310,19 @@ export async function sharePropertyListing(
   },
   onToastNotice?: (message: string) => void
 ): Promise<boolean> {
-  const canonicalUrl = getCanonicalPropertyUrl(listing.id);
+  const canonicalUrl = getCanonicalListingUrl(listing.id);
   const formattedPrice = (listing.pricePerYear || (listing.pricePerWeek ? listing.pricePerWeek * 52 : 300000)).toLocaleString();
   const shareText = `Check out "${listing.title}" near ${listing.universityName || 'campus'} on Dormiqa Nigeria - ₦${formattedPrice}/yr!`;
+
+  let copied = false;
+  if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(canonicalUrl);
+      copied = true;
+    } catch (err) {
+      console.warn("Clipboard write error:", err);
+    }
+  }
 
   if (typeof navigator !== 'undefined' && navigator.share) {
     try {
@@ -310,23 +331,19 @@ export async function sharePropertyListing(
         text: shareText,
         url: canonicalUrl
       });
-      if (onToastNotice) onToastNotice('Property link shared successfully!');
+      if (onToastNotice) onToastNotice('Listing link copied & shared!');
       return true;
     } catch (err: any) {
-      if (err.name === 'AbortError') return false;
-      // Continue to clipboard fallback
+      if (err.name === 'AbortError') {
+        if (copied && onToastNotice) onToastNotice('Listing link copied to clipboard!');
+        return copied;
+      }
     }
   }
 
-  // Fallback: Copy Canonical URL to Clipboard
-  try {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      await navigator.clipboard.writeText(canonicalUrl);
-      if (onToastNotice) onToastNotice('Property link copied to clipboard!');
-      return true;
-    }
-  } catch (err) {
-    console.warn("Clipboard write error:", err);
+  if (copied) {
+    if (onToastNotice) onToastNotice('Listing link copied to clipboard!');
+    return true;
   }
 
   return false;

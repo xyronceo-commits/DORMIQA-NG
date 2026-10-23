@@ -150,7 +150,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   try {
    await navigator.clipboard.writeText(getShareUrl());
    setCopySuccess(true);
-   setShareNotice('Property link copied!');
+   setShareNotice('Listing link copied to clipboard!');
    setTimeout(() => setCopySuccess(false), 3000);
    setTimeout(() => setShareNotice(null), 3000);
   } catch (err) {
@@ -962,7 +962,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
       {/* Link Copy Box */}
       <div className="space-y-1.5">
        <label className="text-[11px] font-bold uppercase text-neutral-400 tracking-wider block">
-        Direct Shareable Property URL
+        Direct Shareable Listing URL
        </label>
        <div className="flex items-center gap-2 p-1.5 bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-2xl">
         <input
