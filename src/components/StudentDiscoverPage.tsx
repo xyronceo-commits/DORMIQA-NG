@@ -127,14 +127,8 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
       
       // Consistent single source of truth for listing visibility:
       // Real listings that are published/valid, and not rejected, removed, banned, or draft.
-      const isVisibleListing = 
-        item.status !== 'rejected' &&
-        item.status !== 'banned' &&
-        item.status !== 'removed' &&
-        item.status !== 'draft' &&
-        item.status !== 'uploading' &&
-        item.status !== 'upload_failed' &&
-        item.status !== 'incomplete' &&
+      const isVisibleListing =
+        (item.status === 'approved' || item.status === 'published') &&
         item.verificationStatus !== 'rejected' &&
         item.verificationStatus !== 'banned' &&
         item.verificationStatus !== 'removed';

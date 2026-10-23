@@ -522,6 +522,10 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({
                           <span className="absolute top-2 right-2 bg-rose-600/90 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1">
                             <AlertCircle className="w-3 h-3" /> Rejected
                           </span>
+                        ) : ['draft', 'uploading', 'upload_failed', 'incomplete'].includes(item.status) ? (
+                          <span className="absolute top-2 right-2 bg-neutral-600/90 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" /> Upload incomplete
+                          </span>
                         ) : (
                           <span className="absolute top-2 right-2 bg-amber-500/90 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1">
                             <Clock className="w-3 h-3" /> Under Review

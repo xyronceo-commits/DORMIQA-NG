@@ -34,6 +34,8 @@ import {
 interface OnboardingPageProps {
   universities: University[];
   initialEmail?: string;
+  /** When set, skips the walkthrough/role picker and opens sign-up for this role. */
+  initialRole?: UserRole;
   onCompleteOnboarding: (userData: {
     role: UserRole;
     name: string;
@@ -55,16 +57,17 @@ interface OnboardingPageProps {
 export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   universities,
   initialEmail,
+  initialRole,
   onCompleteOnboarding,
 }) => {
   const [step, setStep] = useState<'slides' | 'role_selection' | 'auth' | 'otp_verification'>(() => {
-    if (initialEmail && initialEmail.trim()) {
+    if ((initialEmail && initialEmail.trim()) || initialRole) {
       return 'auth';
     }
     return 'slides';
   });
 
-  const [selectedRole, setSelectedRole] = useState<UserRole>('student');
+  const [selectedRole, setSelectedRole] = useState<UserRole>(initialRole ?? 'student');
   const [authMode, setAuthMode] = useState<'signup' | 'signin'>(initialEmail ? 'signin' : 'signup');
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
