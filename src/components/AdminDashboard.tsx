@@ -626,7 +626,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const docs = [];
     const bvd = agent.businessVerificationDetails || {};
 
-    const storedDocumentPath = bvd.documentUrl || agent.documentUrl;
+    const storedDocumentPath = bvd.documentUrl || agent.documentUrl || agent.cacCertificateUrl || agent.idCardUrl || agent.identityUrl || agent.ninUrl || agent.utilityBillUrl || agent.officePhotoUrl || agent.proofUrl;
     const matchingSignedDocument = signedVerificationDocument?.path === storedDocumentPath
       ? signedVerificationDocument
       : null;
@@ -634,25 +634,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       ? storedDocumentPath
       : matchingSignedDocument
         ? matchingSignedDocument.url
-        : '';
+        : storedDocumentPath || '';
+
+    const proofLabel = {
+      cac: 'CAC Registration Certificate',
+      nin_id: 'NIN National Identity Slip / Govt ID',
+      utility_bill: 'Electricity / Utility Bill',
+      office_photo: 'Office Signboard & Banner Photo',
+      business_card: 'Business Card'
+    }[bvd.proofType as string] || bvd.proofType || agent.proofType || 'CAC Registration / Government ID Document';
 
     if (documentUrl) {
       docs.push({
-        title: bvd.documentName || agent.proofType || 'Verification document',
-        type: 'CAC Certificate / ID',
+        title: bvd.documentName || proofLabel,
+        type: proofLabel,
         url: documentUrl,
         submittedAt: bvd.submittedAt || agent.createdAt || new Date().toISOString(),
         status: agent.isVerifiedAgent ? 'Verified Document' : agent.status === 'rejected' ? 'Rejected' : agent.status === 'removed' ? 'Revoked' : 'Pending Verification'
       });
     }
 
-    if (bvd.portraitPhotoUrl || agent.verificationPhotoUrl || agent.avatarUrl) {
+    const facePhoto = bvd.portraitPhotoUrl || agent.verificationPhotoUrl || agent.portraitUrl || agent.agentPortraitUrl || agent.avatarUrl || agent.avatar;
+    if (facePhoto) {
       docs.push({
-        title: 'Agent Identity Photo & Live Face Verification',
-        type: 'Portrait Photo',
-        url: bvd.portraitPhotoUrl || agent.verificationPhotoUrl || agent.avatarUrl,
+        title: 'Agent Identity Portrait Photo (Live Face Verification)',
+        type: 'Passport / Portrait Photo',
+        url: facePhoto,
         submittedAt: bvd.submittedAt || agent.createdAt || new Date().toISOString(),
-        status: 'Identity Matched'
+        status: 'Identity Photo'
+      });
+    }
+
+    if (Array.isArray(agent.documents)) {
+      agent.documents.forEach((d: any, idx: number) => {
+        if (d && d.url && d.url !== documentUrl && d.url !== facePhoto) {
+          docs.push({
+            title: d.title || `Verification Document ${idx + 1}`,
+            type: d.type || 'Supporting Document',
+            url: d.url,
+            submittedAt: d.submittedAt || agent.createdAt || new Date().toISOString(),
+            status: agent.isVerifiedAgent ? 'Verified' : 'Pending'
+          });
+        }
       });
     }
 
@@ -1979,6 +2002,102 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 space-y-1">
                 <p className="font-extrabold uppercase text-[10px] text-neutral-400">Business Overview & Bio</p>
                 <p className="text-xs text-neutral-700 dark:text-neutral-300 font-medium">{selectedAgent.bio}</p>
+              </div>
+            )}
+
+            {/* Agent Verification Form & Document Data */}
+            {selectedAgent.businessVerificationDetails && (
+              <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 space-y-3">
+                <div className="flex items-center justify-between border-b border-emerald-200/60 dark:border-emerald-900/60 pb-2">
+                  <span className="text-xs font-black text-emerald-900 dark:text-emerald-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <FileCheck className="w-4 h-4 text-emerald-600" />
+                    Agent Submitted Verification Form Details
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                    Type: {selectedAgent.businessVerificationDetails.proofType?.toUpperCase() || 'CAC / NIN'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-500 uppercase">Agency / Business Name:</span>
+                    <p className="font-extrabold text-neutral-900 dark:text-white">
+                      {selectedAgent.businessVerificationDetails.businessName || selectedAgent.agencyName || 'Independent Caretaker'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-500 uppercase">Legal / Full Agent Name:</span>
+                    <p className="font-extrabold text-neutral-900 dark:text-white">
+                      {selectedAgent.businessVerificationDetails.agentFullName || selectedAgent.name}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-500 uppercase">Verification Proof Option:</span>
+                    <p className="font-extrabold text-emerald-700 dark:text-emerald-400">
+                      {selectedAgent.businessVerificationDetails.proofType === 'cac' ? 'CAC Registration Certificate' :
+                       selectedAgent.businessVerificationDetails.proofType === 'nin_id' ? 'National ID Card (NIN Slip)' :
+                       selectedAgent.businessVerificationDetails.proofType === 'utility_bill' ? 'Utility / PHCN Electricity Bill' :
+                       selectedAgent.businessVerificationDetails.proofType === 'office_photo' ? 'Office Signboard & Banner Photo' :
+                       selectedAgent.businessVerificationDetails.proofType === 'business_card' ? 'Business Card' :
+                       selectedAgent.proofType || 'CAC Registration Certificate'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-500 uppercase">Business Structure:</span>
+                    <p className="font-extrabold text-neutral-900 dark:text-white capitalize">
+                      {(selectedAgent.businessVerificationDetails.businessType || 'individual_caretaker').replace('_', ' ')}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-500 uppercase">Property Authority / Role:</span>
+                    <p className="font-extrabold text-neutral-900 dark:text-white capitalize">
+                      {(selectedAgent.businessVerificationDetails.relationship || 'caretaker').replace('_', ' ')}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-500 uppercase">Operating Campus & State:</span>
+                    <p className="font-extrabold text-neutral-900 dark:text-white">
+                      {selectedAgent.businessVerificationDetails.stateOfWork || 'Osun State'} (UNIOSUN)
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-500 uppercase">Primary Phone:</span>
+                    <p className="font-extrabold text-neutral-900 dark:text-white font-mono">
+                      {selectedAgent.businessVerificationDetails.phone || selectedAgent.phone || 'N/A'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-500 uppercase">WhatsApp Number:</span>
+                    <p className="font-extrabold text-neutral-900 dark:text-white font-mono">
+                      {selectedAgent.businessVerificationDetails.whatsapp || selectedAgent.phone || 'N/A'}
+                    </p>
+                  </div>
+
+                  {selectedAgent.businessVerificationDetails.businessAddress && (
+                    <div className="sm:col-span-2">
+                      <span className="text-[10px] font-bold text-neutral-500 uppercase">Office / Business Address:</span>
+                      <p className="font-semibold text-neutral-800 dark:text-neutral-200">
+                        {selectedAgent.businessVerificationDetails.businessAddress}
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedAgent.businessVerificationDetails.hostelManagementInfo && (
+                    <div className="sm:col-span-2">
+                      <span className="text-[10px] font-bold text-neutral-500 uppercase">Managed Hostels & Experience:</span>
+                      <p className="font-semibold text-neutral-800 dark:text-neutral-200">
+                        {selectedAgent.businessVerificationDetails.hostelManagementInfo}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

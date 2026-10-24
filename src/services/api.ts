@@ -2,6 +2,7 @@ import { Listing, PropertyType, University, Inspection, Conversation, ChatMessag
 import { clientCache, CACHE_TTL } from './cache';
 import { supabase } from './supabase';
 import { normalizeListing } from '../utils/normalizeListing';
+import { sendNotification } from './notificationService';
 
 const API_BASE = '/api';
 
@@ -620,6 +621,20 @@ export async function bookInspection(data: Partial<Inspection>): Promise<Inspect
     console.error('Failed to write inspection to Firestore:', fsErr);
   }
 
+  // Notify agent immediately of new inspection booking
+  if (inspectionRecord.agentId) {
+    sendNotification({
+      userId: inspectionRecord.agentId,
+      title: `New Inspection: ${inspectionRecord.listingTitle}`,
+      body: `${inspectionRecord.studentName} booked an inspection for ${inspectionRecord.date} at ${inspectionRecord.timeSlot}.`,
+      type: 'inspection',
+      metadata: {
+        inspectionId: inspectionRecord.id,
+        listingId: inspectionRecord.listingId
+      }
+    }).catch(() => {});
+  }
+
   return inspectionRecord;
 }
 
@@ -703,6 +718,20 @@ export async function updateInspectionStatus(id: string, status: string): Promis
     throw new Error('Failed to update inspection status in database');
   }
 
+  // Notify student of status update (e.g. confirmed or rescheduled)
+  if (updated.studentId) {
+    sendNotification({
+      userId: updated.studentId,
+      title: `Inspection ${status === 'confirmed' ? 'Confirmed' : status.toUpperCase()}: ${updated.listingTitle}`,
+      body: `Your inspection for ${updated.listingTitle} on ${updated.date} at ${updated.timeSlot} was marked as ${status}.`,
+      type: 'inspection',
+      metadata: {
+        inspectionId: updated.id,
+        status
+      }
+    }).catch(() => {});
+  }
+
   return updated;
 }
 
@@ -784,6 +813,21 @@ export async function startConversation(data: {
     console.error('Failed to save conversation to Firestore:', fsErr);
   }
 
+  // Notify agent immediately of student inquiry
+  if (conversationRecord.agentId) {
+    sendNotification({
+      userId: conversationRecord.agentId,
+      title: `New Inquiry: ${conversationRecord.listingTitle}`,
+      body: `${conversationRecord.studentName} started an inquiry about ${conversationRecord.listingTitle}.`,
+      type: 'message',
+      metadata: {
+        conversationId: conversationRecord.id,
+        listingId: conversationRecord.listingId,
+        senderName: conversationRecord.studentName
+      }
+    }).catch(() => {});
+  }
+
   return conversationRecord;
 }
 
@@ -861,6 +905,20 @@ export async function sendMessage(conversationId: string, data: { senderId: stri
     await updateDoc(doc(db, 'conversations', conversationId), updatePayload);
   } catch (fsErr) {
     console.error('Failed to save message to Firestore:', fsErr);
+  }
+
+  // Real-time notification for the recipient (agent or student)
+  if (data.recipientId) {
+    sendNotification({
+      userId: data.recipientId,
+      title: `New message from ${data.senderName}`,
+      body: data.text.length > 80 ? data.text.substring(0, 77) + '...' : data.text,
+      type: 'message',
+      metadata: {
+        conversationId,
+        senderName: data.senderName
+      }
+    }).catch(() => {});
   }
 
   return messageRecord;

@@ -60,12 +60,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({
   initialRole,
   onCompleteOnboarding,
 }) => {
-  const [step, setStep] = useState<'slides' | 'role_selection' | 'auth' | 'otp_verification'>(() => {
-    if ((initialEmail && initialEmail.trim()) || initialRole) {
-      return 'auth';
-    }
-    return 'slides';
-  });
+  const [step, setStep] = useState<'slides' | 'role_selection' | 'auth' | 'otp_verification'>('auth');
 
   const [selectedRole, setSelectedRole] = useState<UserRole>(initialRole ?? 'student');
   const [authMode, setAuthMode] = useState<'signup' | 'signin'>(initialEmail ? 'signin' : 'signup');

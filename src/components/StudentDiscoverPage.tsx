@@ -126,9 +126,9 @@ export const StudentDiscoverPage: React.FC<StudentDiscoverPageProps> = ({
                        item.universityName?.toLowerCase().includes(currentUniversity.code.toLowerCase());
       
       // Consistent single source of truth for listing visibility:
-      // Real listings that are published/valid, and not rejected, removed, banned, or draft.
+      // Real listings from agents (all active listings, not rejected, removed, or banned)
       const isVisibleListing =
-        (item.status === 'approved' || item.status === 'published') &&
+        (item.status === 'approved' || item.status === 'published' || item.status === 'pending' || !item.status) &&
         item.verificationStatus !== 'rejected' &&
         item.verificationStatus !== 'banned' &&
         item.verificationStatus !== 'removed';

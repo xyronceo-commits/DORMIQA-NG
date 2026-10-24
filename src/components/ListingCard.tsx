@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
+import { Heart, ChevronLeft, ChevronRight, MapPin, Phone } from 'lucide-react';
 import { Listing, Campus } from '../types';
 
 interface ListingCardProps {
@@ -9,6 +9,7 @@ interface ListingCardProps {
   onOpenDetail: (listing: Listing) => void;
   onBookInspection?: (listing: Listing) => void;
   onStartChat?: (agentId: string, listingId: string) => void;
+  onContactClick?: (listing: Listing) => void;
   selectedCampus?: Campus;
   className?: string;
   isRecommendCard?: boolean;
@@ -137,6 +138,19 @@ export const ListingCard: React.FC<ListingCardProps> = ({
             <span className="mx-1.5 text-neutral-300">·</span>
             <span>{walkingText}</span>
           </p>
+        </div>
+
+        {/* Agent Phone Contact Line */}
+        <div className="pt-2 border-t border-neutral-100 flex items-center justify-between text-xs text-neutral-600">
+          <div className="flex items-center gap-1.5 font-semibold text-neutral-800 truncate">
+            <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span className="truncate">{listing.agent?.phone || (listing as any).agentPhone || (listing as any).phone || 'Agent: Available'}</span>
+          </div>
+          {(listing.agent?.phone || (listing as any).agentPhone || (listing as any).phone) && (
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded shrink-0">
+              Call / WhatsApp
+            </span>
+          )}
         </div>
       </div>
     </div>

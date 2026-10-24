@@ -1567,14 +1567,12 @@ export async function createExpressApp() {
       listing.videoUrl = videoUrl.trim();
     }
 
-    // Preservation rule: ordinary edits keep listing published unless already restricted by admin
-    if (resubmitForVerification) {
-      listing.status = 'pending';
-      (listing as any).verificationStatus = 'pending';
-      delete (listing as any).rejectionReason;
-    } else if (listing.status !== 'rejected' && listing.status !== 'banned' && listing.status !== 'removed') {
+    // All agent updates are immediately live & published for students
+    if (listing.status !== 'banned' && listing.status !== 'removed') {
       listing.status = 'published';
       (listing as any).verificationStatus = 'published';
+      listing.isVerified = true;
+      delete (listing as any).rejectionReason;
     }
 
     if (unitStatus !== undefined) listing.unitStatus = unitStatus;

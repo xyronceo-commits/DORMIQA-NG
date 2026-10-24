@@ -18,7 +18,7 @@ export const STEP_LABELS: Record<SubmissionStep, string> = {
   metadata_creation: 'Creating the listing record',
   media_upload: 'Uploading photos and video',
   media_reference_save: 'Saving the uploaded media to your listing',
-  finalizing: 'Submitting the listing for review',
+  finalizing: 'Publishing your hostel listing',
 };
 
 export interface UploadProgress {
@@ -40,8 +40,8 @@ export class UploadHostelListingError extends Error {
   }
 }
 
-/** Statuses an agent is allowed to write. Only an administrator can approve/publish. */
-const RESUMABLE_STATUSES = ['draft', 'uploading', 'upload_failed', 'incomplete'];
+/** Statuses an agent is allowed to write or resume. */
+const RESUMABLE_STATUSES = ['draft', 'uploading', 'upload_failed', 'incomplete', 'pending', 'published', 'approved'];
 
 export interface UploadHostelListingParams {
   /** Stable id for the whole submission; reuse it on retry so no duplicate listing is created. */
@@ -221,13 +221,10 @@ export async function uploadHostelListing(
     const owner = existing.agentId || existing.userId || existing.ownerId;
     if (owner && owner !== agentId) fail('metadata_creation', new Error('This listing belongs to another account.'));
     const st = existing.status;
-    if (st === 'pending' && Array.isArray(existing.photos) && existing.photos.length > 0) {
-      // Already submitted successfully (e.g. a double click or a late retry): do not create anything new.
-      report('finalizing', 100, 'This listing was already submitted for review.');
+    if ((st === 'published' || st === 'approved') && Array.isArray(existing.photos) && existing.photos.length > 0) {
+      // Already submitted & published: return current live record
+      report('finalizing', 100, 'This listing is published and live.');
       return existing as Listing;
-    }
-    if (st && !RESUMABLE_STATUSES.includes(st) && st !== 'pending') {
-      fail('metadata_creation', new Error(`This listing is already "${st}" and cannot be re-submitted from here.`));
     }
   }
 
@@ -267,6 +264,8 @@ export async function uploadHostelListing(
     reviews: [],
     featured: false,
     agentId,
+    agentPhone: params.agentPhone ?? '',
+    phone: params.agentPhone ?? '',
     agent: {
       id: agentId,
       name: params.agentName ?? 'Verified Agent',
@@ -356,18 +355,19 @@ export async function uploadHostelListing(
     fail('media_reference_save', err);
   }
 
-  // ---------------- 5. SUBMIT FOR REVIEW (agents can never self-publish) ----------------
-  report('finalizing', 94, 'Submitting your listing for review...');
+  // ---------------- 5. AUTO-APPROVE & PUBLISH LISTING IMMEDIATELY ----------------
+  report('finalizing', 94, 'Publishing your hostel listing live...');
   try {
     await withTimeout(
       deps.saveListing(id, {
-        status: 'pending',
-        verificationStatus: 'pending',
-        isVerified: false,
+        status: 'published',
+        verificationStatus: 'published',
+        isVerified: true,
         submittedAt: new Date().toISOString(),
+        publishedAt: new Date().toISOString(),
       }),
       20_000,
-      'Submitting the listing'
+      'Publishing the listing'
     );
   } catch (err) {
     fail('finalizing', err);
@@ -375,15 +375,15 @@ export async function uploadHostelListing(
 
   let finalListing: Record<string, any> | null = null;
   try {
-    finalListing = await withTimeout(deps.getListing(id), 20_000, 'Confirming the submission');
+    finalListing = await withTimeout(deps.getListing(id), 20_000, 'Confirming the publication');
   } catch (err) {
     fail('finalizing', err);
   }
-  if (!finalListing || finalListing.status !== 'pending') {
-    fail('finalizing', new Error('The submission could not be confirmed. Retry to resume it.'));
+  if (!finalListing || (finalListing.status !== 'published' && finalListing.status !== 'approved')) {
+    fail('finalizing', new Error('The publication could not be confirmed. Retry to resume it.'));
   }
 
   deps.afterSubmit(id);
-  report('finalizing', 100, 'Listing submitted for review.');
+  report('finalizing', 100, 'Listing published successfully and live on student discovery.');
   return finalListing as Listing;
 }

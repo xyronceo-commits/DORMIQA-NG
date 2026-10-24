@@ -301,6 +301,7 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         agentAgencyName: 'Verified Accommodation Management',
         agentAvatarUrl: auth.currentUser?.photoURL || '',
         agentEmail: auth.currentUser?.email || '',
+        agentPhone: (auth.currentUser as any)?.phone || auth.currentUser?.phoneNumber || '',
         videoSource: videoFile || (videoPreviewUrl || undefined),
         photos,
         onProgress: (progress) => {
@@ -309,15 +310,31 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
         }
       });
 
-      // Agents cannot publish: the listing is now awaiting administrator approval.
+      // Auto-approved: Broadcast new listing notification to all students & agents
       sendNotification({
-        userId: agentId,
-        title: 'Listing submitted for review',
-        body: `Your listing "${hostelName}" was submitted. It will appear to students once an administrator approves it.`,
-        type: 'system'
+        userId: 'all',
+        title: `New Hostel Available: ${hostelName}`,
+        body: `${hostelName} is now live and available for rent near ${selectedUni?.name || 'UNIOSUN'}.`,
+        type: 'listing',
+        universityId,
+        metadata: {
+          listingId: created.id
+        }
       }).catch(() => {});
 
-      setSubmissionResult('pending');
+      // Also send a direct confirmation alert to the agent
+      sendNotification({
+        userId: agentId,
+        title: `Listing Published: ${hostelName}`,
+        body: `Your property "${hostelName}" is now active and live on the student discovery page!`,
+        type: 'listing',
+        universityId,
+        metadata: {
+          listingId: created.id
+        }
+      }).catch(() => {});
+
+      setSubmissionResult('published');
       onSuccess(created);
     } catch (err: any) {
       console.error('Submit Hostel Error:', err?.technical || err?.message || err);
@@ -861,28 +878,28 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
            ========================================== */}
         {currentStep === 9 && (
           <div className="space-y-4 text-center">
-            {submissionResult === 'pending' ? (
+            {submissionResult === 'published' || submissionResult === 'pending' ? (
               <div className="p-6 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 rounded-3xl space-y-3">
                 <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
                 <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-200">
-                  Your listing has been submitted!
+                  Your listing is now Live & Published!
                 </h3>
                 <p className="text-xs text-emerald-800 dark:text-emerald-300 font-medium max-w-md mx-auto">
-                  Your photos and details are saved and the listing is awaiting administrator approval. Students will see it on the discovery page once it is approved. You can track its status from your dashboard.
+                  Your hostel "{hostelName}" is approved and immediately active on the Student Discovery page. Students can now view photos, check walking distance, and contact you directly!
                 </p>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl cursor-pointer"
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl cursor-pointer shadow-xs"
                 >
-                  View in Agent Dashboard
+                  Done & View in Dashboard
                 </button>
               </div>
             ) : submitting ? (
               <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl space-y-4 text-white text-center shadow-lg">
                 <Loader2 className="w-10 h-10 text-emerald-400 animate-spin mx-auto" />
                 <div>
-                  <h3 className="text-base font-extrabold text-white">Submitting listing</h3>
+                  <h3 className="text-base font-extrabold text-white">Publishing Hostel Listing</h3>
                   <p className="text-xs text-slate-300 mt-1 font-semibold">{uploadStatusText || 'Uploading media files...'}</p>
                 </div>
 
@@ -894,20 +911,20 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                 </div>
 
                 <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium px-1">
-                  <span>{uploadStatusText || 'Uploading'}</span>
+                  <span>{uploadStatusText || 'Publishing'}</span>
                   <span className="font-bold text-emerald-400">{uploadProgress}%</span>
                 </div>
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="w-12 h-12 bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white rounded-2xl flex items-center justify-center mx-auto">
-                  <ShieldCheck className="w-6 h-6" />
+                  <ShieldCheck className="w-6 h-6 text-emerald-600" />
                 </div>
                 <h2 className="text-xl font-extrabold text-neutral-900 dark:text-white">
-                  STEP 9: Submit Hostel Listing
+                  STEP 9: Publish Hostel Listing
                 </h2>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
-                  Upload your media and submit your hostel listing. It becomes visible to students after an administrator approves it.
+                  Upload your photos and publish your hostel listing. It will immediately appear on the Student Discovery page with your contact details.
                 </p>
 
                 {validationError && (
@@ -929,7 +946,8 @@ export const AddListingModal: React.FC<AddListingModalProps> = ({
                   disabled={submitting}
                   className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
                 >
-                  <span>Submit Listing for Review</span>
+                  <Building2 className="w-4 h-4" />
+                  <span>Publish Hostel Listing Now</span>
                 </button>
               </div>
             )}

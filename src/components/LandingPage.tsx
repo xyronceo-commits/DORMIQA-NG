@@ -12,7 +12,9 @@ import {
   Shield, 
   Zap,
   ExternalLink,
-  Clock
+  Clock,
+  Phone,
+  Lock
 } from 'lucide-react';
 import { University, Listing } from '../types';
 
@@ -20,6 +22,7 @@ interface LandingPageProps {
   universities: University[];
   featuredListings?: Listing[];
   recentListings?: Listing[];
+  isLoggedIn?: boolean;
   onSearchUniversity: (uniId: string) => void;
   onOpenListingDetail?: (listing: Listing) => void;
   onBookInspection?: (listing: Listing) => void;
@@ -30,6 +33,7 @@ interface LandingPageProps {
   onRegisterAgent?: () => void;
   onOpenOnboarding?: () => void;
   onOpenAllUniversities?: () => void;
+  onRequireLogin?: () => void;
 }
 
 const WAITLIST_BASE_URL = 'https://dormiqa-waitlist.vercel.app';
@@ -46,16 +50,186 @@ const DEFAULT_CURATED_UNIVERSITIES: University[] = [
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   universities,
+  featuredListings = [],
+  recentListings = [],
+  isLoggedIn = false,
   onSearchUniversity,
+  onOpenListingDetail,
+  onBookInspection,
+  onStartChat,
   onOpenAgentPortal,
   onRegisterAgent,
   onOpenOnboarding,
-  onOpenAllUniversities
+  onOpenAllUniversities,
+  onRequireLogin
 }) => {
   const [heroUniId, setHeroUniId] = useState('uniosun');
   const [heroPropType, setHeroPropType] = useState<string>('all');
   const [heroMaxBudget, setHeroMaxBudget] = useState<number>(1000000);
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
+
+  const sampleListings: Listing[] = [
+    {
+      id: 'lst_sample_1',
+      title: 'Peace Haven Luxury Self-Contain',
+      hotelName: 'Peace Haven Lodge',
+      universityId: 'uniosun',
+      universityName: 'Osun State University (UNIOSUN)',
+      propertyType: 'self_contain',
+      pricePerYear: 350000,
+      pricePerMonth: 30000,
+      pricePerWeek: 7000,
+      currency: 'NGN',
+      billsIncluded: true,
+      deposit: 35000,
+      walkingDistanceMinutes: 7,
+      walkingDistanceMeters: 560,
+      vacanciesCount: 3,
+      address: 'Oke-Baale Campus Road, Osogbo',
+      city: 'Osogbo',
+      state: 'Osun State',
+      lat: 7.771,
+      lng: 4.56,
+      facilities: ['Running Borehole Water', 'Solar Inverter Backup', 'Fenced & Gated', 'Tiled Floors'],
+      rules: ['No loud noise after 10 PM'],
+      description: 'Modern executive self-contain with solar power and running water.',
+      genderPreference: 'any',
+      availableFrom: '2026-09-01',
+      minLeaseMonths: 12,
+      totalBedrooms: 1,
+      totalBathrooms: 1,
+      rating: 4.9,
+      reviewCount: 8,
+      reviews: [],
+      featured: true,
+      isVerified: true,
+      status: 'published',
+      agentId: 'agt_sample_1',
+      photos: ['https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80'],
+      agent: {
+        id: 'agt_sample_1',
+        name: 'Alhaji Oladipo',
+        agencyName: 'Peace Haven Accommodations',
+        avatarUrl: '',
+        phone: '08034567891',
+        email: 'oladipo@dormiqa.site',
+        responseRate: '98%',
+        responseTime: '< 15 mins',
+        isVerified: true,
+        rating: 4.9,
+        totalReviews: 8
+      },
+      createdAt: '2026-08-01'
+    },
+    {
+      id: 'lst_sample_2',
+      title: 'Royal Palms 1-Bedroom Student Lodge',
+      hotelName: 'Royal Palms Hostel',
+      universityId: 'uniosun',
+      universityName: 'Osun State University (UNIOSUN)',
+      propertyType: 'one_bedroom',
+      pricePerYear: 450000,
+      pricePerMonth: 38000,
+      pricePerWeek: 9000,
+      currency: 'NGN',
+      billsIncluded: true,
+      deposit: 45000,
+      walkingDistanceMinutes: 10,
+      walkingDistanceMeters: 800,
+      vacanciesCount: 2,
+      address: 'Behind UNIOSUN Main Campus Gate, Osogbo',
+      city: 'Osogbo',
+      state: 'Osun State',
+      lat: 7.772,
+      lng: 4.562,
+      facilities: ['24/7 Security Guard', 'Prepaid Meter', 'Constant Water', 'Car Park'],
+      rules: ['Student ID required'],
+      description: 'Spacious 1-bedroom flat in a secure student lodge community.',
+      genderPreference: 'any',
+      availableFrom: '2026-09-01',
+      minLeaseMonths: 12,
+      totalBedrooms: 1,
+      totalBathrooms: 1,
+      rating: 4.8,
+      reviewCount: 6,
+      reviews: [],
+      featured: true,
+      isVerified: true,
+      status: 'published',
+      agentId: 'agt_sample_2',
+      photos: ['https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80'],
+      agent: {
+        id: 'agt_sample_2',
+        name: 'Mr. Babatunde Caretaker',
+        agencyName: 'Royal Property Services',
+        avatarUrl: '',
+        phone: '08129876543',
+        email: 'babatunde@dormiqa.site',
+        responseRate: '100%',
+        responseTime: '< 10 mins',
+        isVerified: true,
+        rating: 4.8,
+        totalReviews: 6
+      },
+      createdAt: '2026-08-02'
+    },
+    {
+      id: 'lst_sample_3',
+      title: 'Emerald Court Single Room En-suite',
+      hotelName: 'Emerald Court',
+      universityId: 'uniosun',
+      universityName: 'Osun State University (UNIOSUN)',
+      propertyType: 'single_room',
+      pricePerYear: 280000,
+      pricePerMonth: 24000,
+      pricePerWeek: 5500,
+      currency: 'NGN',
+      billsIncluded: true,
+      deposit: 25000,
+      walkingDistanceMinutes: 5,
+      walkingDistanceMeters: 400,
+      vacanciesCount: 4,
+      address: 'Oke Baale, Adjacent College of Health Sciences',
+      city: 'Osogbo',
+      state: 'Osun State',
+      lat: 7.77,
+      lng: 4.558,
+      facilities: ['Borehole Water', 'Generator Line', 'Private Bathroom', 'POP Ceiling'],
+      rules: ['Cleanliness in compound'],
+      description: 'Comfortable ensuite single room just 5 minutes walk to UNIOSUN gate.',
+      genderPreference: 'any',
+      availableFrom: '2026-09-01',
+      minLeaseMonths: 12,
+      totalBedrooms: 1,
+      totalBathrooms: 1,
+      rating: 4.7,
+      reviewCount: 5,
+      reviews: [],
+      featured: true,
+      isVerified: true,
+      status: 'published',
+      agentId: 'agt_sample_3',
+      photos: ['https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80'],
+      agent: {
+        id: 'agt_sample_3',
+        name: 'Mrs. Folashade Caretaker',
+        agencyName: 'Campus Comfort Lettings',
+        avatarUrl: '',
+        phone: '09087654321',
+        email: 'folashade@dormiqa.site',
+        responseRate: '95%',
+        responseTime: '< 20 mins',
+        isVerified: true,
+        rating: 4.7,
+        totalReviews: 5
+      },
+      createdAt: '2026-08-03'
+    }
+  ];
+
+  const displayListings = (featuredListings && featuredListings.length > 0)
+    ? featuredListings
+    : sampleListings;
 
   // Curate 7 featured universities with UNIOSUN strictly FIRST
   const FEATURED_UNI_IDS = ['uniosun', 'ui', 'futa', 'fuoye', 'lasu', 'yabatech', 'oau'];
@@ -249,6 +423,109 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           </div>
 
+        </div>
+      </section>
+
+      {/* FEATURED STUDENT ACCOMMODATIONS PREVIEW */}
+      <section className="py-12 bg-white border-b border-neutral-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div className="space-y-1">
+              <span className="text-[10px] sm:text-xs font-extrabold text-emerald-700 uppercase tracking-wider block">
+                Verified Campus Lodges
+              </span>
+              <h2 className="text-xl sm:text-2xl font-extrabold text-neutral-900 tracking-tight">
+                Featured Student Accommodation
+              </h2>
+              <p className="text-xs sm:text-sm text-neutral-600">
+                Explore verified hostels near campus. Sign in to message caretakers, call agents directly, or schedule free physical inspections.
+              </p>
+            </div>
+            
+            <button
+              onClick={() => onSearchUniversity('uniosun')}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 transition-colors self-start sm:self-auto cursor-pointer"
+            >
+              <span>View all UNIOSUN lodges</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {displayListings.slice(0, 6).map((listing) => {
+              const agentPhone = listing.agent?.phone || (listing as any).agentPhone || (listing as any).phone || '080-DORMIQA';
+              return (
+                <div
+                  key={listing.id}
+                  className="group bg-white rounded-2xl border border-neutral-200 hover:border-emerald-500/50 shadow-xs hover:shadow-md transition-all overflow-hidden flex flex-col justify-between"
+                >
+                  <div className="relative aspect-[16/10] bg-neutral-100 overflow-hidden">
+                    <img
+                      src={listing.photos?.[0] || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80'}
+                      alt={listing.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute top-2.5 left-2.5 bg-black/75 backdrop-blur-xs text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider">
+                      {listing.propertyType.replace('_', ' ')}
+                    </div>
+                    <div className="absolute bottom-2.5 left-2.5 bg-white/95 text-neutral-900 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-xs">
+                      <Footprints className="w-3 h-3 text-emerald-600" />
+                      <span>{listing.walkingDistanceMinutes || 10} mins walk to gate</span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                    <div className="space-y-1">
+                      <h3 className="font-extrabold text-sm sm:text-base text-neutral-900 line-clamp-1 group-hover:text-emerald-700 transition-colors">
+                        {listing.hotelName || listing.title}
+                      </h3>
+                      <p className="text-xs text-neutral-500 flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                        <span className="truncate">{listing.address}</span>
+                      </p>
+                      <p className="font-extrabold text-neutral-900 text-sm pt-1">
+                        ₦{Number(listing.pricePerYear || 180000).toLocaleString()} <span className="text-xs font-normal text-neutral-500">/ year</span>
+                      </p>
+                    </div>
+
+                    {/* Agent Phone and Contact Gate */}
+                    <div className="pt-2.5 border-t border-neutral-100 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-neutral-600">
+                        <div className="flex items-center gap-1.5 font-bold text-neutral-800 truncate">
+                          <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="font-mono">{agentPhone}</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded shrink-0">
+                          Verified Caretaker
+                        </span>
+                      </div>
+
+                      {isLoggedIn ? (
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={() => onOpenListingDetail ? onOpenListingDetail(listing) : onSearchUniversity('uniosun')}
+                            className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <span>View Details & Contact</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => onRequireLogin ? onRequireLogin() : onOpenOnboarding ? onOpenOnboarding() : null}
+                          className="w-full py-2 bg-neutral-900 hover:bg-black text-white font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                          title="Sign in to contact agent"
+                        >
+                          <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Sign in to Contact Agent</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 

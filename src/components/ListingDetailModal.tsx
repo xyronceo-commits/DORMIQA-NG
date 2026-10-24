@@ -55,6 +55,8 @@ interface ListingDetailModalProps {
  onListingUpdated?: (updatedListing: Listing) => void;
  selectedCampus?: Campus;
  isAgentView?: boolean;
+ isLoggedIn?: boolean;
+ onRequireLogin?: () => void;
 }
 
 export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
@@ -69,7 +71,9 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
  onSelectRelated,
  onListingUpdated,
  selectedCampus,
- isAgentView = false
+ isAgentView = false,
+ isLoggedIn = false,
+ onRequireLogin
 }) => {
  const [activePhotoIdx, setActivePhotoIdx] = useState(0);
  const [currentListing, setCurrentListing] = useState<Listing | null>(initialListing);
@@ -371,15 +375,43 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
 
        {!isAgentView ? (
         <>
+         {(listing.agent?.phone || (listing as any).agentPhone || (listing as any).phone) && (
+          <a
+           href={isLoggedIn ? `tel:${listing.agent?.phone || (listing as any).agentPhone || (listing as any).phone}` : undefined}
+           onClick={(e) => {
+            if (!isLoggedIn) {
+             e.preventDefault();
+             onRequireLogin?.();
+            }
+           }}
+           className="px-3.5 py-3 bg-white hover:bg-neutral-100 text-neutral-900 border border-neutral-300 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+           title="Call Agent Directly"
+          >
+           <Phone className="w-4 h-4 text-emerald-600" />
+           <span>Call Agent ({listing.agent?.phone || (listing as any).agentPhone || (listing as any).phone})</span>
+          </a>
+         )}
          <button
-          onClick={() => onBookInspection(listing)}
+          onClick={() => {
+           if (!isLoggedIn) {
+            onRequireLogin?.();
+           } else {
+            onBookInspection(listing);
+           }
+          }}
           className="px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
          >
           <Calendar className="w-4 h-4" />
           Book Free Inspection
          </button>
          <button
-          onClick={() => onStartChat(listing.agentId, listing.id)}
+          onClick={() => {
+           if (!isLoggedIn) {
+            onRequireLogin?.();
+           } else {
+            onStartChat(listing.agentId, listing.id);
+           }
+          }}
           className="px-4 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer"
          >
           <MessageSquare className="w-4 h-4 text-emerald-400" />
@@ -645,15 +677,57 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
        </div>
       </div>
 
-      <div className="pt-3 border-t border-neutral-800 flex items-center justify-between text-xs text-neutral-300">
-       <span>Agent Phone: {listing.agent.phone}</span>
+      <div className="pt-3 border-t border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-neutral-300">
+       <div className="flex items-center gap-2">
+        <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
+        <span>Agent Phone: <strong className="text-white font-mono">{listing.agent?.phone || (listing as any).agentPhone || (listing as any).phone || '080-DORMIQA'}</strong></span>
+       </div>
        {!isAgentView && (
-        <button
-         onClick={() => onStartChat(listing.agentId, listing.id)}
-         className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-lg transition-colors flex items-center gap-1.5"
-        >
-         <MessageSquare className="w-4 h-4" /> Start Direct Chat
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+         {(listing.agent?.phone || (listing as any).agentPhone || (listing as any).phone) && (
+          <>
+           <a
+            href={isLoggedIn ? `tel:${listing.agent?.phone || (listing as any).agentPhone || (listing as any).phone}` : undefined}
+            onClick={(e) => {
+             if (!isLoggedIn) {
+              e.preventDefault();
+              onRequireLogin?.();
+             }
+            }}
+            className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-lg transition-colors flex items-center gap-1.5 border border-neutral-700 cursor-pointer"
+           >
+            <Phone className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Call</span>
+           </a>
+           <a
+            href={isLoggedIn ? `https://wa.me/${String(listing.agent?.phone || (listing as any).agentPhone || (listing as any).phone).replace(/[^0-9]/g, '').replace(/^0/, '234')}` : undefined}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => {
+             if (!isLoggedIn) {
+              e.preventDefault();
+              onRequireLogin?.();
+             }
+            }}
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+           >
+            <span>WhatsApp</span>
+           </a>
+          </>
+         )}
+         <button
+          onClick={() => {
+           if (!isLoggedIn) {
+            onRequireLogin?.();
+           } else {
+            onStartChat(listing.agentId, listing.id);
+           }
+          }}
+          className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+         >
+          <MessageSquare className="w-3.5 h-3.5" /> Start Direct Chat
+         </button>
+        </div>
        )}
       </div>
      </div>

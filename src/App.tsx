@@ -259,35 +259,28 @@ export default function App() {
     const route = parseRouteFromUrl();
     if (route.type === 'view' && route.view) return route.view;
 
-    return 'onboarding';
+    return 'landing';
   });
   const [selectedComingSoonUniId, setSelectedComingSoonUniId] = useState<string>('unilag');
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('dormiqa_is_logged_in') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [isAuthInitializing, setIsAuthInitializing] = useState<boolean>(true);
 
-  // Dormiqa Splash Screen state
-  const [showSplash, setShowSplash] = useState<boolean>(true);
+  // Fast Dormiqa Splash Screen state (instant 150ms transition)
+  const [showSplash, setShowSplash] = useState<boolean>(false);
   const [splashFading, setSplashFading] = useState<boolean>(false);
-  const [splashTimerEnded, setSplashTimerEnded] = useState<boolean>(false);
+  const [splashTimerEnded, setSplashTimerEnded] = useState<boolean>(true);
 
-  // Initial 3-second splash screen display timer
+  // Fast startup timer
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setSplashTimerEnded(true);
-    }, 3000);
-    return () => clearTimeout(timer);
+    setSplashTimerEnded(true);
+    setShowSplash(false);
   }, []);
-
-  // Smoothly fade out splash screen after 3s minimum display AND auth initialization complete
-  useEffect(() => {
-    if (splashTimerEnded && !isAuthInitializing && showSplash && !splashFading) {
-      setSplashFading(true);
-      const fadeTimer = setTimeout(() => {
-        setShowSplash(false);
-      }, 700);
-      return () => clearTimeout(fadeTimer);
-    }
-  }, [splashTimerEnded, isAuthInitializing, showSplash, splashFading]);
 
   const [adminAuthStatus, setAdminAuthStatus] = useState<'AUTH_LOADING' | 'AUTHENTICATED' | 'UNAUTHENTICATED' | 'ADMIN_CHECKING' | 'AUTHORIZED' | 'UNAUTHORIZED' | 'SESSION_EXPIRED' | 'SIGNED_OUT'>('AUTH_LOADING');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
@@ -692,39 +685,45 @@ export default function App() {
         return;
       }
 
-      // Load the regular user profile and application data; admin authorization is verified separately via Supabase.
-      const [fetchedProfile, initialConversations, initialInspections, initialListings] = await Promise.all([
-        fetchUserProfileFromFirestore(uid).then(async p => {
-          if (!p && email) return await fetchUserProfileFromFirestore(email);
-          return p;
-        }),
-        fetchConversations(uid).catch(err => {
-          console.warn('Parallel conversations load error:', err);
-          return [] as Conversation[];
-        }),
-        fetchInspections({ studentId: uid }).catch(err => {
-          console.warn('Parallel inspections load error:', err);
-          return [] as Inspection[];
-        }),
-        fetchListings().catch(err => {
-          console.warn('Parallel listings load error:', err);
-          return [] as Listing[];
-        })
-      ]);
+      // Fast sign-in: Restore cached user profile immediately for zero waiting time
+      let cachedUser: User | null = null;
+      try {
+        const stored = localStorage.getItem(`dormiqa_user_${uid}`);
+        if (stored) cachedUser = JSON.parse(stored);
+      } catch {}
 
-      const profile = fetchedProfile;
-      console.log(`[AUTH SESSION RESTORE] UID: ${uid} | Email: ${email} | DB Profile Retrieved:`, profile, `| Stored DB Role: "${profile?.role}"`);
+      if (cachedUser) {
+        setAccounts([cachedUser]);
+        setActiveAccountId(uid);
+        setCurrentRole(cachedUser.role);
+        setIsLoggedIn(true);
+        setIsAuthInitializing(false);
+      }
 
-      if (initialConversations && initialConversations.length > 0) {
-        setConversations(initialConversations);
-      }
-      if (initialInspections && initialInspections.length > 0) {
-        setInspections(initialInspections);
-      }
-      if (initialListings && initialListings.length > 0) {
-        setListings(initialListings);
-        setIsListingsLoading(false);
-      }
+      // Non-blocking background loads for conversations, inspections, and listings
+      fetchConversations(uid).then(convs => {
+        if (convs && convs.length > 0) setConversations(convs);
+      }).catch(() => {});
+
+      fetchInspections({ studentId: uid }).then(insps => {
+        if (insps && insps.length > 0) setInspections(insps);
+      }).catch(() => {});
+
+      fetchListings().then(loadedListings => {
+        if (loadedListings && loadedListings.length > 0) {
+          setListings(loadedListings);
+          setIsListingsLoading(false);
+        }
+      }).catch(() => {});
+
+      // Fast profile fetch with fallback
+      const fetchedProfile = await fetchUserProfileFromFirestore(uid).then(async p => {
+        if (!p && email) return await fetchUserProfileFromFirestore(email);
+        return p;
+      }).catch(() => null);
+
+      const profile = fetchedProfile || cachedUser;
+      console.log(`[AUTH SESSION RESTORE] UID: ${uid} | Email: ${email} | Profile:`, profile);
 
       const isVerified = fbUser.emailVerified || fbUser.providerData.some(p => p.providerId === 'google.com');
 
@@ -773,6 +772,9 @@ export default function App() {
       setCurrentRole(userAccount.role);
       setIsLoggedIn(true);
       localStorage.setItem('dormiqa_is_logged_in', 'true');
+      try {
+        localStorage.setItem(`dormiqa_user_${uid}`, JSON.stringify(userAccount));
+      } catch {}
 
       // Real-Time Listener on User Document in Firestore
       const userDocRef = doc(db, 'users', uid);
@@ -1764,7 +1766,25 @@ export default function App() {
             {activeView === 'landing' && (
               <LandingPage
                 universities={universities}
+                featuredListings={listings.filter(l => l.status === 'published' || l.status === 'approved' || !l.status).slice(0, 6)}
+                isLoggedIn={isLoggedIn}
                 onSearchUniversity={handleSelectUniversity}
+                onOpenListingDetail={(l) => {
+                  if (!isLoggedIn) {
+                    setToastNotice('Sign in to contact the agent and schedule inspections.');
+                    setTimeout(() => setToastNotice(null), 4000);
+                    setActiveView('onboarding');
+                    pushViewUrl('onboarding');
+                  } else {
+                    handleOpenListingDetail(l);
+                  }
+                }}
+                onRequireLogin={() => {
+                  setToastNotice('Please sign in or create an account to contact this agent.');
+                  setTimeout(() => setToastNotice(null), 4000);
+                  setActiveView('onboarding');
+                  pushViewUrl('onboarding');
+                }}
                 onOpenAgentPortal={() => {
                   if (!isLoggedIn) {
                     setOnboardingIntentRole('agent');
@@ -2278,6 +2298,14 @@ export default function App() {
             setDetailListing(updated);
           }}
           isAgentView={currentRole === 'agent'}
+          isLoggedIn={isLoggedIn}
+          onRequireLogin={() => {
+            setDetailListing(null);
+            setToastNotice('Please sign in or create an account to contact this agent.');
+            setTimeout(() => setToastNotice(null), 4000);
+            setActiveView('onboarding');
+            pushViewUrl('onboarding');
+          }}
         />
       )}
 
